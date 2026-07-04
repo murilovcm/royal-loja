@@ -1,0 +1,14 @@
+[Unit]
+Description=Royal Vape Store (Gunicorn)
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/royal
+Environment="PATH=/var/www/royal/venv/bin"
+ExecStart=/var/www/royal/venv/bin/gunicorn --workers 3 --bind unix:/var/www/royal/royal.sock -m 007 app:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,44 @@
+========================================
+   ROYAL - COMO USAR (super simples)
+========================================
+
+PRIMEIRA VEZ:
+  Extraia esta pasta para a Area de Trabalho (Desktop)
+  uma unica vez. Depois nunca mais precisa extrair.
+
+========================================
+   PARA ABRIR A LOJA (todo dia):
+========================================
+
+  1. De DOIS CLIQUES em:  ABRIR_LOJA.bat
+
+     -> A loja abre sozinha no navegador. Pronto!
+
+  Uma janela preta vai ficar aberta. E normal:
+  ela e o "motor" da loja. NAO feche enquanto usa.
+
+========================================
+   OUTROS ATALHOS (com a loja ligada):
+========================================
+
+  ABRIR_PAINEL_ADMIN.bat  -> cadastrar produtos, precos, estoque
+  ABRIR_EDITOR_VISUAL.bat -> trocar fotos, textos e cores na tela
+
+========================================
+   PARA DESLIGAR A LOJA:
+========================================
+
+  Feche a janela preta. So isso.
+
+========================================
+   AVISO IMPORTANTE
+========================================
+
+  Se aparecer um aviso azul do Windows dizendo
+  "O Windows protegeu o computador":
+  clique em "Mais informacoes" e depois
+  "Executar assim mesmo". E seguro - e so
+  porque o arquivo foi criado agora.
+
+  Se pedir para escolher um programa ao clicar
+  no .bat, escolha "Prompt de Comando" do Windows.

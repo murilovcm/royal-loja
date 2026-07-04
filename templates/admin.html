@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Royal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .admin-wrap { max-width: 1000px; margin: 0 auto; padding: 30px 20px 80px; }
+    .admin-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; flex-wrap:wrap; gap:14px; }
+    .admin-top h1 { font-size:1.6rem; display:flex; align-items:center; gap:10px; }
+    .admin-top .actions { display:flex; gap:10px; }
+    .mini-btn { padding:10px 18px; border-radius:10px; background:var(--surface); border:1px solid var(--border); color:var(--text); font-weight:600; font-size:.85rem; transition:.2s; }
+    .mini-btn:hover { border-color:var(--purple-soft); }
+    .mini-btn.primary { background:linear-gradient(120deg,var(--primary-yellow),var(--yellow-soft)); color:#000; border:none; }
+    .mini-btn.green { background:var(--green); color:#fff; border:none; }
+
+    .brand-block { background:var(--surface); border:1px solid var(--border); border-radius:16px; margin-bottom:18px; overflow:hidden; }
+    .brand-head { display:flex; align-items:center; gap:12px; padding:16px 20px; background:var(--surface-2); }
+    .brand-head .b-name { font-size:1.15rem; font-weight:800; flex:1; }
+    .brand-head .b-icon { font-size:1.3rem; }
+
+    .model-row { border-top:1px solid var(--border); }
+    .model-line { display:flex; align-items:center; gap:12px; padding:14px 20px; flex-wrap:wrap; }
+    .star-toggle { background:none; font-size:1.4rem; color:var(--border); transition:.2s; line-height:1; }
+    .star-toggle.on { color:var(--primary-yellow); filter:drop-shadow(0 0 8px rgba(255,214,10,.5)); }
+    .model-line .m-name { font-weight:700; font-size:1rem; min-width:120px; }
+    .model-line .m-puff { color:var(--yellow-soft); font-size:.8rem; background:rgba(255,214,10,.08); padding:3px 10px; border-radius:999px; }
+    .model-line .m-thumb { width:40px; height:40px; border-radius:8px; background:var(--bg-2); display:grid; place-items:center; overflow:hidden; }
+    .model-line .m-thumb img { width:100%; height:100%; object-fit:contain; }
+    .model-line .spacer { flex:1; }
+    .expand-btn { background:none; color:var(--purple-soft); font-size:.82rem; font-weight:600; }
+    .del-btn { background:none; color:var(--text-dim); transition:.2s; font-size:1rem; }
+    .del-btn:hover { color:#ff5a5a; }
+
+    .flavors-box { padding:0 20px 16px 52px; display:none; }
+    .flavors-box.open { display:block; }
+    .flavor-line { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+    .flavor-line input[type=text] { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); font-size:.85rem; width:160px; }
+    .flavor-line input[type=number] { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); font-size:.85rem; width:100px; }
+    .flavor-line input:focus { outline:none; border-color:var(--primary-yellow); }
+    .stock-toggle { display:inline-flex; align-items:center; gap:6px; font-size:.78rem; cursor:pointer; user-select:none; }
+    .switch { width:38px; height:22px; background:var(--border); border-radius:999px; position:relative; transition:.2s; }
+    .switch::after { content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#fff; transition:.2s; }
+    .switch.on { background:var(--green); }
+    .switch.on::after { transform:translateX(16px); }
+    .add-inline { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+    .add-inline input { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:8px 10px; color:var(--text); font-size:.85rem; }
+    .save-flag { font-size:.72rem; color:var(--green); opacity:0; transition:.3s; }
+    .save-flag.show { opacity:1; }
+  </style>
+</head>
+<body>
+  <div class="admin-wrap">
+    <div class="admin-top">
+      <h1><span class="crown" style="color:var(--primary-yellow)">♛</span> Painel Royal</h1>
+      <div class="actions">
+        <a href="/admin/editor" class="mini-btn">🎨 Live Editor</a>
+        <a href="/" class="mini-btn">👁 Ver Loja</a>
+        <button class="mini-btn primary" id="addBrandBtn">+ Nova Marca</button>
+        <a href="/admin/logout" class="mini-btn" style="color:#ff8a8a">⏻ Sair</a>
+      </div>
+    </div>
+
+    <div id="brandsContainer">
+      {% for node in tree %}
+      <div class="brand-block" data-bid="{{ node.brand.id }}">
+        <div class="brand-head">
+          <span class="b-icon">🏷️</span>
+          <span class="b-name">{{ node.brand.name }}</span>
+          <button class="mini-btn" onclick="addModel({{ node.brand.id }})">+ Modelo</button>
+          <button class="del-btn" onclick="delBrand({{ node.brand.id }})" title="Excluir marca">🗑</button>
+        </div>
+
+        {% for item in node.models %}
+        {% set m = item.model %}
+        <div class="model-row" data-mid="{{ m.id }}">
+          <div class="model-line">
+            <button class="star-toggle {{ 'on' if m.is_best_seller }}" onclick="toggleBest({{ m.id }}, this)" title="Mais vendido">★</button>
+            <div class="m-thumb">{% if m.image_url %}<img src="{{ m.image_url }}">{% else %}📦{% endif %}</div>
+            <span class="m-name">{{ m.name }}</span>
+            <span class="m-puff">⚡ {{ m.puff_count }}</span>
+            <span class="spacer"></span>
+            <button class="expand-btn" onclick="toggleFlavors({{ m.id }}, this)">Sabores ({{ item.flavors|length }}) ▾</button>
+            <button class="del-btn" onclick="delModel({{ m.id }})" title="Excluir modelo">🗑</button>
+          </div>
+
+          <div class="flavors-box" id="flavors-{{ m.id }}">
+            {% for f in item.flavors %}
+            <div class="flavor-line" data-fid="{{ f.id }}">
+              <input type="text" value="{{ f.name }}" onchange="updateProduct({{ f.id }}, 'name', this.value, this)">
+              <input type="number" step="0.01" value="{{ '%.2f'|format(f.price) }}" onchange="updateProduct({{ f.id }}, 'price', this.value, this)">
+              <span class="stock-toggle" onclick="toggleStock({{ f.id }}, this)">
+                <span class="switch {{ 'on' if f.is_in_stock }}"></span>
+                <span>Estoque</span>
+              </span>
+              <button class="del-btn" onclick="delProduct({{ f.id }})" title="Excluir sabor">🗑</button>
+              <span class="save-flag">salvo ✓</span>
+            </div>
+            {% endfor %}
+            <div class="add-inline">
+              <input type="text" placeholder="Nome do sabor" id="fname-{{ m.id }}">
+              <input type="number" step="0.01" placeholder="Preço" id="fprice-{{ m.id }}" style="width:100px">
+              <button class="mini-btn primary" onclick="addProduct({{ m.id }})">+ Sabor</button>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const toast = (m) => { const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); };
+    async function api(url, method, body) {
+      const opt = { method, headers: {'Content-Type':'application/json'} };
+      if (body) opt.body = JSON.stringify(body);
+      const r = await fetch(url, opt);
+      return r.json();
+    }
+    function flag(el) {
+      const line = el.closest('.flavor-line');
+      if (!line) return;
+      const f = line.querySelector('.save-flag');
+      if (f) { f.classList.add('show'); setTimeout(()=>f.classList.remove('show'),1500); }
+    }
+
+    async function addBrand() {
+      const name = prompt("Nome da nova marca:");
+      if (!name) return;
+      await api('/api/brand','POST',{name});
+      location.reload();
+    }
+    document.getElementById('addBrandBtn').addEventListener('click', addBrand);
+
+    async function delBrand(id) {
+      if (!confirm("Excluir marca e TODOS os modelos/sabores dela?")) return;
+      await api('/api/brand/'+id,'DELETE');
+      location.reload();
+    }
+
+    async function addModel(bid) {
+      const name = prompt("Nome do modelo (ex: BC25000):");
+      if (!name) return;
+      const puff = prompt("Puffs (ex: 25.000 puffs):") || "";
+      await api('/api/model','POST',{brand_id:bid, name, puff_count:puff});
+      location.reload();
+    }
+    async function delModel(id) {
+      if (!confirm("Excluir este modelo e seus sabores?")) return;
+      await api('/api/model/'+id,'DELETE');
+      location.reload();
+    }
+    async function toggleBest(id, el) {
+      const on = el.classList.toggle('on');
+      await api('/api/model/'+id,'POST',{is_best_seller: on ? 1 : 0});
+      toast(on ? "Marcado como Mais Vendido ★" : "Removido dos Mais Vendidos");
+    }
+    function toggleFlavors(id, el) {
+      const box = document.getElementById('flavors-'+id);
+      const open = box.classList.toggle('open');
+      el.textContent = el.textContent.replace(open ? '▾' : '▴', open ? '▴' : '▾');
+    }
+
+    async function updateProduct(id, field, value, el) {
+      const body = {}; body[field] = value;
+      await api('/api/product/'+id,'POST',body);
+      flag(el); toast("Salvo ✓");
+    }
+    async function toggleStock(id, el) {
+      const sw = el.querySelector('.switch');
+      const on = sw.classList.toggle('on');
+      await api('/api/product/'+id,'POST',{is_in_stock: on});
+      toast(on ? "Em estoque" : "Fora de estoque");
+    }
+    async function delProduct(id) {
+      if (!confirm("Excluir este sabor?")) return;
+      await api('/api/product/'+id,'DELETE');
+      location.reload();
+    }
+    async function addProduct(mid) {
+      const name = document.getElementById('fname-'+mid).value.trim();
+      const price = document.getElementById('fprice-'+mid).value || 0;
+      if (!name) { toast("Digite o nome do sabor"); return; }
+      await api('/api/product','POST',{model_id:mid, name, price});
+      location.reload();
+    }
+  </script>
+</body>
+</html>

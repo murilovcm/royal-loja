@@ -1,0 +1,194 @@
+{# ---------------- Jinja Macro: Model Card ---------------- #}
+{% macro model_card(m, editor) %}
+{% set palette = ['#a855f7','#22d3ee','#f97316','#ec4899','#4ade80','#eab308','#60a5fa','#f43f5e'] %}
+<article class="model-card"
+         data-id="{{ m.id }}"
+         data-brand="{{ m.brand_id }}"
+         data-best="{{ m.is_best_seller }}"
+         data-name="{{ m.name | lower }}"
+         data-brandname="{{ m.brand_name | lower }}">
+  {% if m.is_best_seller %}<span class="best-tag">★ TOP</span>{% endif %}
+  <div class="card-img">
+    {% if m.image_url %}<img src="{{ m.image_url }}" alt="{{ m.name }}">
+    {% else %}<span class="ph">{{ m.name[0] }}</span>{% endif %}
+  </div>
+  <span class="brand-lbl">{{ m.brand_name }}</span>
+  <h3>{{ m.name }}</h3>
+  <span class="puffs">⚡ {{ m.puff_count }}</span>
+  <div class="flavor-dots">
+    {% for f in m.flavors[:2] %}
+      <span class="dot-item"><span class="dot" style="background: {{ palette[loop.index0 % palette|length] }}"></span>{{ f.name }}</span>
+    {% endfor %}
+    {% if m.flavors | length > 2 %}<span class="more">+{{ m.flavors|length - 2 }} sabores</span>{% endif %}
+  </div>
+  <div class="card-foot">
+    <div>
+      <span class="from">a partir de</span><br>
+      <span class="price">R$ {{ '%.2f' | format(m.min_price) | replace('.', ',') }}</span>
+    </div>
+    <span class="arrow">→</span>
+  </div>
+</article>
+{% endmacro %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>{{ config.store_name or 'Royal' }} — Premium Vapes</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon-64.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>:root{ --primary-yellow: {{ config.theme_primary_color or '#FFD60A' }}; }</style>
+</head>
+<body class="{{ 'editor-mode' if editor else '' }}">
+
+  <!-- Warning marquee -->
+  {% if config.show_warning_bar == '1' %}
+  <div class="warning-bar" id="warningBar">
+    <div class="warning-track">
+      <span data-cfg="warning_bar_text" {{ 'contenteditable=true' if editor else '' }}>{{ config.warning_bar_text }}</span>
+      <span aria-hidden="true">{{ config.warning_bar_text }}</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="/" class="logo"><img src="{{ url_for('static', filename='logo-icon.png') }}" alt="Royal" class="logo-img"></a>
+      <div class="search-wrap">
+        <span class="search-ico">🔍</span>
+        <input type="text" id="searchInput" placeholder="Buscar modelo ou marca...">
+      </div>
+      <button class="cart-btn" id="cartToggle" aria-label="Carrinho">
+        🛒<span class="cart-badge" id="cartBadge">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero container">
+    <span class="eyebrow">Coleção Premium 2026</span>
+    <h1 data-cfg="hero_title" {{ 'contenteditable=true' if editor else '' }}>{{ config.hero_title }}</h1>
+    <p class="sub" data-cfg="hero_subtitle" {{ 'contenteditable=true' if editor else '' }}>{{ config.hero_subtitle }}</p>
+    <div class="hero-cta">
+      <a href="#catalogo" class="btn btn-primary">Ver Catálogo ⚡</a>
+      <a href="#best" class="btn btn-ghost">Mais Vendidos</a>
+    </div>
+  </section>
+
+  <!-- Best sellers -->
+  {% set best = catalog | selectattr('is_best_seller') | list %}
+  {% if best %}
+  <section class="section container" id="best">
+    <div class="section-head">
+      <h2><span class="bolt">⚡</span> Mais Vendidos</h2>
+      <p>Os queridinhos da realeza</p>
+    </div>
+    <div class="grid">
+      {% for m in best %}{{ model_card(m, editor) }}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Full catalog -->
+  <section class="section container" id="catalogo">
+    <div class="section-head">
+      <h2>Catálogo Completo</h2>
+      <p id="catalogCount"></p>
+    </div>
+    <div class="filter-bar" id="filterBar">
+      <button class="pill active" data-filter="all">Todos</button>
+      <button class="pill" data-filter="best">Mais Vendidos</button>
+      {% for b in brands %}
+      <button class="pill" data-filter="brand-{{ b.id }}">{{ b.name }}</button>
+      {% endfor %}
+    </div>
+    <div class="grid" id="catalogGrid">
+      {% for m in catalog %}{{ model_card(m, editor) }}{% endfor %}
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="logo footer-logo"><img src="{{ url_for('static', filename='logo.png') }}" alt="Royal"></div>
+      <p>© 2026 Royal Vapes. Produto destinado exclusivamente a maiores de 18 anos.</p>
+    </div>
+  </footer>
+
+  <!-- ============ MODAL ============ -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modalBox">
+      <div class="modal-img" id="modalImg"></div>
+      <div class="modal-body">
+        <button class="modal-close" id="modalClose">✕</button>
+        <span class="brand-lbl" id="modalBrand"></span>
+        <h2 id="modalName"></h2>
+        <span class="puffs" id="modalPuffs"></span>
+        <div class="modal-label">Escolha o sabor</div>
+        <div class="flavor-grid" id="modalFlavors"></div>
+        <div class="modal-foot">
+          <div class="qty-row">
+            <div class="qty-ctrl">
+              <button id="qtyMinus">−</button>
+              <span class="qty-val" id="qtyVal">1</span>
+              <button id="qtyPlus">+</button>
+            </div>
+            <div class="modal-price">
+              <span class="lbl">Total</span>
+              <span class="val" id="modalTotal">R$ 0,00</span>
+            </div>
+          </div>
+          <button class="add-btn" id="addBtn" disabled>Selecione um sabor</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CART SIDEBAR ============ -->
+  <div class="cart-overlay" id="cartOverlay"></div>
+  <aside class="cart-sidebar" id="cartSidebar">
+    <div class="cart-header">
+      <h3>🛒 Seu Carrinho</h3>
+      <button class="close-cart" id="cartClose">✕</button>
+    </div>
+    <div class="cart-items" id="cartItems"></div>
+    <div class="cart-foot">
+      <div class="cart-total">
+        <span class="lbl">Total</span>
+        <span class="val" id="cartTotal">R$ 0,00</span>
+      </div>
+      <button class="whatsapp-btn" id="whatsappBtn" disabled>
+        <span>📱</span> Finalizar no WhatsApp
+      </button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  {% if editor %}
+  <!-- ============ LIVE EDITOR CONTROLS ============ -->
+  <div class="editor-hint">💡 Clique nos textos para editar. Arraste imagens sobre os cards para trocar a foto.</div>
+  <div class="editor-bar">
+    <span class="dot-live"></span> <b>Modo Editor</b>
+    <label>Cor: <input type="color" id="colorPicker" value="{{ config.theme_primary_color or '#FFD60A' }}"></label>
+    <a href="/admin" class="exit">Painel →</a>
+    <a href="/" class="exit">Sair</a>
+    <a href="/admin/logout" class="exit" style="color:#ff8a8a">⏻ Logout</a>
+  </div>
+  {% endif %}
+
+  <!-- Data injected for JS -->
+  <script id="catalogData" type="application/json">{{ catalog | tojson }}</script>
+  <script>
+    window.ROYAL = {
+      whatsapp: "{{ whatsapp }}",
+      editor: {{ 'true' if editor else 'false' }},
+      storeName: "{{ config.store_name or 'Royal' }}"
+    };
+  </script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
