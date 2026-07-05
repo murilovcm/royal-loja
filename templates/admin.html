@@ -52,12 +52,32 @@
     .sections-block { background:var(--surface); border:1px solid var(--border); border-radius:16px; margin-bottom:22px; padding:18px 20px; }
     .sections-head { font-size:1.1rem; font-weight:800; margin-bottom:4px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .sections-sub { font-size:.78rem; color:var(--text-dim); font-weight:500; }
-    .section-toggle-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 0; border-top:1px solid var(--border); margin-top:10px; flex-wrap:wrap; }
-    .st-info { flex:1; min-width:200px; }
-    .st-name { font-weight:700; font-size:.98rem; }
-    .st-desc { font-size:.8rem; color:var(--text-dim); margin-top:2px; }
     .st-state { font-size:.82rem; font-weight:600; }
     .sections-tip { font-size:.8rem; color:var(--text-dim); margin-top:8px; padding-top:12px; border-top:1px solid var(--border); }
+
+    .promo-block { border:1px solid var(--border); border-radius:14px; margin-top:16px; overflow:hidden; }
+    .promo-head { display:flex; align-items:center; gap:10px; padding:12px 16px; background:var(--surface-2); flex-wrap:wrap; }
+    .promo-head .p-name { font-weight:700; flex:1; min-width:140px; }
+    .promo-swatch { width:22px; height:22px; border-radius:50%; border:2px solid rgba(255,255,255,.25); flex-shrink:0; }
+    .promo-head .order-btns { display:flex; gap:2px; }
+    .promo-head .order-btns button { background:none; color:var(--text-dim); font-size:.9rem; padding:2px 6px; }
+    .promo-head .order-btns button:hover { color:var(--text); }
+    .promo-body { padding:16px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .promo-body .full { grid-column:1 / -1; }
+    .promo-field { display:flex; flex-direction:column; gap:4px; }
+    .promo-field label { font-size:.72rem; color:var(--text-dim); font-weight:600; }
+    .promo-field input[type=text], .promo-field textarea, .promo-field select {
+      background:var(--bg-2); border:1px solid var(--border); border-radius:8px;
+      padding:8px 10px; color:var(--text); font-size:.85rem; font-family:inherit; width:100%;
+    }
+    .promo-field textarea { resize:vertical; min-height:44px; }
+    .promo-field input:focus, .promo-field textarea:focus, .promo-field select:focus { outline:none; border-color:var(--primary-yellow); }
+    .promo-colors { display:flex; gap:14px; flex-wrap:wrap; }
+    .promo-color-field { display:flex; align-items:center; gap:8px; }
+    .promo-color-field input[type=color] { width:38px; height:32px; border:1px solid var(--border); border-radius:8px; background:none; padding:2px; cursor:pointer; }
+    .promo-color-field label { font-size:.78rem; color:var(--text-dim); }
+    .promo-items-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .promo-foot { display:flex; justify-content:flex-end; gap:8px; padding:0 16px 16px; }
   </style>
 </head>
 <body>
@@ -73,18 +93,109 @@
     </div>
 
     <div class="sections-block">
-      <div class="sections-head">🧩 Seções do Site <span class="sections-sub">Ligue ou desligue blocos da página</span></div>
-      <div class="section-toggle-row">
-        <div class="st-info">
-          <div class="st-name">Bloco Atacado</div>
-          <div class="st-desc">Chamada amarela para lojistas/revendedores com botões de WhatsApp</div>
-        </div>
-        <span class="stock-toggle" onclick="toggleSection('show_atacado', this)">
-          <span class="switch {{ 'on' if config.show_atacado == '1' }}"></span>
-          <span class="st-state">{{ 'Ligado' if config.show_atacado == '1' else 'Desligado' }}</span>
-        </span>
+      <div class="sections-head">
+        🧩 Seções do Site <span class="sections-sub">Blocos promocionais (ex: Atacado) — crie quantos quiser, cada um com seu próprio texto, botões e cores</span>
       </div>
-      <div class="sections-tip">💡 Para editar os <b>textos</b> dessas seções, use o <a href="/admin/editor" style="color:var(--primary-yellow)">Editor Visual</a> — clique no texto e digite.</div>
+
+      <div id="promoBlocksContainer">
+        {% for block in promo_blocks %}
+        <div class="promo-block" data-pid="{{ block.id }}">
+          <div class="promo-head">
+            <span class="promo-swatch" style="background: linear-gradient(120deg, {{ block.bg_color_1 }}, {{ block.bg_color_2 }});"></span>
+            <span class="p-name">Bloco {{ loop.index }}{{ ' — ' + block.title if block.title else '' }}</span>
+            <span class="order-btns">
+              <button title="Mover para cima" onclick="movePromo({{ block.id }}, 'up')">▲</button>
+              <button title="Mover para baixo" onclick="movePromo({{ block.id }}, 'down')">▼</button>
+            </span>
+            <span class="stock-toggle" onclick="togglePromoActive({{ block.id }}, this)">
+              <span class="switch {{ 'on' if block.active == 1 }}"></span>
+              <span class="st-state">{{ 'Ligado' if block.active == 1 else 'Desligado' }}</span>
+            </span>
+            <button class="mini-btn" onclick="duplicatePromo({{ block.id }})">⧉ Duplicar</button>
+            <button class="del-btn" onclick="deletePromo({{ block.id }})" title="Excluir bloco">🗑</button>
+          </div>
+
+          <div class="promo-body">
+            <div class="promo-field">
+              <label>Texto de destaque (eyebrow)</label>
+              <input type="text" value="{{ block.eyebrow }}" onchange="savePromoText({{ block.id }}, 'eyebrow', this.value)">
+            </div>
+            <div class="promo-field">
+              <label>Palavra de fundo (marca d'água)</label>
+              <input type="text" value="{{ block.bg_word }}" onchange="savePromoText({{ block.id }}, 'bg_word', this.value)">
+            </div>
+            <div class="promo-field full">
+              <label>Título</label>
+              <input type="text" value="{{ block.title }}" onchange="savePromoText({{ block.id }}, 'title', this.value)">
+            </div>
+            <div class="promo-field full">
+              <label>Subtítulo</label>
+              <textarea onchange="savePromoText({{ block.id }}, 'subtitle', this.value)">{{ block.subtitle }}</textarea>
+            </div>
+
+            <div class="promo-field full">
+              <label>Itens (lista com ✓)</label>
+              <div class="promo-items-grid">
+                <input type="text" value="{{ block.item_1 }}" onchange="savePromoText({{ block.id }}, 'item_1', this.value)">
+                <input type="text" value="{{ block.item_2 }}" onchange="savePromoText({{ block.id }}, 'item_2', this.value)">
+                <input type="text" value="{{ block.item_3 }}" onchange="savePromoText({{ block.id }}, 'item_3', this.value)">
+                <input type="text" value="{{ block.item_4 }}" onchange="savePromoText({{ block.id }}, 'item_4', this.value)">
+              </div>
+            </div>
+
+            <div class="promo-field">
+              <label>Botão principal (texto)</label>
+              <input type="text" value="{{ block.btn_primary }}" onchange="savePromoText({{ block.id }}, 'btn_primary', this.value)">
+            </div>
+            <div class="promo-field">
+              <label>Botão principal — mensagem do WhatsApp</label>
+              <input type="text" value="{{ block.btn_primary_msg }}" onchange="savePromoText({{ block.id }}, 'btn_primary_msg', this.value)">
+            </div>
+            <div class="promo-field">
+              <label>Botão secundário (texto)</label>
+              <input type="text" value="{{ block.btn_secondary }}" onchange="savePromoText({{ block.id }}, 'btn_secondary', this.value)">
+            </div>
+            <div class="promo-field">
+              <label>Botão secundário — mensagem do WhatsApp</label>
+              <input type="text" value="{{ block.btn_secondary_msg }}" onchange="savePromoText({{ block.id }}, 'btn_secondary_msg', this.value)">
+            </div>
+
+            <div class="promo-field full">
+              <label>Aparência</label>
+              <div class="promo-colors">
+                <div class="promo-color-field">
+                  <input type="color" data-field="bg_color_1" value="{{ block.bg_color_1 }}" onchange="savePromoField({{ block.id }}, 'bg_color_1', this.value, this)">
+                  <label>Fundo (início)</label>
+                </div>
+                <div class="promo-color-field">
+                  <input type="color" data-field="bg_color_2" value="{{ block.bg_color_2 }}" onchange="savePromoField({{ block.id }}, 'bg_color_2', this.value, this)">
+                  <label>Fundo (fim)</label>
+                </div>
+                <div class="promo-color-field">
+                  <select onchange="savePromoField({{ block.id }}, 'text_theme', this.value, this)">
+                    <option value="light" {{ 'selected' if block.text_theme == 'light' }}>Texto escuro (fundo claro)</option>
+                    <option value="dark" {{ 'selected' if block.text_theme == 'dark' }}>Texto claro (fundo escuro)</option>
+                  </select>
+                </div>
+                <div class="promo-color-field">
+                  <input type="color" value="{{ block.btn_bg_color }}" onchange="savePromoField({{ block.id }}, 'btn_bg_color', this.value, this)">
+                  <label>Fundo do botão principal</label>
+                </div>
+                <div class="promo-color-field">
+                  <input type="color" value="{{ block.btn_text_color }}" onchange="savePromoField({{ block.id }}, 'btn_text_color', this.value, this)">
+                  <label>Texto do botão principal</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="promo-foot" style="padding-top:16px;">
+        <button class="mini-btn primary" id="addPromoBtn">+ Novo Bloco Promocional</button>
+      </div>
+      <div class="sections-tip">💡 As alterações aqui são salvas automaticamente. Você também pode editar os textos direto na página pelo <a href="/admin/editor" style="color:var(--primary-yellow)">Editor Visual</a>.</div>
     </div>
 
     <div id="brandsContainer">
@@ -201,14 +312,48 @@
       await api('/api/product/'+id,'POST',{is_in_stock: on});
       toast(on ? "Em estoque" : "Fora de estoque");
     }
-    async function toggleSection(key, el) {
+    async function savePromoText(pid, field, value) {
+      await api('/api/update_config','POST',{key: 'promo_'+pid+'_'+field, value});
+      toast("Salvo ✓");
+    }
+    async function savePromoField(pid, field, value, el) {
+      await api('/api/promo_block/'+pid,'POST',{[field]: value});
+      const block = el.closest('.promo-block');
+      if (field === 'bg_color_1' || field === 'bg_color_2') {
+        const swatch = block.querySelector('.promo-swatch');
+        const c1 = block.querySelector('[data-field="bg_color_1"]').value;
+        const c2 = block.querySelector('[data-field="bg_color_2"]').value;
+        swatch.style.background = `linear-gradient(120deg, ${c1}, ${c2})`;
+      }
+      toast("Salvo ✓");
+    }
+    async function togglePromoActive(pid, el) {
       const sw = el.querySelector('.switch');
       const on = sw.classList.toggle('on');
       const stateLabel = el.querySelector('.st-state');
       if (stateLabel) stateLabel.textContent = on ? 'Ligado' : 'Desligado';
-      await api('/api/update_config','POST',{key: key, value: on ? '1' : '0'});
-      toast(on ? "Seção ligada ✓" : "Seção desligada");
+      await api('/api/promo_block/'+pid,'POST',{active: on ? 1 : 0});
+      toast(on ? "Bloco ligado ✓" : "Bloco desligado");
     }
+    async function duplicatePromo(pid) {
+      await api('/api/promo_block','POST',{duplicate_from: pid});
+      toast("Bloco duplicado ✓");
+      location.reload();
+    }
+    async function deletePromo(pid) {
+      if (!confirm("Excluir este bloco promocional?")) return;
+      await api('/api/promo_block/'+pid,'DELETE');
+      location.reload();
+    }
+    async function movePromo(pid, direction) {
+      await api('/api/promo_block/'+pid+'/move','POST',{direction});
+      location.reload();
+    }
+    document.getElementById('addPromoBtn').addEventListener('click', async () => {
+      await api('/api/promo_block','POST',{});
+      toast("Novo bloco criado ✓");
+      location.reload();
+    });
     async function delProduct(id) {
       if (!confirm("Excluir este sabor?")) return;
       await api('/api/product/'+id,'DELETE');

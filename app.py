@@ -32,6 +32,22 @@ WHATSAPP_PHONE = "5598985086085"
 # Se não definir, usa a senha padrão abaixo (só para testes no seu PC).
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "386121")
 
+# Textos padrão usados ao criar um novo bloco promocional (ex: "+ Novo Bloco").
+PROMO_BLOCK_TEXT_DEFAULTS = {
+    "eyebrow": "PARA LOJISTAS E REVENDEDORES",
+    "title": "Compre no atacado com preços exclusivos",
+    "subtitle": "Faça seu pedido em poucos segundos e receba condições especiais para revenda.",
+    "bg_word": "ATACADO",
+    "item_1": "Descontos progressivos",
+    "item_2": "Atendimento rápido",
+    "item_3": "Compra simplificada",
+    "item_4": "Condições para lojistas",
+    "btn_primary": "Solicitar pedido atacado",
+    "btn_secondary": "Falar com um consultor",
+    "btn_primary_msg": "Olá! Quero fazer um pedido no atacado.",
+    "btn_secondary_msg": "Olá! Quero falar com um consultor sobre atacado.",
+}
+
 app = Flask(__name__)
 app.config["UPLOAD_DIR"] = UPLOAD_DIR
 # Chave usada para assinar a sessão de login (troque por qualquer texto aleatório na VPS)
@@ -84,6 +100,7 @@ def close_db(exc):
 
 def init_db():
     db = sqlite3.connect(DB_PATH)
+    db.row_factory = sqlite3.Row
     db.executescript(
         """
         CREATE TABLE IF NOT EXISTS site_config (
@@ -114,6 +131,17 @@ def init_db():
             is_in_stock INTEGER DEFAULT 1,
             FOREIGN KEY (model_id) REFERENCES vape_models(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS promo_blocks (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            position       INTEGER NOT NULL DEFAULT 0,
+            active         INTEGER NOT NULL DEFAULT 1,
+            bg_color_1     TEXT NOT NULL DEFAULT '#FFD60A',
+            bg_color_2     TEXT NOT NULL DEFAULT '#ffe45e',
+            text_theme     TEXT NOT NULL DEFAULT 'light',
+            btn_bg_color   TEXT NOT NULL DEFAULT '#ffffff',
+            btn_text_color TEXT NOT NULL DEFAULT '#0a0a0c'
+        );
         """
     )
     db.commit()
@@ -126,24 +154,49 @@ def init_db():
         "hero_title": "Sabor que reina. Qualidade Royal.",
         "hero_subtitle": "Os melhores pods descartáveis com a curadoria mais premium do Brasil.",
         "store_name": "Royal",
-        # ---- Seção Atacado (liga/desliga + textos editáveis) ----
-        "show_atacado": "1",
-        "atacado_eyebrow": "PARA LOJISTAS E REVENDEDORES",
-        "atacado_title": "Compre no atacado com preços exclusivos",
-        "atacado_subtitle": "Faça seu pedido em poucos segundos e receba condições especiais para revenda.",
-        "atacado_bg_word": "ATACADO",
-        "atacado_item_1": "Descontos progressivos",
-        "atacado_item_2": "Atendimento rápido",
-        "atacado_item_3": "Compra simplificada",
-        "atacado_item_4": "Condições para lojistas",
-        "atacado_btn_primary": "Solicitar pedido atacado",
-        "atacado_btn_secondary": "Falar com um consultor",
     }
     for k, v in defaults.items():
         db.execute(
             "INSERT OR IGNORE INTO site_config (key, value) VALUES (?, ?)", (k, v)
         )
     db.commit()
+
+    # Migração: bloco único "Atacado" -> primeiro item da lista replicável de
+    # promo_blocks. Roda uma única vez (quando a tabela promo_blocks está vazia).
+    if db.execute("SELECT COUNT(*) AS c FROM promo_blocks").fetchone()[0] == 0:
+        old = {
+            r["key"]: r["value"]
+            for r in db.execute(
+                "SELECT key, value FROM site_config WHERE key LIKE 'atacado_%' OR key = 'show_atacado'"
+            ).fetchall()
+        }
+        cur = db.execute(
+            "INSERT INTO promo_blocks (position, active, bg_color_1, bg_color_2, text_theme, btn_bg_color, btn_text_color) "
+            "VALUES (1, ?, '#FFD60A', '#ffe45e', 'light', '#ffffff', '#0a0a0c')",
+            (1 if old.get("show_atacado", "1") == "1" else 0,),
+        )
+        pid = cur.lastrowid
+        texts = {
+            "eyebrow": old.get("atacado_eyebrow", PROMO_BLOCK_TEXT_DEFAULTS["eyebrow"]),
+            "title": old.get("atacado_title", PROMO_BLOCK_TEXT_DEFAULTS["title"]),
+            "subtitle": old.get("atacado_subtitle", PROMO_BLOCK_TEXT_DEFAULTS["subtitle"]),
+            "bg_word": old.get("atacado_bg_word", PROMO_BLOCK_TEXT_DEFAULTS["bg_word"]),
+            "item_1": old.get("atacado_item_1", PROMO_BLOCK_TEXT_DEFAULTS["item_1"]),
+            "item_2": old.get("atacado_item_2", PROMO_BLOCK_TEXT_DEFAULTS["item_2"]),
+            "item_3": old.get("atacado_item_3", PROMO_BLOCK_TEXT_DEFAULTS["item_3"]),
+            "item_4": old.get("atacado_item_4", PROMO_BLOCK_TEXT_DEFAULTS["item_4"]),
+            "btn_primary": old.get("atacado_btn_primary", PROMO_BLOCK_TEXT_DEFAULTS["btn_primary"]),
+            "btn_secondary": old.get("atacado_btn_secondary", PROMO_BLOCK_TEXT_DEFAULTS["btn_secondary"]),
+            "btn_primary_msg": PROMO_BLOCK_TEXT_DEFAULTS["btn_primary_msg"],
+            "btn_secondary_msg": PROMO_BLOCK_TEXT_DEFAULTS["btn_secondary_msg"],
+        }
+        for field, value in texts.items():
+            db.execute(
+                "INSERT OR IGNORE INTO site_config (key, value) VALUES (?, ?)",
+                (f"promo_{pid}_{field}", value),
+            )
+        db.execute("DELETE FROM site_config WHERE key LIKE 'atacado_%' OR key = 'show_atacado'")
+        db.commit()
 
     # Seed de exemplo se vazio
     count = db.execute("SELECT COUNT(*) AS c FROM brands").fetchone()[0]
@@ -239,6 +292,76 @@ def get_config():
     return {r["key"]: r["value"] for r in rows}
 
 
+def get_promo_blocks(only_active=False):
+    """Monta a lista de blocos promocionais (ex: Atacado), na ordem definida.
+
+    Os campos estruturais (cor, tema, posição, ligado/desligado) vêm da tabela
+    promo_blocks. Os textos (título, botões, etc.) vêm do site_config, com
+    chave prefixada `promo_<id>_<campo>` — assim o Editor Visual (que só sabe
+    salvar por chave de texto) continua funcionando sem mudanças.
+    """
+    db = get_db()
+    config = get_config()
+    rows = db.execute("SELECT * FROM promo_blocks ORDER BY position, id").fetchall()
+    blocks = []
+    for r in rows:
+        if only_active and not r["active"]:
+            continue
+        pid = r["id"]
+        block = {
+            "id": pid,
+            "position": r["position"],
+            "active": r["active"],
+            "bg_color_1": r["bg_color_1"],
+            "bg_color_2": r["bg_color_2"],
+            "text_theme": r["text_theme"],
+            "btn_bg_color": r["btn_bg_color"],
+            "btn_text_color": r["btn_text_color"],
+        }
+        for field, default in PROMO_BLOCK_TEXT_DEFAULTS.items():
+            block[field] = config.get(f"promo_{pid}_{field}", default)
+        blocks.append(block)
+    return blocks
+
+
+def create_promo_block(duplicate_from=None):
+    """Cria um novo bloco promocional, opcionalmente clonando outro existente."""
+    db = get_db()
+    max_pos = db.execute("SELECT COALESCE(MAX(position), 0) AS p FROM promo_blocks").fetchone()["p"]
+
+    source = None
+    if duplicate_from:
+        source = db.execute("SELECT * FROM promo_blocks WHERE id = ?", (duplicate_from,)).fetchone()
+
+    cur = db.execute(
+        "INSERT INTO promo_blocks (position, active, bg_color_1, bg_color_2, text_theme, btn_bg_color, btn_text_color) "
+        "VALUES (?, 1, ?, ?, ?, ?, ?)",
+        (
+            max_pos + 1,
+            source["bg_color_1"] if source else "#FFD60A",
+            source["bg_color_2"] if source else "#ffe45e",
+            source["text_theme"] if source else "light",
+            source["btn_bg_color"] if source else "#ffffff",
+            source["btn_text_color"] if source else "#0a0a0c",
+        ),
+    )
+    pid = cur.lastrowid
+
+    texts = dict(PROMO_BLOCK_TEXT_DEFAULTS)
+    if duplicate_from:
+        config = get_config()
+        for field in texts:
+            texts[field] = config.get(f"promo_{duplicate_from}_{field}", texts[field])
+
+    for field, value in texts.items():
+        db.execute(
+            "INSERT INTO site_config (key, value) VALUES (?, ?)",
+            (f"promo_{pid}_{field}", value),
+        )
+    db.commit()
+    return pid
+
+
 def build_catalog():
     """Monta a lista de modelos com seus sabores e metadados agregados."""
     db = get_db()
@@ -288,6 +411,7 @@ def home():
         brands=[dict(b) for b in get_db().execute("SELECT * FROM brands ORDER BY name").fetchall()],
         whatsapp=WHATSAPP_PHONE,
         editor=False,
+        promo_blocks=get_promo_blocks(only_active=True),
     )
 
 
@@ -335,6 +459,7 @@ def live_editor():
         brands=[dict(b) for b in get_db().execute("SELECT * FROM brands ORDER BY name").fetchall()],
         whatsapp=WHATSAPP_PHONE,
         editor=True,
+        promo_blocks=get_promo_blocks(only_active=False),
     )
 
 
@@ -358,7 +483,9 @@ def admin():
             ).fetchall()
             mlist.append({"model": dict(m), "flavors": [dict(f) for f in flavors]})
         tree.append({"brand": dict(b), "models": mlist})
-    return render_template("admin.html", tree=tree, config=get_config())
+    return render_template(
+        "admin.html", tree=tree, config=get_config(), promo_blocks=get_promo_blocks(only_active=False)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -378,6 +505,64 @@ def api_update_config():
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         (key, value),
     )
+    db.commit()
+    return jsonify({"ok": True})
+
+
+# ---- Blocos promocionais (ex: Atacado) ----
+@app.route("/api/promo_block", methods=["POST"])
+@api_login_required
+def api_create_promo_block():
+    d = request.get_json(force=True) or {}
+    pid = create_promo_block(duplicate_from=d.get("duplicate_from"))
+    return jsonify({"ok": True, "id": pid})
+
+
+@app.route("/api/promo_block/<int:pid>", methods=["POST"])
+@api_login_required
+def api_update_promo_block(pid):
+    d = request.get_json(force=True)
+    db = get_db()
+    fields = []
+    vals = []
+    for f in ("active", "bg_color_1", "bg_color_2", "text_theme", "btn_bg_color", "btn_text_color", "position"):
+        if f in d:
+            fields.append(f"{f} = ?")
+            vals.append(d[f])
+    if not fields:
+        return jsonify({"ok": False}), 400
+    vals.append(pid)
+    db.execute(f"UPDATE promo_blocks SET {', '.join(fields)} WHERE id = ?", vals)
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/promo_block/<int:pid>", methods=["DELETE"])
+@api_login_required
+def api_delete_promo_block(pid):
+    db = get_db()
+    db.execute("DELETE FROM promo_blocks WHERE id = ?", (pid,))
+    db.execute("DELETE FROM site_config WHERE key LIKE ?", (f"promo_{pid}_%",))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/promo_block/<int:pid>/move", methods=["POST"])
+@api_login_required
+def api_move_promo_block(pid):
+    direction = (request.get_json(force=True) or {}).get("direction")
+    db = get_db()
+    rows = db.execute("SELECT id, position FROM promo_blocks ORDER BY position, id").fetchall()
+    ids = [r["id"] for r in rows]
+    if pid not in ids:
+        return jsonify({"ok": False}), 404
+    idx = ids.index(pid)
+    swap_idx = idx - 1 if direction == "up" else idx + 1
+    if swap_idx < 0 or swap_idx >= len(rows):
+        return jsonify({"ok": True})  # já está na ponta, nada a fazer
+    a, b = rows[idx], rows[swap_idx]
+    db.execute("UPDATE promo_blocks SET position = ? WHERE id = ?", (b["position"], a["id"]))
+    db.execute("UPDATE promo_blocks SET position = ? WHERE id = ?", (a["position"], b["id"]))
     db.commit()
     return jsonify({"ok": True})
 

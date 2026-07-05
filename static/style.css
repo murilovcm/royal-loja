@@ -791,8 +791,8 @@ body.editor-mode .model-card { cursor: default; }
   transition: transform .15s, box-shadow .2s;
 }
 .atacado-btn-primary {
-  background: #fff;
-  color: #0a0a0c;
+  background: var(--ac-btn-bg, #fff);
+  color: var(--ac-btn-text, #0a0a0c);
   box-shadow: 0 8px 24px rgba(0,0,0,.18);
 }
 .atacado-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,.28); }
@@ -803,9 +803,19 @@ body.editor-mode .model-card { cursor: default; }
 }
 .atacado-btn-secondary:hover { background: rgba(0,0,0,.08); }
 
+/* Tema "escuro": texto claro para fundos escuros (definido no painel admin) */
+.atacado-card[data-theme="dark"] .atacado-left,
+.atacado-card[data-theme="dark"] .atacado-title { color: #fff; }
+.atacado-card[data-theme="dark"] .atacado-eyebrow { color: rgba(255,255,255,.7); }
+.atacado-card[data-theme="dark"] .atacado-subtitle { color: rgba(255,255,255,.85); }
+.atacado-card[data-theme="dark"] .atacado-item { color: #fff; }
+.atacado-card[data-theme="dark"] .atacado-bg-word { color: rgba(255,255,255,.12); }
+.atacado-card[data-theme="dark"] .atacado-btn-secondary { color: #fff; border-color: rgba(255,255,255,.85); }
+.atacado-card[data-theme="dark"] .atacado-btn-secondary:hover { background: rgba(255,255,255,.12); }
+
 /* Aparência quando a seção está desligada mas visível no editor */
-#atacadoSection[data-hidden="1"] { opacity: .45; outline: 2px dashed var(--purple-soft); outline-offset: 8px; border-radius: 26px; position: relative; }
-#atacadoSection[data-hidden="1"]::before {
+.promo-block-section[data-hidden="1"] { opacity: .45; outline: 2px dashed var(--purple-soft); outline-offset: 8px; border-radius: 26px; position: relative; }
+.promo-block-section[data-hidden="1"]::before {
   content: "Seção DESLIGADA (visível só no editor)";
   position: absolute; top: -14px; left: 20px; z-index: 5;
   background: var(--purple); color: #fff; font-size: .7rem; font-weight: 700;
