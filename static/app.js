@@ -248,10 +248,120 @@
   });
 
   // ---------------------------------------------------------------
-  // WHATSAPP CHECKOUT
+  // CHECKOUT PANEL
   // ---------------------------------------------------------------
-  byId("whatsappBtn").addEventListener("click", () => {
+  const checkoutPanel = byId("checkoutPanel");
+  const checkoutOverlay = byId("checkoutOverlay");
+  let geoCoords = null;
+
+  function openCheckout() {
     if (cart.length === 0) return;
+    renderCheckoutSummary();
+    closeCart();
+    checkoutPanel.classList.add("open");
+    checkoutOverlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function closeCheckout() {
+    checkoutPanel.classList.remove("open");
+    checkoutOverlay.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  byId("whatsappBtn").addEventListener("click", openCheckout);
+  byId("checkoutClose").addEventListener("click", closeCheckout);
+  checkoutOverlay.addEventListener("click", closeCheckout);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCheckout(); });
+
+  function renderCheckoutSummary() {
+    const box = byId("checkoutItems");
+    box.innerHTML = cart.map((it) => {
+      const sub = it.price * it.qty;
+      return `<div class="checkout-item">
+        <span class="qty">${it.qty}x</span>
+        <div class="ci-info">
+          <div class="m">${it.model_name}</div>
+          <div class="f">${it.flavor_name}</div>
+        </div>
+        <span class="p">${brl(sub)}</span>
+      </div>`;
+    }).join("");
+    const total = cart.reduce((s, it) => s + it.price * it.qty, 0);
+    byId("checkoutTotal").textContent = brl(total);
+  }
+
+  // ---- Phone mask (Brazilian) ----
+  function maskPhoneBR(value) {
+    let v = value.replace(/\D/g, "").slice(0, 11);
+    if (v.length > 10) v = v.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, "($1) $2-$3");
+    else if (v.length > 6) v = v.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, "($1) $2-$3");
+    else if (v.length > 2) v = v.replace(/^(\d{2})(\d{0,5})/, "($1) $2");
+    else if (v.length > 0) v = v.replace(/^(\d{0,2})/, "($1");
+    return v;
+  }
+  byId("custPhone").addEventListener("input", (e) => {
+    e.target.value = maskPhoneBR(e.target.value);
+  });
+
+  // ---- Geolocation ----
+  byId("geoBtn").addEventListener("click", () => {
+    const statusEl = byId("geoStatus");
+    if (!navigator.geolocation) {
+      statusEl.textContent = "⚠️ Geolocalização não suportada neste navegador. Preencha o endereço manualmente.";
+      statusEl.className = "geo-status warn show";
+      return;
+    }
+    statusEl.textContent = "📡 Obtendo localização...";
+    statusEl.className = "geo-status show";
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        geoCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        statusEl.textContent = "✓ Localização capturada";
+        statusEl.className = "geo-status ok show";
+      },
+      () => {
+        geoCoords = null;
+        statusEl.textContent = "⚠️ Não foi possível obter sua localização. Preencha o endereço manualmente.";
+        statusEl.className = "geo-status warn show";
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+
+  // ---- Validation + send ----
+  function setFieldError(inputEl, errEl, hasError) {
+    inputEl.classList.toggle("invalid", hasError);
+    if (errEl) errEl.classList.toggle("show", hasError);
+    return hasError;
+  }
+
+  byId("checkoutConfirmBtn").addEventListener("click", () => {
+    if (cart.length === 0) return;
+
+    const nameEl = byId("custName");
+    const phoneEl = byId("custPhone");
+    const addressEl = byId("custAddress");
+    const paymentEl = byId("custPayment");
+    const notesEl = byId("custNotes");
+
+    const nameVal = nameEl.value.trim();
+    const phoneDigits = phoneEl.value.replace(/\D/g, "");
+    const addressVal = addressEl.value.trim();
+    const paymentVal = paymentEl.value;
+
+    let hasError = false;
+    if (setFieldError(nameEl, byId("errName"), nameVal.length === 0)) hasError = true;
+    if (setFieldError(phoneEl, byId("errPhone"), phoneDigits.length < 10)) hasError = true;
+    if (setFieldError(addressEl, byId("errAddress"), addressVal.length === 0)) hasError = true;
+    if (setFieldError(paymentEl, byId("errPayment"), paymentVal.length === 0)) hasError = true;
+
+    if (hasError) {
+      const firstInvalid = checkoutPanel.querySelector(".invalid");
+      if (firstInvalid) firstInvalid.focus({ preventScroll: false });
+      toast("Preencha os campos obrigatórios");
+      return;
+    }
+
     let msg = `👑 *PEDIDO ${CFG.storeName.toUpperCase()}*\n`;
     msg += `━━━━━━━━━━━━━━━\n\n`;
     let total = 0;
@@ -265,10 +375,18 @@
     });
     msg += `━━━━━━━━━━━━━━━\n`;
     msg += `*TOTAL: ${brl(total)}*\n\n`;
-    msg += `Olá! Gostaria de finalizar este pedido. 🚀`;
+    msg += `👤 *Cliente:* ${nameVal}\n`;
+    msg += `📱 *Telefone:* ${phoneEl.value}\n`;
+    msg += `📍 *Endereço:* ${addressVal}\n`;
+    msg += `💳 *Pagamento:* ${paymentVal}\n`;
+    if (notesEl.value.trim()) msg += `📝 *Obs:* ${notesEl.value.trim()}\n`;
+    if (geoCoords) msg += `🗺️ *Localização:* https://maps.google.com/?q=${geoCoords.lat},${geoCoords.lng}\n`;
+    msg += `\nOlá! Gostaria de finalizar este pedido. 🚀`;
 
     const url = `https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank");
+    closeCheckout();
+    toast("Pedido enviado ✓");
   });
 
   renderCart();

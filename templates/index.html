@@ -184,7 +184,7 @@
         <span class="val" id="cartTotal">R$ 0,00</span>
       </div>
       <button class="whatsapp-btn" id="whatsappBtn" disabled>
-        <span>📱</span> Finalizar no WhatsApp
+        <span>📱</span> Finalizar Pedido →
       </button>
     </div>
   </aside>
@@ -193,6 +193,70 @@
   <button class="cart-fab" id="cartFab" aria-label="Ver carrinho">
     🛒<span class="cart-fab-badge" id="cartFabBadge">0</span>
   </button>
+
+  <!-- ============ CHECKOUT PANEL ============ -->
+  <div class="checkout-overlay" id="checkoutOverlay"></div>
+  <aside class="checkout-panel" id="checkoutPanel">
+    <div class="checkout-header">
+      <h3>📝 Finalizar Pedido</h3>
+      <button class="close-checkout" id="checkoutClose">✕</button>
+    </div>
+    <div class="checkout-body" id="checkoutBody">
+      <div class="checkout-summary">
+        <h4>Resumo do pedido</h4>
+        <div class="checkout-items" id="checkoutItems"></div>
+        <div class="checkout-summary-total">
+          <span>Total</span>
+          <span id="checkoutTotal">R$ 0,00</span>
+        </div>
+      </div>
+
+      <form id="checkoutForm" class="checkout-form" novalidate>
+        <label class="field">
+          <span class="field-label">Nome completo *</span>
+          <input type="text" id="custName" name="custName" placeholder="Seu nome completo" autocomplete="name">
+          <span class="field-error" id="errName">Informe seu nome completo.</span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Telefone / WhatsApp *</span>
+          <input type="tel" id="custPhone" name="custPhone" placeholder="(00) 00000-0000" inputmode="numeric" autocomplete="tel">
+          <span class="field-error" id="errPhone">Informe um telefone válido.</span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Endereço de entrega *</span>
+          <textarea id="custAddress" name="custAddress" rows="3" placeholder="Rua, número, bairro, ponto de referência" autocomplete="street-address"></textarea>
+          <span class="field-error" id="errAddress">Informe o endereço de entrega.</span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Forma de pagamento *</span>
+          <select id="custPayment" name="custPayment">
+            <option value="" disabled selected>Selecione...</option>
+            <option value="Pix">Pix</option>
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Crédito">Cartão de Crédito</option>
+            <option value="Débito">Cartão de Débito</option>
+          </select>
+          <span class="field-error" id="errPayment">Selecione a forma de pagamento.</span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Observações</span>
+          <textarea id="custNotes" name="custNotes" rows="2" placeholder="Troco para quanto, ponto de referência, etc. (opcional)"></textarea>
+        </label>
+
+        <button type="button" class="geo-btn" id="geoBtn">📍 Usar minha localização atual</button>
+        <div class="geo-status" id="geoStatus"></div>
+      </form>
+    </div>
+    <div class="checkout-foot">
+      <button class="whatsapp-btn" id="checkoutConfirmBtn">
+        <span>📱</span> Confirmar e Enviar no WhatsApp
+      </button>
+    </div>
+  </aside>
 
   <div class="toast" id="toast"></div>
 
