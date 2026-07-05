@@ -237,7 +237,18 @@
 
   byId("cartItems").addEventListener("click", (e) => {
     const rm = e.target.closest(".rm");
-    if (rm) { cart.splice(Number(rm.dataset.idx), 1); saveCart(); renderCart(); return; }
+    if (rm) {
+      const idx = Number(rm.dataset.idx);
+      const row = rm.closest(".cart-item");
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduced || !row) { cart.splice(idx, 1); saveCart(); renderCart(); return; }
+      row.style.maxHeight = row.offsetHeight + "px";
+      row.classList.add("removing");
+      void row.offsetHeight;
+      row.style.maxHeight = "0px";
+      setTimeout(() => { cart.splice(idx, 1); saveCart(); renderCart(); }, 320);
+      return;
+    }
     const qb = e.target.closest("[data-act]");
     if (qb) {
       const idx = Number(qb.dataset.idx);
