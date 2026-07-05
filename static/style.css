@@ -955,12 +955,9 @@ body.editor-mode .model-card { cursor: default; }
   .header-inner { gap: 12px; padding: 12px 0; align-items: center; }
   .logo { font-size: 1.3rem; gap: 6px; margin: 0 auto; order: 2; }
   .logo-img { height: 60px; }
-  .cart-btn { width: 46px; height: 46px; order: 3; margin-left: auto; }
   .footer-logo img { height: 110px; }
   .warning-track { font-size: .68rem; }
   .warning-track span { padding: 0 1.2rem; }
-  /* Espaço-fantasma à esquerda pra centralizar o logo entre nada e o carrinho */
-  .header-inner::before { content: ""; width: 46px; order: 1; }
 
   /* --- Hero --- */
   .hero { padding: 34px 0 26px; }
