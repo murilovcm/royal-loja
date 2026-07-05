@@ -614,8 +614,31 @@ header.site-header {
 .field-error { display: none; font-size: .76rem; color: #ff5a5a; }
 .field-error.show { display: block; }
 
+.geo-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, rgba(168,85,247,.16), rgba(255,214,10,.06));
+  border: 1px solid rgba(168,85,247,.35);
+}
+.geo-card-icon {
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(168,85,247,.22);
+  font-size: 1rem;
+}
+.geo-card-text { display: flex; flex-direction: column; gap: 3px; }
+.geo-card-text strong { font-size: .84rem; color: var(--text); }
+.geo-card-text span { font-size: .76rem; color: var(--text-dim); line-height: 1.45; }
+
 .geo-btn {
   width: 100%; padding: 12px 14px;
+  margin-top: 10px;
   background: var(--surface-2); border: 1px solid var(--purple-soft);
   border-radius: var(--radius-sm);
   color: var(--text); font-weight: 700; font-size: .88rem;

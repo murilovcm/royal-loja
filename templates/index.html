@@ -228,6 +228,16 @@
           <span class="field-label">Endereço de entrega *</span>
           <textarea id="custAddress" name="custAddress" rows="3" placeholder="Rua, número, bairro, ponto de referência" autocomplete="street-address"></textarea>
           <span class="field-error" id="errAddress">Informe o endereço de entrega.</span>
+
+          <div class="geo-card">
+            <div class="geo-card-icon">📍</div>
+            <div class="geo-card-text">
+              <strong>Preencha em 1 toque com sua localização</strong>
+              <span>Usamos seu GPS só na hora do pedido, apenas para confirmar seu endereço de entrega com precisão. Nada é salvo ou compartilhado.</span>
+            </div>
+          </div>
+          <button type="button" class="geo-btn" id="geoBtn">📍 Usar minha localização atual</button>
+          <div class="geo-status" id="geoStatus"></div>
         </label>
 
         <label class="field">
@@ -246,9 +256,6 @@
           <span class="field-label">Observações</span>
           <textarea id="custNotes" name="custNotes" rows="2" placeholder="Troco para quanto, ponto de referência, etc. (opcional)"></textarea>
         </label>
-
-        <button type="button" class="geo-btn" id="geoBtn">📍 Usar minha localização atual</button>
-        <div class="geo-status" id="geoStatus"></div>
       </form>
     </div>
     <div class="checkout-foot">
