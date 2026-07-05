@@ -331,6 +331,7 @@
   }
 
   geoBtn.addEventListener("click", () => {
+    geoBtn.classList.add("geo-used");
     if (!navigator.geolocation) {
       geoCoords = null;
       geoAccuracy = null;
