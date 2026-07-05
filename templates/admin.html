@@ -48,6 +48,16 @@
     .add-inline input { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:8px 10px; color:var(--text); font-size:.85rem; }
     .save-flag { font-size:.72rem; color:var(--green); opacity:0; transition:.3s; }
     .save-flag.show { opacity:1; }
+
+    .sections-block { background:var(--surface); border:1px solid var(--border); border-radius:16px; margin-bottom:22px; padding:18px 20px; }
+    .sections-head { font-size:1.1rem; font-weight:800; margin-bottom:4px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .sections-sub { font-size:.78rem; color:var(--text-dim); font-weight:500; }
+    .section-toggle-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 0; border-top:1px solid var(--border); margin-top:10px; flex-wrap:wrap; }
+    .st-info { flex:1; min-width:200px; }
+    .st-name { font-weight:700; font-size:.98rem; }
+    .st-desc { font-size:.8rem; color:var(--text-dim); margin-top:2px; }
+    .st-state { font-size:.82rem; font-weight:600; }
+    .sections-tip { font-size:.8rem; color:var(--text-dim); margin-top:8px; padding-top:12px; border-top:1px solid var(--border); }
   </style>
 </head>
 <body>
@@ -60,6 +70,21 @@
         <button class="mini-btn primary" id="addBrandBtn">+ Nova Marca</button>
         <a href="/admin/logout" class="mini-btn" style="color:#ff8a8a">⏻ Sair</a>
       </div>
+    </div>
+
+    <div class="sections-block">
+      <div class="sections-head">🧩 Seções do Site <span class="sections-sub">Ligue ou desligue blocos da página</span></div>
+      <div class="section-toggle-row">
+        <div class="st-info">
+          <div class="st-name">Bloco Atacado</div>
+          <div class="st-desc">Chamada amarela para lojistas/revendedores com botões de WhatsApp</div>
+        </div>
+        <span class="stock-toggle" onclick="toggleSection('show_atacado', this)">
+          <span class="switch {{ 'on' if config.show_atacado == '1' }}"></span>
+          <span class="st-state">{{ 'Ligado' if config.show_atacado == '1' else 'Desligado' }}</span>
+        </span>
+      </div>
+      <div class="sections-tip">💡 Para editar os <b>textos</b> dessas seções, use o <a href="/admin/editor" style="color:var(--primary-yellow)">Editor Visual</a> — clique no texto e digite.</div>
     </div>
 
     <div id="brandsContainer">
@@ -175,6 +200,14 @@
       const on = sw.classList.toggle('on');
       await api('/api/product/'+id,'POST',{is_in_stock: on});
       toast(on ? "Em estoque" : "Fora de estoque");
+    }
+    async function toggleSection(key, el) {
+      const sw = el.querySelector('.switch');
+      const on = sw.classList.toggle('on');
+      const stateLabel = el.querySelector('.st-state');
+      if (stateLabel) stateLabel.textContent = on ? 'Ligado' : 'Desligado';
+      await api('/api/update_config','POST',{key: key, value: on ? '1' : '0'});
+      toast(on ? "Seção ligada ✓" : "Seção desligada");
     }
     async function delProduct(id) {
       if (!confirm("Excluir este sabor?")) return;

@@ -12,8 +12,15 @@ from werkzeug.utils import secure_filename
 # Configuração
 # ---------------------------------------------------------------------------
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-DB_PATH = os.path.join(BASE_DIR, "royal.db")
-UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
+
+# Pasta de dados persistentes (banco + uploads).
+# Na VPS, apontamos DATA_DIR para um volume do EasyPanel para que os dados
+# sobrevivam aos deploys. No PC, usa a própria pasta do projeto.
+DATA_DIR = os.environ.get("DATA_DIR", BASE_DIR)
+os.makedirs(DATA_DIR, exist_ok=True)
+
+DB_PATH = os.path.join(DATA_DIR, "royal.db")
+UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 ALLOWED_EXT = {"png", "jpg", "jpeg", "gif", "webp"}
 
 # Telefone do dono da loja (formato internacional, apenas dígitos)
@@ -119,6 +126,18 @@ def init_db():
         "hero_title": "Sabor que reina. Qualidade Royal.",
         "hero_subtitle": "Os melhores pods descartáveis com a curadoria mais premium do Brasil.",
         "store_name": "Royal",
+        # ---- Seção Atacado (liga/desliga + textos editáveis) ----
+        "show_atacado": "1",
+        "atacado_eyebrow": "PARA LOJISTAS E REVENDEDORES",
+        "atacado_title": "Compre no atacado com preços exclusivos",
+        "atacado_subtitle": "Faça seu pedido em poucos segundos e receba condições especiais para revenda.",
+        "atacado_bg_word": "ATACADO",
+        "atacado_item_1": "Descontos progressivos",
+        "atacado_item_2": "Atendimento rápido",
+        "atacado_item_3": "Compra simplificada",
+        "atacado_item_4": "Condições para lojistas",
+        "atacado_btn_primary": "Solicitar pedido atacado",
+        "atacado_btn_secondary": "Falar com um consultor",
     }
     for k, v in defaults.items():
         db.execute(
