@@ -189,16 +189,17 @@
   function openCart() { cartSidebar.classList.add("open"); cartOverlay.classList.add("open"); document.body.style.overflow = "hidden"; }
   function closeCart() { cartSidebar.classList.remove("open"); cartOverlay.classList.remove("open"); document.body.style.overflow = ""; }
 
-  byId("cartToggle").addEventListener("click", openCart);
   byId("cartClose").addEventListener("click", closeCart);
   cartOverlay.addEventListener("click", closeCart);
 
+  const cartFab = byId("cartFab");
+  cartFab.addEventListener("click", openCart);
+
   function renderCart() {
     const box = byId("cartItems");
-    const badge = byId("cartBadge");
     const totalCount = cart.reduce((s, it) => s + it.qty, 0);
-    badge.textContent = totalCount;
-    badge.classList.toggle("show", totalCount > 0);
+    byId("cartFabBadge").textContent = totalCount;
+    cartFab.classList.toggle("show", totalCount > 0);
 
     if (cart.length === 0) {
       box.innerHTML = `<div class="cart-empty"><div class="big">🛒</div>Seu carrinho está vazio.</div>`;
