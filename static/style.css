@@ -552,8 +552,116 @@ body.editor-mode .model-card { cursor: default; }
 .toast.show { transform: none; opacity: 1; }
 
 /* ===================================================================
-   RESPONSIVE
+   SEÇÃO ATACADO
    =================================================================== */
+.atacado-card {
+  position: relative;
+  background: linear-gradient(120deg, var(--primary-yellow), var(--yellow-soft));
+  border-radius: 26px;
+  padding: 46px 48px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.atacado-bg-word {
+  position: absolute;
+  right: 2%;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: clamp(5rem, 16vw, 13rem);
+  font-weight: 900;
+  letter-spacing: -4px;
+  color: rgba(0,0,0,.07);
+  z-index: -1;
+  pointer-events: none;
+  white-space: nowrap;
+  user-select: none;
+}
+.atacado-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+.atacado-left { flex: 1; min-width: 280px; color: #0a0a0c; }
+.atacado-eyebrow {
+  display: inline-block;
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: rgba(0,0,0,.55);
+  margin-bottom: 12px;
+}
+.atacado-title {
+  font-size: clamp(1.8rem, 4vw, 2.9rem);
+  font-weight: 900;
+  line-height: 1.02;
+  letter-spacing: -1px;
+  color: #0a0a0c;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+.atacado-subtitle {
+  font-size: 1rem;
+  color: rgba(0,0,0,.75);
+  font-weight: 600;
+  max-width: 440px;
+  margin-bottom: 22px;
+}
+.atacado-items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 26px;
+  max-width: 480px;
+}
+.atacado-item {
+  font-size: .92rem;
+  font-weight: 700;
+  color: #0a0a0c;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.atacado-item em { font-style: normal; }
+.atacado-right {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex-shrink: 0;
+}
+.atacado-btn-primary,
+.atacado-btn-secondary {
+  padding: 16px 30px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: .95rem;
+  text-align: center;
+  white-space: nowrap;
+  transition: transform .15s, box-shadow .2s;
+}
+.atacado-btn-primary {
+  background: #fff;
+  color: #0a0a0c;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+.atacado-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,.28); }
+.atacado-btn-secondary {
+  background: transparent;
+  color: #0a0a0c;
+  border: 2px solid rgba(0,0,0,.85);
+}
+.atacado-btn-secondary:hover { background: rgba(0,0,0,.08); }
+
+/* Aparência quando a seção está desligada mas visível no editor */
+#atacadoSection[data-hidden="1"] { opacity: .45; outline: 2px dashed var(--purple-soft); outline-offset: 8px; border-radius: 26px; position: relative; }
+#atacadoSection[data-hidden="1"]::before {
+  content: "Seção DESLIGADA (visível só no editor)";
+  position: absolute; top: -14px; left: 20px; z-index: 5;
+  background: var(--purple); color: #fff; font-size: .7rem; font-weight: 700;
+  padding: 3px 12px; border-radius: 999px;
+}
+
+
 @media (max-width: 860px) {
   .modal { grid-template-columns: 1fr; max-height: 92vh; }
   .modal-img { min-height: 220px; max-height: 38vh; }
@@ -663,6 +771,14 @@ body.editor-mode .model-card { cursor: default; }
 
   .editor-bar { flex-wrap: wrap; justify-content: center; bottom: 10px; width: 92%; gap: 10px; }
   .editor-hint { display: none; }
+
+  /* Atacado no mobile */
+  .atacado-card { padding: 30px 22px; border-radius: 20px; }
+  .atacado-content { flex-direction: column; align-items: stretch; gap: 24px; }
+  .atacado-items { grid-template-columns: 1fr; gap: 8px; }
+  .atacado-right { width: 100%; }
+  .atacado-btn-primary, .atacado-btn-secondary { width: 100%; }
+  .atacado-bg-word { font-size: 7rem; opacity: .5; }
 
   footer.site-footer { padding: 30px 0; font-size: .78rem; }
 }
