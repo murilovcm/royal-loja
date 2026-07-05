@@ -603,10 +603,12 @@ header.site-header {
 }
 .geo-btn:hover { background: var(--purple-deep); }
 .geo-btn:active { transform: scale(.98); }
+.geo-btn:disabled { opacity: .65; cursor: not-allowed; }
 .geo-status { font-size: .82rem; margin-top: -6px; display: none; }
 .geo-status.show { display: block; }
 .geo-status.ok { color: #4ade80; }
 .geo-status.warn { color: #ffb020; }
+.geo-status.danger { color: #ff5a3d; }
 
 .checkout-foot { padding: 22px; border-top: 1px solid var(--border); background: var(--surface); }
 

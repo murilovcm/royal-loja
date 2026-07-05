@@ -304,27 +304,65 @@
   });
 
   // ---- Geolocation ----
-  byId("geoBtn").addEventListener("click", () => {
+  const geoBtn = byId("geoBtn");
+  const geoBtnDefaultText = geoBtn.textContent;
+  let geoAccuracy = null;
+
+  function setGeoStatus(text, level) {
     const statusEl = byId("geoStatus");
+    statusEl.textContent = text;
+    statusEl.className = `geo-status show${level ? " " + level : ""}`;
+  }
+
+  function setGeoLoading(loading) {
+    geoBtn.disabled = loading;
+    geoBtn.textContent = loading ? "📡 Buscando localização..." : geoBtnDefaultText;
+  }
+
+  geoBtn.addEventListener("click", () => {
     if (!navigator.geolocation) {
-      statusEl.textContent = "⚠️ Geolocalização não suportada neste navegador. Preencha o endereço manualmente.";
-      statusEl.className = "geo-status warn show";
+      geoCoords = null;
+      geoAccuracy = null;
+      setGeoStatus("⚠️ Geolocalização não suportada neste navegador. Preencha o endereço manualmente.", "warn");
       return;
     }
-    statusEl.textContent = "📡 Obtendo localização...";
-    statusEl.className = "geo-status show";
+    setGeoLoading(true);
+    setGeoStatus("📡 Obtendo localização...", "");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         geoCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        statusEl.textContent = "✓ Localização capturada";
-        statusEl.className = "geo-status ok show";
+        geoAccuracy = pos.coords.accuracy;
+        setGeoLoading(false);
+        const acc = Math.round(geoAccuracy);
+        if (acc <= 50) {
+          setGeoStatus("✓ Localização precisa capturada", "ok");
+        } else if (acc <= 500) {
+          setGeoStatus(`⚠ Localização aproximada (~${acc} metros) — confirme o endereço acima para garantir a entrega`, "warn");
+        } else {
+          setGeoStatus("⚠ Localização imprecisa — por favor confirme bem o endereço digitado", "danger");
+        }
       },
-      () => {
+      (err) => {
         geoCoords = null;
-        statusEl.textContent = "⚠️ Não foi possível obter sua localização. Preencha o endereço manualmente.";
-        statusEl.className = "geo-status warn show";
+        geoAccuracy = null;
+        setGeoLoading(false);
+        let msg;
+        switch (err.code) {
+          case err.PERMISSION_DENIED:
+            msg = "Você não permitiu o acesso à localização. Sem problema — preencha o endereço acima que o entregador chega até você.";
+            break;
+          case err.POSITION_UNAVAILABLE:
+            msg = "Não foi possível obter sua localização agora. Confirme o endereço no campo acima.";
+            break;
+          case err.TIMEOUT:
+            msg = "A localização demorou demais. Confirme o endereço no campo acima.";
+            break;
+          default:
+            msg = "Não foi possível obter sua localização. Confirme o endereço no campo acima.";
+        }
+        setGeoStatus(msg, "warn");
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   });
 
@@ -380,7 +418,13 @@
     msg += `📍 *Endereço:* ${addressVal}\n`;
     msg += `💳 *Pagamento:* ${paymentVal}\n`;
     if (notesEl.value.trim()) msg += `📝 *Obs:* ${notesEl.value.trim()}\n`;
-    if (geoCoords) msg += `🗺️ *Localização:* https://maps.google.com/?q=${geoCoords.lat},${geoCoords.lng}\n`;
+    if (geoCoords) {
+      let mapNote = "";
+      if (geoAccuracy != null && geoAccuracy > 500) {
+        mapNote = ` (localização aproximada, ~${Math.round(geoAccuracy)} metros — confira o endereço)`;
+      }
+      msg += `🗺️ *Localização:* https://maps.google.com/?q=${geoCoords.lat},${geoCoords.lng}${mapNote}\n`;
+    }
     msg += `\nOlá! Gostaria de finalizar este pedido. 🚀`;
 
     const url = `https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(msg)}`;
