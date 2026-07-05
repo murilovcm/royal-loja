@@ -436,6 +436,40 @@
   renderCart();
 
   // ---------------------------------------------------------------
+  // SCROLL REVEAL (fade + deslize sutil ao entrar na viewport)
+  // ---------------------------------------------------------------
+  (function initScrollReveal() {
+    const targets = Array.from(document.querySelectorAll(".hero, .section:not([data-hidden]), .model-card"));
+    if (!targets.length) return;
+
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion || !("IntersectionObserver" in window)) {
+      targets.forEach((el) => el.classList.add("reveal-visible"));
+      return;
+    }
+
+    const STAGGER_MS = 60;
+    const MAX_STAGGER_STEPS = 5; // além disso, mesmo atraso (evita cascata longa demais)
+
+    const observer = new IntersectionObserver(
+      (entries, obs) => {
+        let batchIndex = 0;
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const el = entry.target;
+          const delay = Math.min(batchIndex, MAX_STAGGER_STEPS) * STAGGER_MS;
+          obs.unobserve(el);
+          setTimeout(() => el.classList.add("reveal-visible"), delay);
+          batchIndex++;
+        });
+      },
+      { threshold: 0.15, rootMargin: "0px 0px -10% 0px" }
+    );
+
+    targets.forEach((el) => observer.observe(el));
+  })();
+
+  // ---------------------------------------------------------------
   // LIVE EDITOR
   // ---------------------------------------------------------------
   if (CFG.editor) {
