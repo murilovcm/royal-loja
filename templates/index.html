@@ -111,6 +111,32 @@
     </div>
   </section>
 
+  <!-- ============ SEÇÃO ATACADO (liga/desliga pelo painel) ============ -->
+  {% if config.show_atacado == '1' or editor %}
+  <section class="section container" id="atacadoSection" {% if config.show_atacado != '1' and editor %}data-hidden="1"{% endif %}>
+    <div class="atacado-card">
+      <span class="atacado-bg-word" data-cfg="atacado_bg_word" {{ 'contenteditable=true' if editor else '' }}>{{ config.atacado_bg_word }}</span>
+      <div class="atacado-content">
+        <div class="atacado-left">
+          <span class="atacado-eyebrow" data-cfg="atacado_eyebrow" {{ 'contenteditable=true' if editor else '' }}>{{ config.atacado_eyebrow }}</span>
+          <h2 class="atacado-title" data-cfg="atacado_title" {{ 'contenteditable=true' if editor else '' }}>{{ config.atacado_title }}</h2>
+          <p class="atacado-subtitle" data-cfg="atacado_subtitle" {{ 'contenteditable=true' if editor else '' }}>{{ config.atacado_subtitle }}</p>
+          <div class="atacado-items">
+            <span class="atacado-item">✓ <em data-cfg="atacado_item_1" {{ 'contenteditable=true' if editor else '' }}>{{ config.atacado_item_1 }}</em></span>
+            <span class="atacado-item">✓ <em data-cfg="atacado_item_2" {{ 'contenteditable=true' if editor else '' }}>{{ config.atacado_item_2 }}</em></span>
+            <span class="atacado-item">✓ <em data-cfg="atacado_item_3" {{ 'contenteditable=true' if editor else '' }}>{{ config.atacado_item_3 }}</em></span>
+            <span class="atacado-item">✓ <em data-cfg="atacado_item_4" {{ 'contenteditable=true' if editor else '' }}>{{ config.atacado_item_4 }}</em></span>
+          </div>
+        </div>
+        <div class="atacado-right">
+          <a href="https://wa.me/{{ whatsapp }}?text={{ 'Olá! Quero fazer um pedido no atacado.' | urlencode }}" target="_blank" class="atacado-btn-primary" data-cfg="atacado_btn_primary" {{ 'contenteditable=true' if editor else '' }}>{{ config.atacado_btn_primary }}</a>
+          <a href="https://wa.me/{{ whatsapp }}?text={{ 'Olá! Quero falar com um consultor sobre atacado.' | urlencode }}" target="_blank" class="atacado-btn-secondary" data-cfg="atacado_btn_secondary" {{ 'contenteditable=true' if editor else '' }}>{{ config.atacado_btn_secondary }}</a>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
   <footer class="site-footer">
     <div class="container">
       <div class="logo footer-logo"><img src="{{ url_for('static', filename='logo.png') }}" alt="Royal"></div>
