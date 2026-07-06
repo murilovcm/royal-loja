@@ -104,12 +104,22 @@
 
   <!-- Hero -->
   <section class="hero container">
-    <span class="eyebrow">Coleção Premium 2026</span>
-    <h1 data-cfg="hero_title" {{ 'contenteditable=true' if editor else '' }}>{{ config.hero_title }}</h1>
-    <p class="sub" data-cfg="hero_subtitle" {{ 'contenteditable=true' if editor else '' }}>{{ config.hero_subtitle }}</p>
+    <div class="hero-logo-wrap">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="hero-logo">
+    </div>
+
+    <h1>PODS DE QUALIDADE EM <span class="accent">SÃO LUÍS</span> VOCÊ ENCONTRA AQUI</h1>
+
+    <div class="hero-badges">
+      <span class="hero-badge">🚚 Entrega Rápida</span>
+      <span class="hero-badge">✅ Pods Originais</span>
+      <span class="hero-badge">💬 Atendimento WhatsApp</span>
+      <span class="hero-badge">⭐ Avaliações de Clientes</span>
+    </div>
+
     <div class="hero-cta">
-      <a href="#catalogo" class="btn btn-primary"> Catálogo ⚡</a>
-      <a href="#best" class="btn btn-ghost">Mais Vendidos</a>
+      <a href="https://wa.me/{{ whatsapp }}?text={{ 'Olá! Vim pelo site da Royal e quero saber mais sobre os produtos.' | urlencode }}" target="_blank" class="btn btn-whatsapp">💬 Falar no WhatsApp</a>
+      <a href="#catalogo" class="btn btn-ghost">Ver Catálogo</a>
     </div>
   </section>
 

@@ -71,7 +71,7 @@
     t.classList.toggle("toast-success", variant === "success");
     t.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 2000);
   }
 
   // ---------------------------------------------------------------
