@@ -57,12 +57,21 @@
   // TOAST
   // ---------------------------------------------------------------
   let toastTimer;
-  function toast(msg) {
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+  function toast(title, subtitle, variant) {
     const t = byId("toast");
-    t.textContent = msg;
+    t.innerHTML = subtitle
+      ? `<span class="toast-icon">${variant === "success" ? "✓" : "•"}</span>
+         <span class="toast-body"><strong>${escapeHtml(title)}</strong><span>${escapeHtml(subtitle)}</span></span>`
+      : `<span class="toast-body"><strong>${escapeHtml(title)}</strong></span>`;
+    t.classList.toggle("toast-success", variant === "success");
     t.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
   }
 
   // ---------------------------------------------------------------
@@ -200,7 +209,7 @@
     renderCart();
     closeModal();
     openCart();
-    toast("Adicionado ao carrinho ✓");
+    toast("Adicionado ao carrinho", `${m.name} • ${f.name}`, "success");
   });
 
   byId("modalClose").addEventListener("click", closeModal);

@@ -15,6 +15,7 @@
   --text-dim: #9a97a5;
   --border: #29262f;
   --green: #25D366;
+  --green-soft: #6be3a4;
   --radius: 18px;
   --radius-sm: 12px;
   --shadow: 0 20px 50px rgba(0,0,0,.55);
@@ -926,14 +927,57 @@ body.editor-mode .model-card { cursor: default; }
 
 /* ---------- Toast ---------- */
 .toast {
-  position: fixed; bottom: 24px; left: 24px; z-index: 300;
-  background: var(--surface-2); border: 1px solid var(--primary-yellow);
-  color: var(--text); padding: 12px 20px; border-radius: 12px;
-  font-size: .88rem; font-weight: 600;
-  transform: translateY(120px); opacity: 0;
-  transition: .3s; box-shadow: var(--shadow);
+  position: fixed;
+  bottom: max(24px, calc(env(safe-area-inset-bottom) + 14px));
+  left: max(24px, calc(env(safe-area-inset-left) + 14px));
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(360px, calc(100vw - 48px));
+  background: linear-gradient(160deg, var(--surface-2), var(--surface) 65%);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 14px 18px;
+  border-radius: 16px;
+  font-size: .88rem;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(16px) scale(.97);
+  transition: transform .35s cubic-bezier(.22,1,.36,1), opacity .28s ease-out, visibility 0s linear .35s;
 }
-.toast.show { transform: none; opacity: 1; }
+.toast.show {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: transform .35s cubic-bezier(.22,1,.36,1), opacity .3s ease-out, visibility 0s linear 0s;
+}
+.toast-icon {
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 1rem; font-weight: 800;
+  background: var(--green);
+  color: #06210f;
+  box-shadow: 0 0 0 4px rgba(37,211,102,.14);
+}
+.toast-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.toast-body strong {
+  font-size: .9rem; font-weight: 800; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.toast-body span {
+  font-size: .78rem; color: var(--text-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.toast.toast-success {
+  border-color: rgba(37,211,102,.35);
+  box-shadow: var(--shadow), 0 0 26px rgba(37,211,102,.14);
+}
+.toast.toast-success .toast-body strong { color: var(--green-soft); }
 
 /* ===================================================================
    SCROLL REVEAL — fade sutil + deslize de baixo pra cima (ref. Apple/Linear)
@@ -957,7 +1001,7 @@ body.editor-mode .model-card { cursor: default; }
   .modal-overlay, .modal, .checkout-overlay, .checkout-panel,
   .cart-overlay, .cart-sidebar, .cart-item,
   .btn, .add-btn, .whatsapp-btn, .geo-btn,
-  .age-gate, .age-gate-card {
+  .age-gate, .age-gate-card, .toast {
     transition-duration: .01ms !important;
     transform: none !important;
   }
@@ -1201,6 +1245,25 @@ body.editor-mode .model-card { cursor: default; }
 
   .editor-bar { flex-wrap: wrap; justify-content: center; bottom: 10px; width: 92%; gap: 10px; }
   .editor-hint { display: none; }
+
+  /* --- Toast mobile ---
+     Carrinho/checkout ocupam a tela cheia no mobile, então embaixo (onde fica
+     o botão principal "Finalizar Pedido") não é um lugar seguro pro toast.
+     Sobe pro topo, longe do CTA. */
+  .toast {
+    top: max(16px, calc(env(safe-area-inset-top) + 10px));
+    bottom: auto;
+    left: 50%;
+    right: auto;
+    max-width: calc(100vw - 32px);
+    padding: 12px 14px;
+    gap: 10px;
+    transform: translate(-50%, -16px) scale(.97);
+  }
+  .toast.show { transform: translate(-50%, 0) scale(1); }
+  .toast-icon { width: 30px; height: 30px; font-size: .9rem; }
+  .toast-body strong { font-size: .86rem; }
+  .toast-body span { font-size: .74rem; }
 
   /* --- Age Gate mobile --- */
   .age-gate-card { padding: 34px 22px 26px; border-radius: 22px; }
