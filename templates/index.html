@@ -34,6 +34,19 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem("royal_age_verified");
+        if (raw) {
+          var data = JSON.parse(raw);
+          if (data && data.expires && Date.now() < data.expires) {
+            document.documentElement.classList.add("age-ok");
+          }
+        }
+      } catch (e) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#0a0a0c">
   <meta name="mobile-web-app-capable" content="yes">
@@ -43,6 +56,29 @@
   <style>:root{ --primary-yellow: {{ config.theme_primary_color or '#FFD60A' }}; }</style>
 </head>
 <body class="{{ 'editor-mode' if editor else '' }}">
+
+  <!-- ============ AGE GATE ============ -->
+  <div class="age-gate" id="ageGate" role="dialog" aria-modal="true" aria-labelledby="ageGateTitle">
+    <div class="age-gate-card">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="age-gate-logo">
+
+      <div class="age-gate-question" id="ageGateQuestion">
+        <h2 id="ageGateTitle">Você tem 18 anos ou mais?</h2>
+        <p class="age-gate-desc">Esta loja vende produtos destinados exclusivamente a maiores de 18 anos. Ao entrar, você confirma ter idade legal para acessar este conteúdo.</p>
+        <div class="age-gate-actions">
+          <button type="button" class="age-gate-yes" id="ageGateYes">SIM, TENHO 18 ANOS OU MAIS</button>
+          <button type="button" class="age-gate-no" id="ageGateNo">NÃO</button>
+        </div>
+      </div>
+
+      <div class="age-gate-denied" id="ageGateDenied">
+        <p class="age-gate-denied-msg">Desculpe, este site é destinado apenas a maiores de 18 anos.</p>
+        <a href="https://www.google.com" class="age-gate-exit">Sair do site</a>
+      </div>
+
+      <p class="age-gate-legal">Venda proibida para menores de 18 anos.</p>
+    </div>
+  </div>
 
   <!-- Warning marquee -->
   {% if config.show_warning_bar == '1' %}

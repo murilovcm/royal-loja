@@ -10,6 +10,44 @@
   const byId = (id) => document.getElementById(id);
   const brl = (n) => "R$ " + n.toFixed(2).replace(".", ",");
 
+  // ---------------------------------------------------------------
+  // AGE GATE
+  // ---------------------------------------------------------------
+  (function () {
+    const KEY = "royal_age_verified";
+    const DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
+    const gate = byId("ageGate");
+    if (!gate) return;
+
+    function isVerified() {
+      try {
+        const data = JSON.parse(localStorage.getItem(KEY));
+        return !!(data && data.expires && Date.now() < data.expires);
+      } catch (e) { return false; }
+    }
+
+    if (isVerified()) {
+      document.documentElement.classList.add("age-ok");
+    } else {
+      document.body.style.overflow = "hidden";
+      const yesBtn = byId("ageGateYes");
+      if (yesBtn) setTimeout(() => yesBtn.focus(), 50);
+    }
+
+    byId("ageGateYes").addEventListener("click", () => {
+      try {
+        localStorage.setItem(KEY, JSON.stringify({ expires: Date.now() + DURATION_MS }));
+      } catch (e) {}
+      gate.classList.add("age-gate-hide");
+      document.documentElement.classList.add("age-ok");
+      document.body.style.overflow = "";
+    });
+
+    byId("ageGateNo").addEventListener("click", () => {
+      gate.classList.add("denied");
+    });
+  })();
+
   // ---- Cart state (localStorage) ----
   let cart = [];
   try { cart = JSON.parse(localStorage.getItem("royal_cart")) || []; } catch (e) { cart = []; }
