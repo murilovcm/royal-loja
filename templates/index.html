@@ -52,7 +52,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <title>{{ config.store_name or 'Royal' }} — Premium Vapes</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon-64.png') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_v }}">
   <style>:root{ --primary-yellow: {{ config.theme_primary_color or '#FFD60A' }}; }</style>
 </head>
 <body class="{{ 'editor-mode' if editor else '' }}">
@@ -63,6 +63,7 @@
       <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="age-gate-logo">
 
       <div class="age-gate-question" id="ageGateQuestion">
+        <span class="age-gate-badge">🔞 Acesso restrito</span>
         <h2 id="ageGateTitle">Você tem 18 anos ou mais?</h2>
         <p class="age-gate-desc">Esta loja vende produtos destinados exclusivamente a maiores de 18 anos. Ao entrar, você confirma ter idade legal para acessar este conteúdo.</p>
         <div class="age-gate-actions">
@@ -326,6 +327,6 @@
       storeName: "{{ config.store_name or 'Royal' }}"
     };
   </script>
-  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <script src="{{ url_for('static', filename='app.js') }}?v={{ asset_v }}"></script>
 </body>
 </html>

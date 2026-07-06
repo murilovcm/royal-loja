@@ -54,6 +54,18 @@ app.config["UPLOAD_DIR"] = UPLOAD_DIR
 app.secret_key = os.environ.get("SECRET_KEY", "royal-troque-esta-chave-secreta-na-vps-2026")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+# Versão dos assets estáticos (evita o navegador servir style.css/app.js antigos do cache
+# depois de um deploy/edição, já que o Flask não versiona esses arquivos por padrão).
+ASSET_VERSION = str(int(max(
+    os.path.getmtime(os.path.join(BASE_DIR, "static", "style.css")),
+    os.path.getmtime(os.path.join(BASE_DIR, "static", "app.js")),
+)))
+
+
+@app.context_processor
+def inject_asset_version():
+    return {"asset_v": ASSET_VERSION}
+
 
 # ---------------------------------------------------------------------------
 # Autenticação do painel admin
