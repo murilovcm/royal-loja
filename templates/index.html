@@ -95,10 +95,6 @@
   <header class="site-header">
     <div class="container header-inner">
       <a href="/" class="logo"><img src="{{ url_for('static', filename='logo.png') }}" alt="Royal" class="logo-img"></a>
-      <div class="search-wrap">
-        <span class="search-ico">🔍</span>
-        <input type="text" id="searchInput" placeholder="Buscar modelo ou marca...">
-      </div>
     </div>
   </header>
 
@@ -174,6 +170,10 @@
     <div class="section-head">
       <h2>Catálogo Completo</h2>
       <p id="catalogCount"></p>
+    </div>
+    <div class="search-wrap">
+      <span class="search-ico">🔍</span>
+      <input type="text" id="searchInput" placeholder="Buscar modelo ou marca...">
     </div>
     <div class="filter-bar" id="filterBar">
       <button class="pill active" data-filter="all">Todos</button>

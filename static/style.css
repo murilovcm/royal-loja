@@ -278,9 +278,9 @@ header.site-header {
   color: transparent;
 }
 .search-wrap {
-  flex: 1;
   position: relative;
   max-width: 520px;
+  margin-bottom: 18px;
 }
 .search-wrap input {
   width: 100%;
@@ -1204,7 +1204,7 @@ body.editor-mode .model-card { cursor: default; }
   .logo { font-size: 1.4rem; }
   .logo-img { height: 56px; }
   .footer-logo img { height: 110px; }
-  .search-wrap { order: 3; flex-basis: 100%; max-width: none; }
+  .search-wrap { max-width: none; }
   .search-wrap input { padding: 12px 16px 12px 42px; font-size: 16px; } /* 16px evita zoom no iOS */
 
   .hero { padding: 44px 0 34px; }
