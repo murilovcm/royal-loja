@@ -1243,7 +1243,7 @@ body.editor-mode .model-card { cursor: default; }
 
 /* -------- Tablets / celulares grandes -------- */
 @media (max-width: 720px) {
-  .container { padding: 0 16px; }
+  .container { padding-left: 16px; padding-right: 16px; }
 
   /* Header em uma linha limpa: logo | espaço | carrinho, busca embaixo */
   .header-inner { flex-wrap: wrap; gap: 12px; padding: 12px 0; }
@@ -1274,7 +1274,7 @@ body.editor-mode .model-card { cursor: default; }
 
 /* -------- Celulares (2 colunas) -------- */
 @media (max-width: 520px) {
-  .container { padding: 0 12px; }
+  .container { padding-left: 12px; padding-right: 12px; }
 
   /* --- Header premium mobile --- */
   .header-inner { gap: 12px; padding: 12px 0; align-items: center; }
