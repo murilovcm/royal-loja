@@ -293,7 +293,7 @@
 
     if (cart.length === 0) {
       box.innerHTML = `<div class="cart-empty"><div class="big">🛒</div>Seu carrinho está vazio.</div>`;
-      byId("cartTotal").textContent = brl(0);
+      resetCoupon();
       byId("whatsappBtn").disabled = true;
       return;
     }
@@ -320,78 +320,11 @@
       </div>`;
     }).join("");
 
-    const total = cart.reduce((s, it) => s + it.price * it.qty, 0);
-    byId("cartTotal").textContent = brl(total);
+    updateTotals();
     byId("whatsappBtn").disabled = false;
   }
 
-  byId("cartItems").addEventListener("click", (e) => {
-    const rm = e.target.closest(".rm");
-    if (rm) {
-      const idx = Number(rm.dataset.idx);
-      const row = rm.closest(".cart-item");
-      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (reduced || !row) { cart.splice(idx, 1); saveCart(); renderCart(); return; }
-      row.style.maxHeight = row.offsetHeight + "px";
-      row.classList.add("removing");
-      void row.offsetHeight;
-      row.style.maxHeight = "0px";
-      setTimeout(() => { cart.splice(idx, 1); saveCart(); renderCart(); }, 320);
-      return;
-    }
-    const qb = e.target.closest("[data-act]");
-    if (qb) {
-      const idx = Number(qb.dataset.idx);
-      if (qb.dataset.act === "inc") cart[idx].qty++;
-      else { cart[idx].qty--; if (cart[idx].qty < 1) cart.splice(idx, 1); }
-      saveCart(); renderCart();
-    }
-  });
-
-  // ---------------------------------------------------------------
-  // CHECKOUT PANEL
-  // ---------------------------------------------------------------
-  const checkoutPanel = byId("checkoutPanel");
-  const checkoutOverlay = byId("checkoutOverlay");
-  let geoCoords = null;
-
-  function openCheckout() {
-    if (cart.length === 0) return;
-    resetCoupon();
-    renderCheckoutSummary();
-    closeCart();
-    checkoutPanel.classList.add("open");
-    checkoutOverlay.classList.add("open");
-    document.body.style.overflow = "hidden";
-  }
-  function closeCheckout() {
-    checkoutPanel.classList.remove("open");
-    checkoutOverlay.classList.remove("open");
-    document.body.style.overflow = "";
-  }
-
-  byId("whatsappBtn").addEventListener("click", openCheckout);
-  byId("checkoutClose").addEventListener("click", closeCheckout);
-  checkoutOverlay.addEventListener("click", closeCheckout);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCheckout(); });
-
-  function renderCheckoutSummary() {
-    const box = byId("checkoutItems");
-    box.innerHTML = cart.map((it) => {
-      const sub = it.price * it.qty;
-      return `<div class="checkout-item">
-        <span class="qty">${it.qty}x</span>
-        <div class="ci-info">
-          <div class="m">${it.model_name}</div>
-          <div class="f">${it.flavor_name}</div>
-        </div>
-        <span class="p">${brl(sub)}</span>
-      </div>`;
-    }).join("");
-    updateCheckoutTotals();
-  }
-
-  // ---- Coupon ----
+  // ---- Coupon (aplicado no carrinho, vale para o checkout também) ----
   let appliedCoupon = null; // { code, type: 'percent'|'fixed', value }
 
   function cartTotal() {
@@ -404,17 +337,25 @@
     return Math.min(coupon.value, total);
   }
 
-  function updateCheckoutTotals() {
+  function updateTotals() {
     const total = cartTotal();
     const discount = computeDiscount(appliedCoupon, total);
     const finalTotal = Math.max(total - discount, 0);
-    const discountRow = byId("checkoutDiscountRow");
-    if (appliedCoupon && discount > 0) {
-      discountRow.style.display = "flex";
+    const showDiscount = !!(appliedCoupon && discount > 0);
+
+    const cartDiscountRow = byId("cartDiscountRow");
+    cartDiscountRow.style.display = showDiscount ? "flex" : "none";
+    if (showDiscount) {
+      byId("cartDiscountCode").textContent = `(${appliedCoupon.code})`;
+      byId("cartDiscountValue").textContent = "-" + brl(discount);
+    }
+    byId("cartTotal").textContent = brl(finalTotal);
+
+    const checkoutDiscountRow = byId("checkoutDiscountRow");
+    checkoutDiscountRow.style.display = showDiscount ? "flex" : "none";
+    if (showDiscount) {
       byId("checkoutDiscountCode").textContent = `(${appliedCoupon.code})`;
       byId("checkoutDiscountValue").textContent = "-" + brl(discount);
-    } else {
-      discountRow.style.display = "none";
     }
     byId("checkoutTotal").textContent = brl(finalTotal);
   }
@@ -434,7 +375,7 @@
     const fb = byId("couponFeedback");
     fb.textContent = "";
     fb.className = "coupon-feedback";
-    updateCheckoutTotals();
+    updateTotals();
   }
 
   byId("couponApplyBtn").addEventListener("click", async () => {
@@ -472,12 +413,77 @@
       setCouponFeedback("Erro ao validar cupom. Tente novamente.", "error");
     }
     btn.disabled = false;
-    updateCheckoutTotals();
+    updateTotals();
   });
 
   byId("couponInput").addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); byId("couponApplyBtn").click(); }
   });
+
+  byId("cartItems").addEventListener("click", (e) => {
+    const rm = e.target.closest(".rm");
+    if (rm) {
+      const idx = Number(rm.dataset.idx);
+      const row = rm.closest(".cart-item");
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduced || !row) { cart.splice(idx, 1); saveCart(); renderCart(); return; }
+      row.style.maxHeight = row.offsetHeight + "px";
+      row.classList.add("removing");
+      void row.offsetHeight;
+      row.style.maxHeight = "0px";
+      setTimeout(() => { cart.splice(idx, 1); saveCart(); renderCart(); }, 320);
+      return;
+    }
+    const qb = e.target.closest("[data-act]");
+    if (qb) {
+      const idx = Number(qb.dataset.idx);
+      if (qb.dataset.act === "inc") cart[idx].qty++;
+      else { cart[idx].qty--; if (cart[idx].qty < 1) cart.splice(idx, 1); }
+      saveCart(); renderCart();
+    }
+  });
+
+  // ---------------------------------------------------------------
+  // CHECKOUT PANEL
+  // ---------------------------------------------------------------
+  const checkoutPanel = byId("checkoutPanel");
+  const checkoutOverlay = byId("checkoutOverlay");
+  let geoCoords = null;
+
+  function openCheckout() {
+    if (cart.length === 0) return;
+    renderCheckoutSummary();
+    closeCart();
+    checkoutPanel.classList.add("open");
+    checkoutOverlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function closeCheckout() {
+    checkoutPanel.classList.remove("open");
+    checkoutOverlay.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  byId("whatsappBtn").addEventListener("click", openCheckout);
+  byId("checkoutClose").addEventListener("click", closeCheckout);
+  checkoutOverlay.addEventListener("click", closeCheckout);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCheckout(); });
+
+  function renderCheckoutSummary() {
+    const box = byId("checkoutItems");
+    box.innerHTML = cart.map((it) => {
+      const sub = it.price * it.qty;
+      return `<div class="checkout-item">
+        <span class="qty">${it.qty}x</span>
+        <div class="ci-info">
+          <div class="m">${it.model_name}</div>
+          <div class="f">${it.flavor_name}</div>
+        </div>
+        <span class="p">${brl(sub)}</span>
+      </div>`;
+    }).join("");
+    updateTotals();
+  }
 
   // ---- Phone mask (Brazilian) ----
   function maskPhoneBR(value) {

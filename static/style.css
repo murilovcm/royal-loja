@@ -996,11 +996,11 @@ header.site-header {
 .geo-status.danger { color: #ff5a5a; }
 
 .coupon-box {
-  margin-top: 4px;
+  margin-bottom: 14px;
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--surface-2);
 }
 .coupon-input-row { display: flex; align-items: center; gap: 10px; }
 .coupon-icon { flex-shrink: 0; width: 20px; height: 20px; color: var(--primary-yellow); }
@@ -1030,9 +1030,9 @@ header.site-header {
 .coupon-feedback.success { color: var(--green); }
 .coupon-feedback.error { color: #ff5a5a; }
 
-.checkout-discount-row {
+.checkout-discount-row, .cart-discount-row {
   display: flex; justify-content: space-between; align-items: center;
-  margin-top: 12px; font-size: .88rem; font-weight: 700; color: var(--green);
+  margin-top: 12px; margin-bottom: 14px; font-size: .88rem; font-weight: 700; color: var(--green);
 }
 
 .checkout-foot { padding: 20px 22px; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
