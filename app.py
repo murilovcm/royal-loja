@@ -7,6 +7,7 @@ from flask import (
     redirect, url_for, send_from_directory, session, abort
 )
 from werkzeug.utils import secure_filename
+from PIL import Image, ImageOps
 
 # ---------------------------------------------------------------------------
 # Configuração
@@ -22,6 +23,11 @@ os.makedirs(DATA_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, "royal.db")
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 ALLOWED_EXT = {"png", "jpg", "jpeg", "gif", "webp"}
+
+# Todas as fotos de produto são padronizadas para este tamanho (quadrado)
+# ao serem enviadas pelo painel admin, garantindo o mesmo enquadramento
+# em qualquer card ou modal do site.
+PRODUCT_IMAGE_SIZE = 800
 
 # Telefone do dono da loja (formato internacional, apenas dígitos)
 # CONFIRME: celular brasileiro tem 9 dígitos após o DDD (começa com 9).
@@ -692,6 +698,27 @@ def api_delete_product(pid):
 
 
 # ---- Upload de imagem ----
+def process_product_image(file_storage, size=PRODUCT_IMAGE_SIZE):
+    """Recorta ao centro em proporção 1:1 e redimensiona para `size`x`size`.
+
+    Garante que toda foto de produto salva no site tenha exatamente o mesmo
+    enquadramento quadrado, independente do tamanho/proporção enviado pelo admin.
+    """
+    img = Image.open(file_storage)
+    img = ImageOps.exif_transpose(img)  # corrige rotação de fotos tiradas por celular
+
+    has_alpha = img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info)
+    img = img.convert("RGBA") if has_alpha else img.convert("RGB")
+
+    w, h = img.size
+    side = min(w, h)
+    left = (w - side) // 2
+    top = (h - side) // 2
+    img = img.crop((left, top, left + side, top + side))
+    img = img.resize((size, size), Image.LANCZOS)
+    return img
+
+
 @app.route("/api/upload_image", methods=["POST"])
 @api_login_required
 def api_upload_image():
@@ -703,9 +730,20 @@ def api_upload_image():
     ext = file.filename.rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_EXT:
         return jsonify({"ok": False, "error": "formato inválido"}), 400
-    fname = f"{uuid.uuid4().hex}.{ext}"
+
+    try:
+        processed = process_product_image(file)
+    except Exception:
+        return jsonify({"ok": False, "error": "não foi possível processar a imagem"}), 400
+
+    # Salva sempre a versão processada (nunca o arquivo bruto enviado).
+    out_ext = "png" if processed.mode == "RGBA" else "jpg"
+    fname = f"{uuid.uuid4().hex}.{out_ext}"
     path = os.path.join(app.config["UPLOAD_DIR"], secure_filename(fname))
-    file.save(path)
+    if out_ext == "jpg":
+        processed.save(path, "JPEG", quality=88, optimize=True)
+    else:
+        processed.save(path, "PNG", optimize=True)
     image_url = url_for("uploaded_file", filename=fname)
 
     model_id = request.form.get("model_id")
