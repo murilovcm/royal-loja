@@ -9,7 +9,7 @@ from flask import (
 from werkzeug.utils import secure_filename
 from PIL import Image, ImageOps
 
-from shipping import calculate_shipping
+from shipping import calculate_shipping, SPECIAL_ZONES, CONCENTRIC_ZONES
 
 # ---------------------------------------------------------------------------
 # Configuração
@@ -170,6 +170,16 @@ def init_db():
             value  REAL NOT NULL DEFAULT 0,
             active INTEGER NOT NULL DEFAULT 1
         );
+
+        CREATE TABLE IF NOT EXISTS shipping_zones (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            zone_type TEXT NOT NULL,     -- 'special' ou 'concentric'
+            label     TEXT NOT NULL,
+            lat       REAL NOT NULL,
+            lng       REAL NOT NULL,
+            radius_m  REAL NOT NULL,
+            price     REAL                -- NULL = placeholder ("frete a combinar"), só permitido em zona especial
+        );
         """
     )
     db.commit()
@@ -222,6 +232,21 @@ def init_db():
                 (f"promo_{pid}_{field}", value),
             )
         db.execute("DELETE FROM site_config WHERE key LIKE 'atacado_%' OR key = 'show_atacado'")
+        db.commit()
+
+    # Semeia shipping_zones com os valores de shipping.py na primeira execução.
+    # Depois disso, o banco manda — editar shipping.py não muda mais nada em produção.
+    if db.execute("SELECT COUNT(*) AS c FROM shipping_zones").fetchone()[0] == 0:
+        for z in SPECIAL_ZONES:
+            db.execute(
+                "INSERT INTO shipping_zones (zone_type, label, lat, lng, radius_m, price) VALUES ('special', ?, ?, ?, ?, ?)",
+                (z["label"], z["lat"], z["lng"], z["radius_m"], z["price"]),
+            )
+        for z in CONCENTRIC_ZONES:
+            db.execute(
+                "INSERT INTO shipping_zones (zone_type, label, lat, lng, radius_m, price) VALUES ('concentric', ?, ?, ?, ?, ?)",
+                (z["label"], z["lat"], z["lng"], z["radius_m"], z["price"]),
+            )
         db.commit()
 
     # Seed de exemplo se vazio
@@ -403,6 +428,19 @@ def get_coupons():
     return coupons
 
 
+def get_shipping_zones():
+    """Lê as zonas de frete do banco (fonte da verdade em produção, editável
+    pelo painel admin). Retorna (special_zones, concentric_zones), no
+    formato de dict que shipping.calculate_shipping() espera.
+    """
+    rows = get_db().execute(
+        "SELECT * FROM shipping_zones ORDER BY zone_type DESC, radius_m ASC"
+    ).fetchall()
+    special = [dict(r) for r in rows if r["zone_type"] == "special"]
+    concentric = [dict(r) for r in rows if r["zone_type"] == "concentric"]
+    return special, concentric
+
+
 def build_catalog():
     """Monta a lista de modelos com seus sabores e metadados agregados."""
     db = get_db()
@@ -516,12 +554,15 @@ def admin():
             ).fetchall()
             mlist.append({"model": dict(m), "flavors": [dict(f) for f in flavors]})
         tree.append({"brand": dict(b), "models": mlist})
+    special_zones, concentric_zones = get_shipping_zones()
     return render_template(
         "admin.html",
         tree=tree,
         config=get_config(),
         promo_blocks=get_promo_blocks(only_active=False),
         coupons=get_coupons(),
+        special_zones=special_zones,
+        concentric_zones=concentric_zones,
     )
 
 
@@ -736,7 +777,125 @@ def api_calculate_shipping():
     if not (-90 <= lat <= 90 and -180 <= lng <= 180):
         return jsonify({"ok": False, "error": "Coordenadas inválidas"}), 400
 
-    return jsonify(calculate_shipping(lat, lng))
+    special, concentric = get_shipping_zones()
+    return jsonify(calculate_shipping(lat, lng, special_zones=special, concentric_zones=concentric))
+
+
+# ---- Zonas de frete (admin) ----
+def _parse_zone_latlng_radius(lat, lng, radius_m):
+    """Converte e valida lat/lng/radius_m. Retorna (lat, lng, radius_m, None)
+    ou (None, None, None, mensagem_de_erro)."""
+    try:
+        lat = float(lat)
+        lng = float(lng)
+        radius_m = float(radius_m)
+    except (TypeError, ValueError):
+        return None, None, None, "Latitude, longitude e raio precisam ser números"
+    if not (-90 <= lat <= 90):
+        return None, None, None, "Latitude precisa estar entre -90 e 90"
+    if not (-180 <= lng <= 180):
+        return None, None, None, "Longitude precisa estar entre -180 e 180"
+    if radius_m <= 0:
+        return None, None, None, "O raio precisa ser maior que zero"
+    return lat, lng, radius_m, None
+
+
+def _parse_zone_price(price, zone_type):
+    """Converte e valida o preço (pode ser vazio só em zona especial —
+    fica como placeholder de 'frete a combinar'). Retorna (price_ou_None, None)
+    ou (None, mensagem_de_erro)."""
+    if price is None or price == "":
+        if zone_type == "concentric":
+            return None, "Zona concêntrica precisa de um preço definido"
+        return None, None
+    try:
+        price_val = float(price)
+    except (TypeError, ValueError):
+        return None, "Preço inválido"
+    if price_val < 0:
+        return None, "Preço não pode ser negativo"
+    return price_val, None
+
+
+@app.route("/api/shipping_zone", methods=["POST"])
+@api_login_required
+def api_create_shipping_zone():
+    d = request.get_json(force=True) or {}
+    zone_type = d.get("zone_type")
+    label = (d.get("label") or "").strip()
+
+    if zone_type not in ("special", "concentric"):
+        return jsonify({"ok": False, "error": "Tipo de zona inválido"}), 400
+    if not label:
+        return jsonify({"ok": False, "error": "Nome da zona é obrigatório"}), 400
+
+    lat, lng, radius_m, err = _parse_zone_latlng_radius(d.get("lat"), d.get("lng"), d.get("radius_m"))
+    if err:
+        return jsonify({"ok": False, "error": err}), 400
+    price_val, err = _parse_zone_price(d.get("price"), zone_type)
+    if err:
+        return jsonify({"ok": False, "error": err}), 400
+
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO shipping_zones (zone_type, label, lat, lng, radius_m, price) VALUES (?,?,?,?,?,?)",
+        (zone_type, label, lat, lng, radius_m, price_val),
+    )
+    db.commit()
+    return jsonify({"ok": True, "id": cur.lastrowid})
+
+
+@app.route("/api/shipping_zone/<int:zid>", methods=["POST"])
+@api_login_required
+def api_update_shipping_zone(zid):
+    d = request.get_json(force=True) or {}
+    db = get_db()
+    row = db.execute("SELECT * FROM shipping_zones WHERE id = ?", (zid,)).fetchone()
+    if not row:
+        return jsonify({"ok": False, "error": "Zona não encontrada"}), 404
+
+    fields = []
+    vals = []
+    if "label" in d:
+        label = (d["label"] or "").strip()
+        if not label:
+            return jsonify({"ok": False, "error": "Nome da zona é obrigatório"}), 400
+        fields.append("label = ?")
+        vals.append(label)
+    if "lat" in d or "lng" in d or "radius_m" in d:
+        lat, lng, radius_m, err = _parse_zone_latlng_radius(
+            d.get("lat", row["lat"]), d.get("lng", row["lng"]), d.get("radius_m", row["radius_m"])
+        )
+        if err:
+            return jsonify({"ok": False, "error": err}), 400
+        if "lat" in d:
+            fields.append("lat = ?"); vals.append(lat)
+        if "lng" in d:
+            fields.append("lng = ?"); vals.append(lng)
+        if "radius_m" in d:
+            fields.append("radius_m = ?"); vals.append(radius_m)
+    if "price" in d:
+        price_val, err = _parse_zone_price(d.get("price"), row["zone_type"])
+        if err:
+            return jsonify({"ok": False, "error": err}), 400
+        fields.append("price = ?")
+        vals.append(price_val)
+
+    if not fields:
+        return jsonify({"ok": False}), 400
+    vals.append(zid)
+    db.execute(f"UPDATE shipping_zones SET {', '.join(fields)} WHERE id = ?", vals)
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/shipping_zone/<int:zid>", methods=["DELETE"])
+@api_login_required
+def api_delete_shipping_zone(zid):
+    db = get_db()
+    db.execute("DELETE FROM shipping_zones WHERE id = ?", (zid,))
+    db.commit()
+    return jsonify({"ok": True})
 
 
 # ---- Brands ----

@@ -1,7 +1,11 @@
 """Cálculo de frete por zonas circulares (distância Haversine).
 
-Edite as listas abaixo para ajustar centros, raios (em metros) e preços —
-a lógica de cálculo não precisa ser tocada.
+As listas abaixo (SPECIAL_ZONES/CONCENTRIC_ZONES) são só a SEMENTE inicial:
+na primeira vez que o app roda, esses valores são copiados para a tabela
+`shipping_zones` no banco, e a partir daí o banco manda (editável pelo
+painel admin em "Zonas de Frete"). Editar essas listas aqui depois disso
+não muda mais o site — só serve como referência/fixture para os testes,
+que chamam calculate_shipping() sem passar zonas explicitamente.
 
 Zonas especiais (bolsões isolados) são testadas ANTES das concêntricas.
 Zonas concêntricas são testadas da menor para a maior (a lista é reordenada
@@ -41,16 +45,23 @@ def haversine_distance_m(lat1, lng1, lat2, lng2):
     return EARTH_RADIUS_M * c
 
 
-def calculate_shipping(lat, lng):
+def calculate_shipping(lat, lng, special_zones=None, concentric_zones=None):
     """Retorna o frete para um ponto (lat, lng), testando zonas especiais
     primeiro e depois as concêntricas (da menor para a maior).
+
+    `special_zones`/`concentric_zones` são opcionais — se omitidos, usa as
+    listas fixas deste módulo (útil para os testes). Em produção, o app.py
+    sempre passa as zonas carregadas do banco (editáveis pelo admin).
 
     Retorna um dict:
       - zona concêntrica: {"ok": True, "special": False, "zone_label": ..., "price": <num>, "message": None}
       - zona especial (preço placeholder): {"ok": True, "special": True, "zone_label": ..., "price": None, "message": "..."}
       - fora de tudo: {"ok": False, "special": False, "zone_label": None, "price": None, "message": FORA_DA_AREA_MSG}
     """
-    for zone in SPECIAL_ZONES:
+    special_zones = SPECIAL_ZONES if special_zones is None else special_zones
+    concentric_zones = CONCENTRIC_ZONES if concentric_zones is None else concentric_zones
+
+    for zone in special_zones:
         dist = haversine_distance_m(lat, lng, zone["lat"], zone["lng"])
         if dist <= zone["radius_m"]:
             message = (
@@ -67,7 +78,7 @@ def calculate_shipping(lat, lng):
                 "message": message,
             }
 
-    for zone in sorted(CONCENTRIC_ZONES, key=lambda z: z["radius_m"]):
+    for zone in sorted(concentric_zones, key=lambda z: z["radius_m"]):
         dist = haversine_distance_m(lat, lng, zone["lat"], zone["lng"])
         if dist <= zone["radius_m"]:
             return {
