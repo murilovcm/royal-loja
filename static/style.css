@@ -1419,6 +1419,7 @@ body.editor-mode .model-card { cursor: default; }
   .checkout-body { padding: 16px 18px; }
   .checkout-foot { padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); }
   .field input, .field select, .field textarea { font-size: 16px; } /* evita zoom no iOS */
+  .coupon-input-row input { font-size: 16px; } /* evita zoom no iOS */
   .cart-fab { bottom: 18px; right: 18px; width: 54px; height: 54px; font-size: 1.35rem; }
 
   .editor-bar { flex-wrap: wrap; justify-content: center; bottom: 10px; width: 92%; gap: 10px; }
