@@ -37,8 +37,23 @@
     }
     .model-line .m-puff:hover { border-color:rgba(255,214,10,.3); }
     .model-line .m-puff:focus { outline:none; border-color:var(--primary-yellow); }
-    .model-line .m-thumb { width:40px; height:40px; border-radius:8px; background:var(--bg-2); display:grid; place-items:center; overflow:hidden; }
-    .model-line .m-thumb img { width:100%; height:100%; object-fit:contain; }
+    .m-photo {
+      width:64px; height:64px; border-radius:12px; position:relative; flex-shrink:0;
+      background:var(--bg-2); border:1.5px dashed var(--border);
+      display:grid; place-items:center; overflow:hidden; cursor:pointer; transition:.2s;
+    }
+    .m-photo:hover { border-color:var(--purple-soft); }
+    .m-photo.has-img { border-style:solid; }
+    .m-photo img { width:100%; height:100%; object-fit:contain; padding:6px; }
+    .m-photo-icon { font-size:1.3rem; color:var(--text-dim); pointer-events:none; }
+    .m-photo.drag-over { border-color:var(--primary-yellow) !important; box-shadow:0 0 0 3px rgba(255,214,10,.25); background:rgba(255,214,10,.06); }
+    .m-photo-remove {
+      position:absolute; top:3px; right:3px; width:18px; height:18px; border-radius:50%;
+      background:rgba(0,0,0,.65); color:#fff; font-size:.62rem; display:grid; place-items:center;
+      opacity:0; transition:.2s; line-height:1;
+    }
+    .m-photo:hover .m-photo-remove { opacity:1; }
+    .m-photo-input { display:none; }
     .model-line .spacer { flex:1; }
     .expand-btn { background:none; color:var(--purple-soft); font-size:.82rem; font-weight:600; }
     .del-btn { background:none; color:var(--text-dim); transition:.2s; font-size:1rem; }
@@ -238,7 +253,15 @@
         <div class="model-row" data-mid="{{ m.id }}">
           <div class="model-line">
             <button class="star-toggle {{ 'on' if m.is_best_seller }}" onclick="toggleBest({{ m.id }}, this)" title="Mais vendido">★</button>
-            <div class="m-thumb">{% if m.image_url %}<img src="{{ m.image_url }}">{% else %}📦{% endif %}</div>
+            <div class="m-photo {{ 'has-img' if m.image_url }}" id="photo-{{ m.id }}" data-mid="{{ m.id }}" onclick="triggerPhotoInput({{ m.id }})" title="Clique ou arraste uma imagem">
+              {% if m.image_url %}
+              <img src="{{ m.image_url }}" alt="">
+              <button class="m-photo-remove" onclick="removeModelImage({{ m.id }}, event)" title="Remover foto">✕</button>
+              {% else %}
+              <span class="m-photo-icon">📷</span>
+              {% endif %}
+              <input type="file" accept="image/*" class="m-photo-input" id="photo-input-{{ m.id }}" onchange="handlePhotoInput({{ m.id }}, this)" onclick="event.stopPropagation()">
+            </div>
             <input type="text" class="m-name" value="{{ m.name }}" onchange="updateModel({{ m.id }}, 'name', this.value)">
             <input type="text" class="m-puff" value="{{ m.puff_count }}" onchange="updateModel({{ m.id }}, 'puff_count', this.value)">
             <span class="spacer"></span>
@@ -326,6 +349,56 @@
       await api('/api/model/'+id,'POST',body);
       toast("Salvo ✓");
     }
+
+    // ---- Foto do modelo (drag & drop + clique) ----
+    function triggerPhotoInput(mid) {
+      document.getElementById('photo-input-'+mid).click();
+    }
+    function handlePhotoInput(mid, el) {
+      const file = el.files[0];
+      uploadModelImage(mid, file);
+      el.value = "";
+    }
+    async function uploadModelImage(mid, file) {
+      if (!file || !file.type.startsWith('image/')) { toast("Selecione um arquivo de imagem"); return; }
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('model_id', mid);
+      toast("Enviando imagem...");
+      try {
+        const r = await fetch('/api/upload_image', { method: 'POST', body: fd });
+        const data = await r.json();
+        if (data.ok) {
+          const box = document.getElementById('photo-'+mid);
+          box.classList.add('has-img');
+          box.innerHTML =
+            `<img src="${data.image_url}" alt="">` +
+            `<button class="m-photo-remove" onclick="removeModelImage(${mid}, event)" title="Remover foto">✕</button>` +
+            `<input type="file" accept="image/*" class="m-photo-input" id="photo-input-${mid}" onchange="handlePhotoInput(${mid}, this)" onclick="event.stopPropagation()">`;
+          toast("Foto atualizada ✓");
+        } else toast("Erro no upload");
+      } catch (e) { toast("Erro no upload"); }
+    }
+    async function removeModelImage(mid, e) {
+      e.stopPropagation();
+      await api('/api/model/'+mid, 'POST', {image_url: ''});
+      const box = document.getElementById('photo-'+mid);
+      box.classList.remove('has-img');
+      box.innerHTML =
+        `<span class="m-photo-icon">📷</span>` +
+        `<input type="file" accept="image/*" class="m-photo-input" id="photo-input-${mid}" onchange="handlePhotoInput(${mid}, this)" onclick="event.stopPropagation()">`;
+      toast("Foto removida");
+    }
+    document.querySelectorAll('.m-photo').forEach((box) => {
+      const mid = box.dataset.mid;
+      box.addEventListener('dragover', (e) => { e.preventDefault(); box.classList.add('drag-over'); });
+      box.addEventListener('dragleave', () => box.classList.remove('drag-over'));
+      box.addEventListener('drop', (e) => {
+        e.preventDefault();
+        box.classList.remove('drag-over');
+        uploadModelImage(mid, e.dataTransfer.files[0]);
+      });
+    });
     async function delModel(id) {
       if (!confirm("Excluir este modelo e seus sabores?")) return;
       await api('/api/model/'+id,'DELETE');
