@@ -81,15 +81,11 @@
     </div>
   </div>
 
-  <!-- Warning marquee -->
-  {% if config.show_warning_bar == '1' %}
-  <div class="warning-bar" id="warningBar">
-    <div class="warning-track">
-      <span data-cfg="warning_bar_text" {{ 'contenteditable=true' if editor else '' }}>{{ config.warning_bar_text }}</span>
-      <span aria-hidden="true">{{ config.warning_bar_text }}</span>
-    </div>
+  <!-- Disclaimer legal fixo -->
+  <div class="legal-bar">
+    <span class="legal-bar-icon">🔞</span>
+    <span>Venda proibida para menores de 18 anos · Produto contém nicotina</span>
   </div>
-  {% endif %}
 
   <!-- Header -->
   <header class="site-header">

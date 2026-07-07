@@ -167,8 +167,6 @@ def init_db():
     # Config padrão
     defaults = {
         "theme_primary_color": "#FFD60A",
-        "show_warning_bar": "1",
-        "warning_bar_text": "🔥 FRETE GRÁTIS ACIMA DE R$300 • ENTREGA DISCRETA • VENDA PROIBIDA PARA MENORES DE 18 ANOS 🔥",
         "hero_title": "Sabor que reina. Qualidade Royal.",
         "hero_subtitle": "Os melhores pods descartáveis com a curadoria mais premium do Brasil.",
         "store_name": "Royal",

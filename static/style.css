@@ -208,29 +208,22 @@ html.age-ok .age-gate-card,
 }
 .age-gate-exit:hover { color: var(--yellow-soft); }
 
-/* ---------- Warning marquee ---------- */
-.warning-bar {
-  background: linear-gradient(90deg, var(--purple-deep), #000, var(--purple-deep));
+/* ---------- Disclaimer legal fixo ---------- */
+.legal-bar {
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
-  overflow: hidden;
-  white-space: nowrap;
+  padding: 8px 16px;
+  text-align: center;
   position: relative;
   z-index: 20;
 }
-.warning-track {
-  display: inline-block;
-  padding: 9px 0;
-  color: var(--yellow-soft);
-  font-size: .78rem;
+.legal-bar span {
+  font-size: .74rem;
   font-weight: 600;
-  letter-spacing: .5px;
-  animation: marquee 24s linear infinite;
+  letter-spacing: .3px;
+  color: var(--text-dim);
 }
-.warning-track span { padding: 0 2rem; }
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
-}
+.legal-bar-icon { margin-right: 6px; filter: grayscale(.15); }
 
 /* ---------- Header ---------- */
 header.site-header {
@@ -1242,8 +1235,8 @@ body.editor-mode .model-card { cursor: default; }
   .logo { font-size: 1.3rem; gap: 6px; margin: 0 auto; order: 2; }
   .logo-img { height: 60px; }
   .footer-logo img { height: 110px; }
-  .warning-track { font-size: .68rem; }
-  .warning-track span { padding: 0 1.2rem; }
+  .legal-bar { padding: 7px 12px; }
+  .legal-bar span { font-size: .66rem; }
 
   /* --- Hero --- */
   .hero { padding: 34px 0 26px; }
