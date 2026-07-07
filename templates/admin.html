@@ -24,8 +24,19 @@
     .model-line { display:flex; align-items:center; gap:12px; padding:14px 20px; flex-wrap:wrap; }
     .star-toggle { background:none; font-size:1.4rem; color:var(--border); transition:.2s; line-height:1; }
     .star-toggle.on { color:var(--primary-yellow); filter:drop-shadow(0 0 8px rgba(255,214,10,.5)); }
-    .model-line .m-name { font-weight:700; font-size:1rem; min-width:120px; }
-    .model-line .m-puff { color:var(--yellow-soft); font-size:.8rem; background:rgba(255,214,10,.08); padding:3px 10px; border-radius:999px; }
+    .model-line .m-name {
+      font-weight:700; font-size:1rem; min-width:120px; max-width:220px;
+      background:none; border:1px solid transparent; border-radius:8px;
+      color:var(--text); font-family:inherit; padding:5px 8px; transition:.2s;
+    }
+    .model-line .m-name:hover { border-color:var(--border); }
+    .model-line .m-name:focus { outline:none; border-color:var(--primary-yellow); background:var(--bg-2); }
+    .model-line .m-puff {
+      color:var(--yellow-soft); font-size:.8rem; background:rgba(255,214,10,.08); padding:5px 10px;
+      border-radius:999px; border:1px solid transparent; font-family:inherit; width:130px; text-align:center; transition:.2s;
+    }
+    .model-line .m-puff:hover { border-color:rgba(255,214,10,.3); }
+    .model-line .m-puff:focus { outline:none; border-color:var(--primary-yellow); }
     .model-line .m-thumb { width:40px; height:40px; border-radius:8px; background:var(--bg-2); display:grid; place-items:center; overflow:hidden; }
     .model-line .m-thumb img { width:100%; height:100%; object-fit:contain; }
     .model-line .spacer { flex:1; }
@@ -62,7 +73,9 @@
     .promo-head .order-btns { display:flex; gap:2px; }
     .promo-head .order-btns button { background:none; color:var(--text-dim); font-size:.9rem; padding:2px 6px; }
     .promo-head .order-btns button:hover { color:var(--text); }
-    .promo-body { padding:16px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .promo-toggle-btn { background:none; color:var(--purple-soft); font-size:.82rem; font-weight:600; white-space:nowrap; }
+    .promo-body { padding:16px; display:none; grid-template-columns:1fr 1fr; gap:12px; }
+    .promo-block.open .promo-body { display:grid; }
     .promo-body .full { grid-column:1 / -1; }
     .promo-field { display:flex; flex-direction:column; gap:4px; }
     .promo-field label { font-size:.72rem; color:var(--text-dim); font-weight:600; }
@@ -85,11 +98,16 @@
     <div class="admin-top">
       <h1><span class="crown" style="color:var(--primary-yellow)">♛</span> Painel Royal</h1>
       <div class="actions">
-        <a href="/admin/editor" class="mini-btn">🎨 Live Editor</a>
         <a href="/" class="mini-btn">👁 Ver Loja</a>
         <button class="mini-btn primary" id="addBrandBtn">+ Nova Marca</button>
         <a href="/admin/logout" class="mini-btn" style="color:#ff8a8a">⏻ Sair</a>
       </div>
+    </div>
+
+    <div class="add-inline" id="addBrandForm" style="display:none; margin-bottom:18px;">
+      <input type="text" id="newBrandName" placeholder="Nome da nova marca" onkeydown="if(event.key==='Enter') submitAddBrand()">
+      <button class="mini-btn primary" onclick="submitAddBrand()">Criar marca</button>
+      <button class="mini-btn" onclick="toggleAddBrandForm(false)">Cancelar</button>
     </div>
 
     <div class="sections-block">
@@ -113,6 +131,7 @@
             </span>
             <button class="mini-btn" onclick="duplicatePromo({{ block.id }})">⧉ Duplicar</button>
             <button class="del-btn" onclick="deletePromo({{ block.id }})" title="Excluir bloco">🗑</button>
+            <button class="promo-toggle-btn" onclick="togglePromoBody({{ block.id }}, this)">Editar ▾</button>
           </div>
 
           <div class="promo-body">
@@ -195,7 +214,7 @@
       <div class="promo-foot" style="padding-top:16px;">
         <button class="mini-btn primary" id="addPromoBtn">+ Novo Bloco Promocional</button>
       </div>
-      <div class="sections-tip">💡 As alterações aqui são salvas automaticamente. Você também pode editar os textos direto na página pelo <a href="/admin/editor" style="color:var(--primary-yellow)">Editor Visual</a>.</div>
+      <div class="sections-tip">💡 As alterações aqui são salvas automaticamente, direto neste painel.</div>
     </div>
 
     <div id="brandsContainer">
@@ -204,8 +223,14 @@
         <div class="brand-head">
           <span class="b-icon">🏷️</span>
           <span class="b-name">{{ node.brand.name }}</span>
-          <button class="mini-btn" onclick="addModel({{ node.brand.id }})">+ Modelo</button>
+          <button class="mini-btn" onclick="toggleAddModelForm({{ node.brand.id }}, true)">+ Modelo</button>
           <button class="del-btn" onclick="delBrand({{ node.brand.id }})" title="Excluir marca">🗑</button>
+        </div>
+        <div class="add-inline" id="addModelForm-{{ node.brand.id }}" style="display:none; padding:12px 20px; border-top:1px solid var(--border);">
+          <input type="text" id="mname-{{ node.brand.id }}" placeholder="Nome do modelo (ex: BC25000)" onkeydown="if(event.key==='Enter') submitAddModel({{ node.brand.id }})">
+          <input type="text" id="mpuff-{{ node.brand.id }}" placeholder="Puffs (ex: 25.000 puffs)" onkeydown="if(event.key==='Enter') submitAddModel({{ node.brand.id }})">
+          <button class="mini-btn primary" onclick="submitAddModel({{ node.brand.id }})">Adicionar</button>
+          <button class="mini-btn" onclick="toggleAddModelForm({{ node.brand.id }}, false)">Cancelar</button>
         </div>
 
         {% for item in node.models %}
@@ -214,8 +239,8 @@
           <div class="model-line">
             <button class="star-toggle {{ 'on' if m.is_best_seller }}" onclick="toggleBest({{ m.id }}, this)" title="Mais vendido">★</button>
             <div class="m-thumb">{% if m.image_url %}<img src="{{ m.image_url }}">{% else %}📦{% endif %}</div>
-            <span class="m-name">{{ m.name }}</span>
-            <span class="m-puff">⚡ {{ m.puff_count }}</span>
+            <input type="text" class="m-name" value="{{ m.name }}" onchange="updateModel({{ m.id }}, 'name', this.value)">
+            <input type="text" class="m-puff" value="{{ m.puff_count }}" onchange="updateModel({{ m.id }}, 'puff_count', this.value)">
             <span class="spacer"></span>
             <button class="expand-btn" onclick="toggleFlavors({{ m.id }}, this)">Sabores ({{ item.flavors|length }}) ▾</button>
             <button class="del-btn" onclick="delModel({{ m.id }})" title="Excluir modelo">🗑</button>
@@ -264,13 +289,19 @@
       if (f) { f.classList.add('show'); setTimeout(()=>f.classList.remove('show'),1500); }
     }
 
-    async function addBrand() {
-      const name = prompt("Nome da nova marca:");
-      if (!name) return;
+    function toggleAddBrandForm(show) {
+      const el = document.getElementById('addBrandForm');
+      el.style.display = show ? 'flex' : 'none';
+      if (show) document.getElementById('newBrandName').focus();
+      else document.getElementById('newBrandName').value = '';
+    }
+    document.getElementById('addBrandBtn').addEventListener('click', () => toggleAddBrandForm(true));
+    async function submitAddBrand() {
+      const name = document.getElementById('newBrandName').value.trim();
+      if (!name) { toast("Digite o nome da marca"); return; }
       await api('/api/brand','POST',{name});
       location.reload();
     }
-    document.getElementById('addBrandBtn').addEventListener('click', addBrand);
 
     async function delBrand(id) {
       if (!confirm("Excluir marca e TODOS os modelos/sabores dela?")) return;
@@ -278,12 +309,22 @@
       location.reload();
     }
 
-    async function addModel(bid) {
-      const name = prompt("Nome do modelo (ex: BC25000):");
-      if (!name) return;
-      const puff = prompt("Puffs (ex: 25.000 puffs):") || "";
+    function toggleAddModelForm(bid, show) {
+      const el = document.getElementById('addModelForm-'+bid);
+      el.style.display = show ? 'flex' : 'none';
+      if (show) document.getElementById('mname-'+bid).focus();
+    }
+    async function submitAddModel(bid) {
+      const name = document.getElementById('mname-'+bid).value.trim();
+      const puff = document.getElementById('mpuff-'+bid).value.trim();
+      if (!name) { toast("Digite o nome do modelo"); return; }
       await api('/api/model','POST',{brand_id:bid, name, puff_count:puff});
       location.reload();
+    }
+    async function updateModel(id, field, value) {
+      const body = {}; body[field] = value;
+      await api('/api/model/'+id,'POST',body);
+      toast("Salvo ✓");
     }
     async function delModel(id) {
       if (!confirm("Excluir este modelo e seus sabores?")) return;
@@ -299,6 +340,11 @@
       const box = document.getElementById('flavors-'+id);
       const open = box.classList.toggle('open');
       el.textContent = el.textContent.replace(open ? '▾' : '▴', open ? '▴' : '▾');
+    }
+    function togglePromoBody(pid, el) {
+      const block = document.querySelector('.promo-block[data-pid="'+pid+'"]');
+      const open = block.classList.toggle('open');
+      el.textContent = open ? 'Fechar ▴' : 'Editar ▾';
     }
 
     async function updateProduct(id, field, value, el) {

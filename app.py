@@ -459,20 +459,12 @@ def admin_logout():
 
 
 # ---------------------------------------------------------------------------
-# Live Editor
+# Live Editor (desativado — edição é feita direto pelo Painel Admin)
 # ---------------------------------------------------------------------------
 @app.route("/admin/editor")
 @login_required
 def live_editor():
-    return render_template(
-        "index.html",
-        config=get_config(),
-        catalog=build_catalog(),
-        brands=[dict(b) for b in get_db().execute("SELECT * FROM brands ORDER BY name").fetchall()],
-        whatsapp=WHATSAPP_PHONE,
-        editor=True,
-        promo_blocks=get_promo_blocks(only_active=False),
-    )
+    return redirect(url_for("admin"))
 
 
 # ---------------------------------------------------------------------------
