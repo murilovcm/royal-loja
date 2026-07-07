@@ -117,6 +117,18 @@
   byId("searchInput").addEventListener("input", applyFilter);
   applyFilter();
 
+  // Hero chips -> reusa o filtro do catálogo e rola até ele
+  const heroChips = byId("heroChips");
+  if (heroChips) {
+    heroChips.addEventListener("click", (e) => {
+      const chip = e.target.closest(".hero-chip");
+      if (!chip) return;
+      const pill = byId("filterBar").querySelector(`.pill[data-filter="${chip.dataset.filter}"]`);
+      if (pill) pill.click();
+      byId("catalogo").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   // ---------------------------------------------------------------
   // MODAL
   // ---------------------------------------------------------------

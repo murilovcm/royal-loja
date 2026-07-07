@@ -104,22 +104,58 @@
 
   <!-- Hero -->
   <section class="hero container">
+    <div class="hero-chips" id="heroChips">
+      <button type="button" class="hero-chip" data-filter="best">⚡ Mais Vendidos</button>
+      {% for b in brands %}
+      <button type="button" class="hero-chip" data-filter="brand-{{ b.id }}">{{ b.name }}</button>
+      {% endfor %}
+    </div>
+
     <div class="hero-logo-wrap">
       <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="hero-logo">
     </div>
 
     <h1>PODS DE QUALIDADE EM <span class="accent">SÃO LUÍS</span> VOCÊ ENCONTRA AQUI</h1>
-
-    <div class="hero-badges">
-      <span class="hero-badge">🚚 Entrega Rápida</span>
-      <span class="hero-badge">✅ Pods Originais</span>
-      <span class="hero-badge">💬 Atendimento WhatsApp</span>
-      <span class="hero-badge">⭐ Avaliações de Clientes</span>
-    </div>
+    <p class="hero-subtitle">Pods, descartáveis e essências das melhores marcas, com entrega rápida em toda São Luís – MA.</p>
 
     <div class="hero-cta">
-      <a href="https://wa.me/{{ whatsapp }}?text={{ 'Olá! Vim pelo site da Royal e quero saber mais sobre os produtos.' | urlencode }}" target="_blank" class="btn btn-whatsapp">💬 Falar no WhatsApp</a>
-      <a href="#catalogo" class="btn btn-ghost">Ver Catálogo</a>
+      <a href="#catalogo" class="btn btn-primary hero-btn-main">Ver Catálogo</a>
+      <a href="https://wa.me/{{ whatsapp }}?text={{ 'Olá! Vim pelo site da Royal e quero saber mais sobre os produtos.' | urlencode }}" target="_blank" class="btn btn-whatsapp">Falar no WhatsApp</a>
+    </div>
+
+    <div class="hero-features">
+      <div class="hero-feature">
+        <span class="hero-feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="4" width="14" height="12" rx="1.5"></rect>
+            <path d="M15 9h3.6a1.5 1.5 0 0 1 1.2.6l2 2.6a1.5 1.5 0 0 1 .3.9V16h-3.4"></path>
+            <circle cx="6" cy="18.5" r="2"></circle>
+            <circle cx="17.5" cy="18.5" r="2"></circle>
+            <path d="M8 18.5h7.5"></path>
+          </svg>
+        </span>
+        <h3>Entrega Rápida</h3>
+        <p>Receba seu pedido com agilidade na sua região.</p>
+      </div>
+      <div class="hero-feature">
+        <span class="hero-feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l7 3v5.2c0 4.6-3 8.7-7 9.8-4-1.1-7-5.2-7-9.8V6l7-3z"></path>
+            <path d="M9 12.2l2.1 2.1L15.5 10"></path>
+          </svg>
+        </span>
+        <h3>Produtos Originais</h3>
+        <p>Trabalhamos apenas com marcas e produtos autênticos.</p>
+      </div>
+      <div class="hero-feature">
+        <span class="hero-feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.5 8.5 0 0 1-11.9 7.8L3 21l1.7-6a8.5 8.5 0 1 1 16.3-3.5z"></path>
+          </svg>
+        </span>
+        <h3>Atendimento Ágil</h3>
+        <p>Suporte rápido e direto pelo WhatsApp.</p>
+      </div>
     </div>
   </section>
 
