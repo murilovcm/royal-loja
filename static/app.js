@@ -357,6 +357,7 @@
 
   function openCheckout() {
     if (cart.length === 0) return;
+    resetCoupon();
     renderCheckoutSummary();
     closeCart();
     checkoutPanel.classList.add("open");
@@ -387,9 +388,96 @@
         <span class="p">${brl(sub)}</span>
       </div>`;
     }).join("");
-    const total = cart.reduce((s, it) => s + it.price * it.qty, 0);
-    byId("checkoutTotal").textContent = brl(total);
+    updateCheckoutTotals();
   }
+
+  // ---- Coupon ----
+  let appliedCoupon = null; // { code, type: 'percent'|'fixed', value }
+
+  function cartTotal() {
+    return cart.reduce((s, it) => s + it.price * it.qty, 0);
+  }
+
+  function computeDiscount(coupon, total) {
+    if (!coupon) return 0;
+    if (coupon.type === "percent") return total * (coupon.value / 100);
+    return Math.min(coupon.value, total);
+  }
+
+  function updateCheckoutTotals() {
+    const total = cartTotal();
+    const discount = computeDiscount(appliedCoupon, total);
+    const finalTotal = Math.max(total - discount, 0);
+    const discountRow = byId("checkoutDiscountRow");
+    if (appliedCoupon && discount > 0) {
+      discountRow.style.display = "flex";
+      byId("checkoutDiscountCode").textContent = `(${appliedCoupon.code})`;
+      byId("checkoutDiscountValue").textContent = "-" + brl(discount);
+    } else {
+      discountRow.style.display = "none";
+    }
+    byId("checkoutTotal").textContent = brl(finalTotal);
+  }
+
+  function setCouponFeedback(msg, variant) {
+    const el = byId("couponFeedback");
+    el.textContent = msg;
+    el.className = "coupon-feedback show " + variant;
+  }
+
+  function resetCoupon() {
+    appliedCoupon = null;
+    const input = byId("couponInput");
+    input.value = "";
+    input.disabled = false;
+    byId("couponApplyBtn").textContent = "Aplicar";
+    const fb = byId("couponFeedback");
+    fb.textContent = "";
+    fb.className = "coupon-feedback";
+    updateCheckoutTotals();
+  }
+
+  byId("couponApplyBtn").addEventListener("click", async () => {
+    const btn = byId("couponApplyBtn");
+    if (appliedCoupon) { resetCoupon(); return; }
+
+    const input = byId("couponInput");
+    const code = input.value.trim().toUpperCase();
+    if (!code) { setCouponFeedback("Digite um cupom", "error"); return; }
+
+    btn.disabled = true;
+    try {
+      const r = await fetch("/api/coupon/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, total: cartTotal() }),
+      });
+      const data = await r.json();
+      if (data.ok) {
+        appliedCoupon = { code: data.code, type: data.type, value: data.value };
+        const discount = computeDiscount(appliedCoupon, cartTotal());
+        setCouponFeedback(
+          appliedCoupon.type === "percent"
+            ? `Cupom aplicado! -${appliedCoupon.value}%`
+            : `Cupom aplicado! -${brl(discount)}`,
+          "success"
+        );
+        input.disabled = true;
+        btn.textContent = "Remover";
+      } else {
+        appliedCoupon = null;
+        setCouponFeedback(data.error || "Cupom inválido ou inativo", "error");
+      }
+    } catch (e) {
+      setCouponFeedback("Erro ao validar cupom. Tente novamente.", "error");
+    }
+    btn.disabled = false;
+    updateCheckoutTotals();
+  });
+
+  byId("couponInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); byId("couponApplyBtn").click(); }
+  });
 
   // ---- Phone mask (Brazilian) ----
   function maskPhoneBR(value) {
@@ -514,7 +602,15 @@
       msg += `   💰 Subtotal: ${brl(sub)}\n\n`;
     });
     msg += `━━━━━━━━━━━━━━━\n`;
-    msg += `*TOTAL: ${brl(total)}*\n\n`;
+    if (appliedCoupon) {
+      const discount = computeDiscount(appliedCoupon, total);
+      const finalTotal = Math.max(total - discount, 0);
+      msg += `🏷️ *Cupom aplicado:* ${appliedCoupon.code}\n`;
+      msg += `💸 *Desconto:* ${appliedCoupon.type === "percent" ? "-" + appliedCoupon.value + "%" : "-" + brl(discount)}\n`;
+      msg += `💰 *Total com desconto: ${brl(finalTotal)}*\n\n`;
+    } else {
+      msg += `*TOTAL: ${brl(total)}*\n\n`;
+    }
     msg += `👤 *Cliente:* ${nameVal}\n`;
     msg += `📱 *Telefone:* ${phoneEl.value}\n`;
     msg += `📍 *Endereço:* ${addressVal}\n`;

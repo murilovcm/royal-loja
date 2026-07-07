@@ -160,6 +160,14 @@ def init_db():
             btn_bg_color   TEXT NOT NULL DEFAULT '#ffffff',
             btn_text_color TEXT NOT NULL DEFAULT '#0a0a0c'
         );
+
+        CREATE TABLE IF NOT EXISTS coupons (
+            id     INTEGER PRIMARY KEY AUTOINCREMENT,
+            code   TEXT NOT NULL UNIQUE,
+            type   TEXT NOT NULL DEFAULT 'percent',
+            value  REAL NOT NULL DEFAULT 0,
+            active INTEGER NOT NULL DEFAULT 1
+        );
         """
     )
     db.commit()
@@ -378,6 +386,21 @@ def create_promo_block(duplicate_from=None):
     return pid
 
 
+def get_coupons():
+    """Lista os cupons com um campo `value_display` já formatado para a tabela do admin."""
+    rows = get_db().execute("SELECT * FROM coupons ORDER BY id DESC").fetchall()
+    coupons = []
+    for r in rows:
+        c = dict(r)
+        if c["type"] == "percent":
+            v = c["value"]
+            c["value_display"] = (f"{v:.0f}%" if v == int(v) else f"{v:.2f}%".replace(".", ","))
+        else:
+            c["value_display"] = "R$ " + f"{c['value']:.2f}".replace(".", ",")
+        coupons.append(c)
+    return coupons
+
+
 def build_catalog():
     """Monta a lista de modelos com seus sabores e metadados agregados."""
     db = get_db()
@@ -492,7 +515,11 @@ def admin():
             mlist.append({"model": dict(m), "flavors": [dict(f) for f in flavors]})
         tree.append({"brand": dict(b), "models": mlist})
     return render_template(
-        "admin.html", tree=tree, config=get_config(), promo_blocks=get_promo_blocks(only_active=False)
+        "admin.html",
+        tree=tree,
+        config=get_config(),
+        promo_blocks=get_promo_blocks(only_active=False),
+        coupons=get_coupons(),
     )
 
 
@@ -573,6 +600,124 @@ def api_move_promo_block(pid):
     db.execute("UPDATE promo_blocks SET position = ? WHERE id = ?", (a["position"], b["id"]))
     db.commit()
     return jsonify({"ok": True})
+
+
+# ---- Cupons de desconto ----
+def _validate_coupon_fields(ctype, value):
+    """Retorna None se válido, ou uma mensagem de erro."""
+    if ctype not in ("percent", "fixed"):
+        return "Tipo de desconto inválido"
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return "Valor inválido"
+    if ctype == "percent" and not (1 <= value <= 100):
+        return "A porcentagem deve estar entre 1 e 100"
+    if ctype == "fixed" and value <= 0:
+        return "O valor fixo deve ser maior que zero"
+    return None
+
+
+@app.route("/api/coupon", methods=["POST"])
+@api_login_required
+def api_create_coupon():
+    d = request.get_json(force=True) or {}
+    code = (d.get("code") or "").strip().upper()
+    ctype = d.get("type")
+    value = d.get("value")
+    if not code:
+        return jsonify({"ok": False, "error": "Código do cupom é obrigatório"}), 400
+    err = _validate_coupon_fields(ctype, value)
+    if err:
+        return jsonify({"ok": False, "error": err}), 400
+    db = get_db()
+    if db.execute("SELECT id FROM coupons WHERE code = ?", (code,)).fetchone():
+        return jsonify({"ok": False, "error": "Já existe um cupom com este código"}), 400
+    cur = db.execute(
+        "INSERT INTO coupons (code, type, value, active) VALUES (?,?,?,1)",
+        (code, ctype, float(value)),
+    )
+    db.commit()
+    return jsonify({"ok": True, "id": cur.lastrowid})
+
+
+@app.route("/api/coupon/<int:cid>", methods=["POST"])
+@api_login_required
+def api_update_coupon(cid):
+    d = request.get_json(force=True) or {}
+    db = get_db()
+    row = db.execute("SELECT * FROM coupons WHERE id = ?", (cid,)).fetchone()
+    if not row:
+        return jsonify({"ok": False, "error": "Cupom não encontrado"}), 404
+
+    fields = []
+    vals = []
+    if "active" in d:
+        fields.append("active = ?")
+        vals.append(1 if d["active"] else 0)
+    if "code" in d:
+        code = (d["code"] or "").strip().upper()
+        if not code:
+            return jsonify({"ok": False, "error": "Código do cupom é obrigatório"}), 400
+        if db.execute("SELECT id FROM coupons WHERE code = ? AND id != ?", (code, cid)).fetchone():
+            return jsonify({"ok": False, "error": "Já existe um cupom com este código"}), 400
+        fields.append("code = ?")
+        vals.append(code)
+    if "type" in d or "value" in d:
+        ctype = d.get("type", row["type"])
+        value = d.get("value", row["value"])
+        err = _validate_coupon_fields(ctype, value)
+        if err:
+            return jsonify({"ok": False, "error": err}), 400
+        fields.append("type = ?")
+        vals.append(ctype)
+        fields.append("value = ?")
+        vals.append(float(value))
+    if not fields:
+        return jsonify({"ok": False}), 400
+    vals.append(cid)
+    db.execute(f"UPDATE coupons SET {', '.join(fields)} WHERE id = ?", vals)
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/coupon/<int:cid>", methods=["DELETE"])
+@api_login_required
+def api_delete_coupon(cid):
+    db = get_db()
+    db.execute("DELETE FROM coupons WHERE id = ?", (cid,))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/coupon/apply", methods=["POST"])
+def api_apply_coupon():
+    """Valida um cupom digitado no checkout (rota pública, sem login).
+
+    Recebe o total atual do carrinho para poder recusar cupons de valor fixo
+    maiores que o pedido (regra de negócio pedida: cupom fixo não pode
+    ultrapassar o total). O desconto em si é aplicado no front-end.
+    """
+    d = request.get_json(force=True) or {}
+    code = (d.get("code") or "").strip().upper()
+    try:
+        order_total = float(d.get("total") or 0)
+    except (TypeError, ValueError):
+        order_total = 0
+
+    generic_error = "Cupom inválido ou inativo"
+    if not code:
+        return jsonify({"ok": False, "error": generic_error}), 400
+
+    row = get_db().execute(
+        "SELECT * FROM coupons WHERE code = ? AND active = 1", (code,)
+    ).fetchone()
+    if not row:
+        return jsonify({"ok": False, "error": generic_error}), 404
+    if row["type"] == "fixed" and row["value"] > order_total:
+        return jsonify({"ok": False, "error": generic_error}), 400
+
+    return jsonify({"ok": True, "code": row["code"], "type": row["type"], "value": row["value"]})
 
 
 # ---- Brands ----

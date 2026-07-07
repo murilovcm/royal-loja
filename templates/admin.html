@@ -106,6 +106,17 @@
     .promo-color-field label { font-size:.78rem; color:var(--text-dim); }
     .promo-items-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     .promo-foot { display:flex; justify-content:flex-end; gap:8px; padding:0 16px 16px; }
+
+    .coupon-table { width:100%; border-collapse:collapse; margin-top:14px; font-size:.88rem; }
+    .coupon-table th { text-align:left; color:var(--text-dim); font-weight:700; font-size:.72rem; text-transform:uppercase; letter-spacing:.5px; padding:8px 10px; border-bottom:1px solid var(--border); }
+    .coupon-table td { padding:10px; border-bottom:1px solid var(--border); }
+    .coupon-table tr:last-child td { border-bottom:none; }
+    .coupon-table .cp-code { font-weight:800; letter-spacing:.3px; }
+    .coupon-actions { display:flex; align-items:center; gap:12px; }
+    .coupon-status-badge { font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; }
+    .coupon-status-badge.on { background:rgba(37,211,102,.15); color:var(--green); }
+    .coupon-status-badge.off { background:rgba(255,90,90,.12); color:#ff5a5a; }
+    #newCouponCode { text-transform:uppercase; }
   </style>
 </head>
 <body>
@@ -230,6 +241,53 @@
         <button class="mini-btn primary" id="addPromoBtn">+ Novo Bloco Promocional</button>
       </div>
       <div class="sections-tip">💡 As alterações aqui são salvas automaticamente, direto neste painel.</div>
+    </div>
+
+    <div class="sections-block">
+      <div class="sections-head">
+        🏷️ Cupons de Desconto <span class="sections-sub">Códigos promocionais usados no checkout do site</span>
+      </div>
+
+      <div class="add-inline" id="addCouponForm" style="display:none; margin-top:14px;">
+        <input type="text" id="newCouponCode" placeholder="Código (ex: ROYAL10)" maxlength="30" onkeydown="if(event.key==='Enter') submitAddCoupon()">
+        <select id="newCouponType">
+          <option value="percent">Porcentagem (%)</option>
+          <option value="fixed">Valor fixo (R$)</option>
+        </select>
+        <input type="number" id="newCouponValue" placeholder="Valor" step="0.01" min="0" style="width:100px" onkeydown="if(event.key==='Enter') submitAddCoupon()">
+        <button class="mini-btn primary" onclick="submitAddCoupon()">Criar cupom</button>
+        <button class="mini-btn" onclick="toggleAddCouponForm(false)">Cancelar</button>
+      </div>
+
+      <table class="coupon-table">
+        <thead>
+          <tr><th>Código</th><th>Tipo</th><th>Valor</th><th>Status</th><th>Ações</th></tr>
+        </thead>
+        <tbody id="couponTableBody">
+          {% for c in coupons %}
+          <tr data-cid="{{ c.id }}">
+            <td class="cp-code">{{ c.code }}</td>
+            <td>{{ 'Porcentagem' if c.type == 'percent' else 'Valor fixo' }}</td>
+            <td>{{ c.value_display }}</td>
+            <td><span class="coupon-status-badge {{ 'on' if c.active == 1 else 'off' }}">{{ 'Ativo' if c.active == 1 else 'Inativo' }}</span></td>
+            <td>
+              <div class="coupon-actions">
+                <span class="stock-toggle" onclick="toggleCouponActive({{ c.id }}, this)" title="Ativar/Desativar">
+                  <span class="switch {{ 'on' if c.active == 1 }}"></span>
+                </span>
+                <button class="del-btn" onclick="deleteCoupon({{ c.id }})" title="Excluir cupom">🗑</button>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr id="couponEmptyRow"><td colspan="5" style="color:var(--text-dim); text-align:center; padding:16px;">Nenhum cupom cadastrado ainda.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="promo-foot" style="padding-top:16px;">
+        <button class="mini-btn primary" id="addCouponBtn">+ Novo Cupom</button>
+      </div>
     </div>
 
     <div id="brandsContainer">
@@ -483,6 +541,49 @@
       const price = document.getElementById('fprice-'+mid).value || 0;
       if (!name) { toast("Digite o nome do sabor"); return; }
       await api('/api/product','POST',{model_id:mid, name, price});
+      location.reload();
+    }
+
+    // ---- Cupons de desconto ----
+    function toggleAddCouponForm(show) {
+      const el = document.getElementById('addCouponForm');
+      el.style.display = show ? 'flex' : 'none';
+      if (show) document.getElementById('newCouponCode').focus();
+      else {
+        document.getElementById('newCouponCode').value = '';
+        document.getElementById('newCouponValue').value = '';
+      }
+    }
+    document.getElementById('addCouponBtn').addEventListener('click', () => toggleAddCouponForm(true));
+
+    async function submitAddCoupon() {
+      const code = document.getElementById('newCouponCode').value.trim().toUpperCase();
+      const type = document.getElementById('newCouponType').value;
+      const value = document.getElementById('newCouponValue').value;
+      if (!code) { toast("Digite o código do cupom"); return; }
+      if (!value || Number(value) <= 0) { toast("Digite um valor válido"); return; }
+      const res = await api('/api/coupon', 'POST', { code, type, value });
+      if (res.ok) { toast("Cupom criado ✓"); location.reload(); }
+      else toast(res.error || "Erro ao criar cupom");
+    }
+
+    async function toggleCouponActive(id, el) {
+      const sw = el.querySelector('.switch');
+      const on = sw.classList.toggle('on');
+      const row = el.closest('tr');
+      const badge = row.querySelector('.coupon-status-badge');
+      if (badge) {
+        badge.classList.toggle('on', on);
+        badge.classList.toggle('off', !on);
+        badge.textContent = on ? 'Ativo' : 'Inativo';
+      }
+      await api('/api/coupon/'+id, 'POST', {active: on ? 1 : 0});
+      toast(on ? "Cupom ativado ✓" : "Cupom desativado");
+    }
+
+    async function deleteCoupon(id) {
+      if (!confirm("Excluir este cupom?")) return;
+      await api('/api/coupon/'+id, 'DELETE');
       location.reload();
     }
   </script>
