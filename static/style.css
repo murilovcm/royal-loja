@@ -367,6 +367,43 @@ header.site-header {
   margin: 0 auto 34px;
 }
 
+.store-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: .78rem;
+  font-weight: 700;
+  margin: 0 auto 26px;
+}
+.store-status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text-dim);
+  flex-shrink: 0;
+}
+.store-status-text { color: var(--text-dim); }
+.store-status.open .store-status-dot {
+  background: #3ddc84;
+  box-shadow: 0 0 0 3px rgba(61,220,132,.18);
+  animation: store-status-pulse 2s ease-in-out infinite;
+}
+.store-status.open .store-status-text { color: #3ddc84; }
+.store-status.closed .store-status-dot {
+  background: #ff5a5a;
+  box-shadow: 0 0 0 3px rgba(255,90,90,.16);
+}
+.store-status.closed .store-status-text { color: #ff8a8a; }
+@keyframes store-status-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(61,220,132,.18); }
+  50% { box-shadow: 0 0 0 6px rgba(61,220,132,.05); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .store-status.open .store-status-dot { animation: none; }
+}
+
 .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 56px; }
 .btn {
   padding: 14px 30px;
@@ -433,13 +470,14 @@ header.site-header {
 
 /* Entrada escalonada: chips -> logo -> título -> subtítulo -> botões -> cards,
    ligada ao mesmo reveal-visible que o IntersectionObserver já aplica em .hero */
-.hero-chips, .hero-logo-wrap, .hero h1, .hero-subtitle, .hero-cta, .hero-features {
+.hero-chips, .hero-logo-wrap, .hero h1, .hero-subtitle, .store-status, .hero-cta, .hero-features {
   opacity: 0;
   transform: translateY(16px);
   transition: opacity .5s cubic-bezier(.16,1,.3,1), transform .5s cubic-bezier(.16,1,.3,1);
 }
 .hero.reveal-visible .hero-chips     { opacity: 1; transform: none; transition-delay: .05s; }
 .hero.reveal-visible .hero-logo-wrap { opacity: 1; transform: none; transition-delay: .12s; }
+.hero.reveal-visible .store-status   { opacity: 1; transform: none; transition-delay: .30s; }
 .hero.reveal-visible h1              { opacity: 1; transform: none; transition-delay: .19s; }
 .hero.reveal-visible .hero-subtitle  { opacity: 1; transform: none; transition-delay: .26s; }
 .hero.reveal-visible .hero-cta       { opacity: 1; transform: none; transition-delay: .33s; }
@@ -456,6 +494,13 @@ header.site-header {
 }
 .section-head h2 .bolt { color: var(--primary-yellow); }
 .section-head p { color: var(--text-dim); font-size: .9rem; }
+
+.section-divider {
+  max-width: 1240px;
+  margin: 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.16) 50%, transparent);
+}
 
 /* ---------- Filter pills ---------- */
 .filter-bar {
@@ -1053,7 +1098,7 @@ body.editor-mode .model-card { cursor: default; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero, .section:not([data-hidden]), .model-card,
-  .hero-chips, .hero-logo-wrap, .hero h1, .hero-subtitle, .hero-cta, .hero-features {
+  .hero-chips, .hero-logo-wrap, .hero h1, .hero-subtitle, .store-status, .hero-cta, .hero-features {
     opacity: 1 !important;
     transform: none !important;
   }

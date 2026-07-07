@@ -48,6 +48,37 @@
     });
   })();
 
+  // ---------------------------------------------------------------
+  // STORE STATUS (aberta/fechada) — todos os dias, 10h às 23h (Brasília)
+  // ---------------------------------------------------------------
+  (function () {
+    const el = byId("storeStatus");
+    if (!el) return;
+    const textEl = el.querySelector(".store-status-text");
+    const OPEN_HOUR = 10;
+    const CLOSE_HOUR = 23;
+
+    function update() {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Sao_Paulo",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      }).formatToParts(new Date());
+      const hour = Number(parts.find((p) => p.type === "hour").value);
+      const minute = Number(parts.find((p) => p.type === "minute").value);
+      const totalMin = hour * 60 + minute;
+      const isOpen = totalMin >= OPEN_HOUR * 60 && totalMin < CLOSE_HOUR * 60;
+
+      el.classList.toggle("open", isOpen);
+      el.classList.toggle("closed", !isOpen);
+      textEl.textContent = isOpen ? "Loja aberta agora" : "Loja fechada no momento";
+    }
+
+    update();
+    setInterval(update, 60000);
+  })();
+
   // ---- Cart state (localStorage) ----
   let cart = [];
   try { cart = JSON.parse(localStorage.getItem("royal_cart")) || []; } catch (e) { cart = []; }
