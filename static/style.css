@@ -493,6 +493,7 @@ header.site-header {
   display: flex; align-items: center; gap: 10px;
 }
 .section-head h2 .bolt { color: var(--primary-yellow); }
+.section-head h2 .catalog-icon { width: 22px; height: 22px; color: var(--primary-yellow); flex-shrink: 0; }
 .section-head p { color: var(--text-dim); font-size: .9rem; }
 
 .section-divider {
