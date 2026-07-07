@@ -1263,17 +1263,17 @@ body.editor-mode .model-card { cursor: default; }
   .hero-chips { gap: 7px; margin-bottom: 26px; }
   .hero-chip { font-size: .74rem; padding: 7px 14px; }
   .hero-subtitle { font-size: .98rem; margin-bottom: 28px; }
-  .hero-cta { margin-bottom: 44px; }
+  .hero-cta { margin-bottom: 44px; padding-right: 4px; }
   .hero-cta .hero-btn-main { flex: 1; min-width: 140px; }
   .hero-cta .btn-whatsapp {
     flex: 0 0 auto;
-    width: 52px;
-    height: 52px;
+    width: 58px;
+    height: 58px;
     padding: 0;
     border-radius: 50%;
   }
   .hero-cta .btn-whatsapp .btn-whatsapp-text { display: none; }
-  .btn-whatsapp-icon { display: block; width: 22px; height: 22px; }
+  .btn-whatsapp-icon { display: block; width: 24px; height: 24px; }
   .hero-features { grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .hero-feature { padding: 16px 8px; }
   .hero-feature-icon { width: 40px; height: 40px; margin-bottom: 8px; }
@@ -1306,11 +1306,11 @@ body.editor-mode .model-card { cursor: default; }
   .hero-logo { height: 64px; }
   .hero h1 { font-size: clamp(1.7rem, 8vw, 2.3rem); letter-spacing: -.5px; }
   .hero-subtitle { font-size: .9rem; margin-bottom: 22px; padding: 0 6px; }
-  .hero-cta { gap: 10px; margin-bottom: 34px; }
+  .hero-cta { gap: 10px; margin-bottom: 34px; padding-right: 6px; }
   .hero-cta .btn { padding: 13px 18px; font-size: .9rem; }
   .btn-primary.hero-btn-main { padding: 16px 32px; }
-  .hero-cta .btn-whatsapp { width: 46px; height: 46px; padding: 0; }
-  .btn-whatsapp-icon { width: 18px; height: 18px; }
+  .hero-cta .btn-whatsapp { width: 52px; height: 52px; padding: 0; }
+  .btn-whatsapp-icon { width: 20px; height: 20px; }
   .hero-features { gap: 6px; }
   .hero-feature { padding: 12px 6px; }
   .hero-feature-icon { width: 34px; height: 34px; margin-bottom: 6px; }
