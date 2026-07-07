@@ -365,8 +365,7 @@ header.site-header {
   margin: 0 auto 16px;
 }
 .hero h1 .accent {
-  background: linear-gradient(120deg, var(--primary-yellow), var(--yellow-soft) 60%, var(--purple-soft));
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  color: #FFD60A;
 }
 .hero-subtitle {
   color: var(--text-dim);
@@ -418,7 +417,8 @@ header.site-header {
   background: linear-gradient(160deg, var(--surface-2), var(--surface) 60%);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 28px 20px;
+  padding: 20px 14px;
+  min-width: 0;
   transition: transform .2s cubic-bezier(.22,1,.36,1), border-color .2s, box-shadow .2s;
 }
 .hero-feature:hover { transform: translateY(-3px); border-color: rgba(255,214,10,.3); box-shadow: 0 14px 30px rgba(0,0,0,.3); }
