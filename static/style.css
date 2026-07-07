@@ -1214,7 +1214,12 @@ body.editor-mode .model-card { cursor: default; }
   .hero-subtitle { font-size: .98rem; margin-bottom: 28px; }
   .hero-cta { margin-bottom: 44px; }
   .hero-cta .btn { flex: 1; min-width: 140px; }
-  .hero-features { grid-template-columns: 1fr; gap: 14px; }
+  .hero-features { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .hero-feature { padding: 14px 8px; }
+  .hero-feature-icon { width: 40px; height: 40px; margin-bottom: 8px; }
+  .hero-feature-icon svg { width: 18px; height: 18px; }
+  .hero-feature h3 { font-size: .78rem; margin-bottom: 4px; }
+  .hero-feature p { font-size: .68rem; line-height: 1.3; }
 
   .section { padding: 30px 0; }
   .section-head { margin-bottom: 18px; }
@@ -1245,7 +1250,12 @@ body.editor-mode .model-card { cursor: default; }
   .hero-cta { gap: 10px; margin-bottom: 34px; }
   .hero-cta .btn { padding: 13px 18px; font-size: .9rem; }
   .btn-primary.hero-btn-main { padding: 16px 32px; }
-  .hero-feature { padding: 22px 18px; }
+  .hero-features { gap: 6px; }
+  .hero-feature { padding: 10px 6px; }
+  .hero-feature-icon { width: 32px; height: 32px; margin-bottom: 6px; }
+  .hero-feature-icon svg { width: 15px; height: 15px; }
+  .hero-feature h3 { font-size: .66rem; margin-bottom: 3px; }
+  .hero-feature p { font-size: .58rem; line-height: 1.25; }
 
   /* --- Filtros: pistas de rolagem nas bordas --- */
   .filter-bar { gap: 8px; padding: 4px 12px 12px; margin: 0 -12px 4px; }
