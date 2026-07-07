@@ -340,7 +340,7 @@
   function updateTotals() {
     const total = cartTotal();
     const discount = computeDiscount(appliedCoupon, total);
-    const finalTotal = Math.max(total - discount, 0);
+    const discountedTotal = Math.max(total - discount, 0);
     const showDiscount = !!(appliedCoupon && discount > 0);
 
     const cartDiscountRow = byId("cartDiscountRow");
@@ -349,7 +349,7 @@
       byId("cartDiscountCode").textContent = `(${appliedCoupon.code})`;
       byId("cartDiscountValue").textContent = "-" + brl(discount);
     }
-    byId("cartTotal").textContent = brl(finalTotal);
+    byId("cartTotal").textContent = brl(discountedTotal);
 
     const checkoutDiscountRow = byId("checkoutDiscountRow");
     checkoutDiscountRow.style.display = showDiscount ? "flex" : "none";
@@ -357,7 +357,28 @@
       byId("checkoutDiscountCode").textContent = `(${appliedCoupon.code})`;
       byId("checkoutDiscountValue").textContent = "-" + brl(discount);
     }
-    byId("checkoutTotal").textContent = brl(finalTotal);
+
+    // Frete: só existe depois que o cliente usa a geolocalização no checkout.
+    const hasNumericShipping = !!(shippingInfo && shippingInfo.ok && typeof shippingInfo.price === "number");
+    const shippingPrice = hasNumericShipping ? shippingInfo.price : 0;
+
+    const checkoutShippingRow = byId("checkoutShippingRow");
+    checkoutShippingRow.style.display = hasNumericShipping ? "flex" : "none";
+    if (hasNumericShipping) {
+      byId("checkoutShippingZone").textContent = `(${shippingInfo.zone_label})`;
+      byId("checkoutShippingValue").textContent = brl(shippingInfo.price);
+    }
+
+    const checkoutShippingNote = byId("checkoutShippingNote");
+    if (shippingInfo && !hasNumericShipping) {
+      checkoutShippingNote.textContent = shippingInfo.message || "";
+      checkoutShippingNote.className = "geo-status show " + (shippingInfo.ok ? "warn" : "danger");
+    } else {
+      checkoutShippingNote.textContent = "";
+      checkoutShippingNote.className = "geo-status";
+    }
+
+    byId("checkoutTotal").textContent = brl(discountedTotal + shippingPrice);
   }
 
   function setCouponFeedback(msg, variant) {
@@ -502,6 +523,7 @@
   const geoBtn = byId("geoBtn");
   const geoBtnDefaultText = geoBtn.textContent;
   let geoAccuracy = null;
+  let shippingInfo = null; // resultado de /api/shipping/calc: { ok, special, zone_label, price, message }
 
   function setGeoStatus(text, level) {
     const statusEl = byId("geoStatus");
@@ -514,11 +536,28 @@
     geoBtn.textContent = loading ? "📡 Buscando localização..." : geoBtnDefaultText;
   }
 
+  async function fetchShipping() {
+    if (!geoCoords) { shippingInfo = null; updateTotals(); return; }
+    try {
+      const r = await fetch("/api/shipping/calc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat: geoCoords.lat, lng: geoCoords.lng }),
+      });
+      shippingInfo = await r.json();
+    } catch (e) {
+      shippingInfo = { ok: false, price: null, zone_label: null, message: "Não foi possível calcular o frete agora. Tente novamente." };
+    }
+    updateTotals();
+  }
+
   geoBtn.addEventListener("click", () => {
     geoBtn.classList.add("geo-used");
     if (!navigator.geolocation) {
       geoCoords = null;
       geoAccuracy = null;
+      shippingInfo = null;
+      updateTotals();
       setGeoStatus("⚠️ Geolocalização não suportada neste navegador. Preencha o endereço manualmente.", "warn");
       return;
     }
@@ -537,10 +576,13 @@
         } else {
           setGeoStatus("⚠ Localização imprecisa — por favor confirme bem o endereço digitado", "danger");
         }
+        fetchShipping();
       },
       (err) => {
         geoCoords = null;
         geoAccuracy = null;
+        shippingInfo = null;
+        updateTotals();
         setGeoLoading(false);
         let msg;
         switch (err.code) {
@@ -608,11 +650,26 @@
       msg += `   💰 Subtotal: ${brl(sub)}\n\n`;
     });
     msg += `━━━━━━━━━━━━━━━\n`;
+    const discount = appliedCoupon ? computeDiscount(appliedCoupon, total) : 0;
     if (appliedCoupon) {
-      const discount = computeDiscount(appliedCoupon, total);
-      const finalTotal = Math.max(total - discount, 0);
       msg += `🏷️ *Cupom aplicado:* ${appliedCoupon.code}\n`;
       msg += `💸 *Desconto:* ${appliedCoupon.type === "percent" ? "-" + appliedCoupon.value + "%" : "-" + brl(discount)}\n`;
+    }
+
+    const hasNumericShipping = !!(shippingInfo && shippingInfo.ok && typeof shippingInfo.price === "number");
+    const shippingPrice = hasNumericShipping ? shippingInfo.price : 0;
+    if (shippingInfo) {
+      if (hasNumericShipping) {
+        msg += `🚚 *Frete:* ${brl(shippingInfo.price)} (${shippingInfo.zone_label})\n`;
+      } else {
+        msg += `🚚 *Frete:* ${shippingInfo.message}\n`;
+      }
+    }
+
+    const finalTotal = Math.max(total - discount, 0) + shippingPrice;
+    if (hasNumericShipping) {
+      msg += `💰 *TOTAL FINAL: ${brl(finalTotal)}*\n\n`;
+    } else if (appliedCoupon) {
       msg += `💰 *Total com desconto: ${brl(finalTotal)}*\n\n`;
     } else {
       msg += `*TOTAL: ${brl(total)}*\n\n`;

@@ -6,3 +6,4 @@ static/uploads/*
 !static/uploads/.gitkeep
 *.sock
 server.log
+.pytest_cache/

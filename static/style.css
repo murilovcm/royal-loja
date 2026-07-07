@@ -1035,6 +1035,14 @@ header.site-header {
   margin-top: 12px; margin-bottom: 14px; font-size: .88rem; font-weight: 700; color: var(--green);
 }
 
+.checkout-shipping-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 12px; margin-bottom: 14px; font-size: .88rem; font-weight: 700; color: var(--text);
+}
+.checkout-shipping-row span:first-child { font-weight: 600; color: var(--text-dim); }
+.checkout-shipping-row span:first-child span { color: var(--text-dim); font-weight: 600; }
+#checkoutShippingNote.geo-status { margin-top: 12px; margin-bottom: 4px; }
+
 .checkout-foot { padding: 20px 22px; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
 
 /* ---------- Footer ---------- */

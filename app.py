@@ -9,6 +9,8 @@ from flask import (
 from werkzeug.utils import secure_filename
 from PIL import Image, ImageOps
 
+from shipping import calculate_shipping
+
 # ---------------------------------------------------------------------------
 # Configuração
 # ---------------------------------------------------------------------------
@@ -718,6 +720,23 @@ def api_apply_coupon():
         return jsonify({"ok": False, "error": generic_error}), 400
 
     return jsonify({"ok": True, "code": row["code"], "type": row["type"], "value": row["value"]})
+
+
+@app.route("/api/shipping/calc", methods=["POST"])
+def api_calculate_shipping():
+    """Calcula o frete por zona circular a partir da geolocalização do
+    cliente (rota pública, sem login — chamada direto do checkout).
+    """
+    d = request.get_json(force=True) or {}
+    try:
+        lat = float(d.get("lat"))
+        lng = float(d.get("lng"))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "Coordenadas inválidas"}), 400
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return jsonify({"ok": False, "error": "Coordenadas inválidas"}), 400
+
+    return jsonify(calculate_shipping(lat, lng))
 
 
 # ---- Brands ----
