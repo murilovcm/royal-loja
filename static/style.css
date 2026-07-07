@@ -417,14 +417,18 @@ header.site-header {
   background: linear-gradient(160deg, var(--surface-2), var(--surface) 60%);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px 14px;
+  padding: 22px 14px;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   transition: transform .2s cubic-bezier(.22,1,.36,1), border-color .2s, box-shadow .2s;
 }
 .hero-feature:hover { transform: translateY(-3px); border-color: rgba(255,214,10,.3); box-shadow: 0 14px 30px rgba(0,0,0,.3); }
 .hero-feature-icon {
   width: 52px; height: 52px;
-  margin: 0 auto 14px;
+  margin: 0 auto 12px;
   display: grid; place-items: center;
   border-radius: 50%;
   background: rgba(255,214,10,.08);
@@ -432,8 +436,7 @@ header.site-header {
   color: var(--primary-yellow);
 }
 .hero-feature-icon svg { width: 24px; height: 24px; }
-.hero-feature h3 { font-size: 1rem; font-weight: 800; margin-bottom: 8px; }
-.hero-feature p { font-size: .84rem; color: var(--text-dim); line-height: 1.5; }
+.hero-feature h3 { font-size: 1rem; font-weight: 800; line-height: 1.3; margin: 0; }
 
 /* Entrada escalonada: chips -> logo -> título -> subtítulo -> botões -> cards,
    ligada ao mesmo reveal-visible que o IntersectionObserver já aplica em .hero */
@@ -1215,11 +1218,10 @@ body.editor-mode .model-card { cursor: default; }
   .hero-cta { margin-bottom: 44px; }
   .hero-cta .btn { flex: 1; min-width: 140px; }
   .hero-features { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .hero-feature { padding: 14px 8px; }
+  .hero-feature { padding: 16px 8px; }
   .hero-feature-icon { width: 40px; height: 40px; margin-bottom: 8px; }
   .hero-feature-icon svg { width: 18px; height: 18px; }
-  .hero-feature h3 { font-size: .78rem; margin-bottom: 4px; }
-  .hero-feature p { font-size: .68rem; line-height: 1.3; }
+  .hero-feature h3 { font-size: .82rem; }
 
   .section { padding: 30px 0; }
   .section-head { margin-bottom: 18px; }
@@ -1251,11 +1253,10 @@ body.editor-mode .model-card { cursor: default; }
   .hero-cta .btn { padding: 13px 18px; font-size: .9rem; }
   .btn-primary.hero-btn-main { padding: 16px 32px; }
   .hero-features { gap: 6px; }
-  .hero-feature { padding: 10px 6px; }
-  .hero-feature-icon { width: 32px; height: 32px; margin-bottom: 6px; }
-  .hero-feature-icon svg { width: 15px; height: 15px; }
-  .hero-feature h3 { font-size: .66rem; margin-bottom: 3px; }
-  .hero-feature p { font-size: .58rem; line-height: 1.25; }
+  .hero-feature { padding: 12px 6px; }
+  .hero-feature-icon { width: 34px; height: 34px; margin-bottom: 6px; }
+  .hero-feature-icon svg { width: 16px; height: 16px; }
+  .hero-feature h3 { font-size: .7rem; }
 
   /* --- Filtros: pistas de rolagem nas bordas --- */
   .filter-bar { gap: 8px; padding: 4px 12px 12px; margin: 0 -12px 4px; }
