@@ -445,21 +445,35 @@
     const rm = e.target.closest(".rm");
     if (rm) {
       const idx = Number(rm.dataset.idx);
+      const item = cart[idx];
       const row = rm.closest(".cart-item");
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (reduced || !row) { cart.splice(idx, 1); saveCart(); renderCart(); return; }
+      if (reduced || !row) {
+        cart.splice(idx, 1); saveCart(); renderCart();
+        if (item) toast("Removido do carrinho", `${item.model_name} • ${item.flavor_name}`);
+        return;
+      }
       row.style.maxHeight = row.offsetHeight + "px";
       row.classList.add("removing");
       void row.offsetHeight;
       row.style.maxHeight = "0px";
       setTimeout(() => { cart.splice(idx, 1); saveCart(); renderCart(); }, 320);
+      if (item) toast("Removido do carrinho", `${item.model_name} • ${item.flavor_name}`);
       return;
     }
     const qb = e.target.closest("[data-act]");
     if (qb) {
       const idx = Number(qb.dataset.idx);
-      if (qb.dataset.act === "inc") cart[idx].qty++;
-      else { cart[idx].qty--; if (cart[idx].qty < 1) cart.splice(idx, 1); }
+      const item = cart[idx];
+      if (!item) return;
+      if (qb.dataset.act === "inc") {
+        cart[idx].qty++;
+        toast("Adicionado ao carrinho", `${item.model_name} • ${item.flavor_name}`, "success");
+      } else {
+        cart[idx].qty--;
+        if (cart[idx].qty < 1) cart.splice(idx, 1);
+        toast("Removido do carrinho", `${item.model_name} • ${item.flavor_name}`);
+      }
       saveCart(); renderCart();
     }
   });

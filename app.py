@@ -559,7 +559,6 @@ def admin():
         "admin.html",
         tree=tree,
         config=get_config(),
-        promo_blocks=get_promo_blocks(only_active=False),
         coupons=get_coupons(),
         special_zones=special_zones,
         concentric_zones=concentric_zones,

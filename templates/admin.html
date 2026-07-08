@@ -78,34 +78,15 @@
     .sections-block { background:var(--surface); border:1px solid var(--border); border-radius:16px; margin-bottom:22px; padding:18px 20px; }
     .sections-head { font-size:1.1rem; font-weight:800; margin-bottom:4px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
     .sections-sub { font-size:.78rem; color:var(--text-dim); font-weight:500; }
-    .st-state { font-size:.82rem; font-weight:600; }
     .sections-tip { font-size:.8rem; color:var(--text-dim); margin-top:8px; padding-top:12px; border-top:1px solid var(--border); }
-
-    .promo-block { border:1px solid var(--border); border-radius:14px; margin-top:16px; overflow:hidden; }
-    .promo-head { display:flex; align-items:center; gap:10px; padding:12px 16px; background:var(--surface-2); flex-wrap:wrap; }
-    .promo-head .p-name { font-weight:700; flex:1; min-width:140px; }
-    .promo-swatch { width:22px; height:22px; border-radius:50%; border:2px solid rgba(255,255,255,.25); flex-shrink:0; }
-    .promo-head .order-btns { display:flex; gap:2px; }
-    .promo-head .order-btns button { background:none; color:var(--text-dim); font-size:.9rem; padding:2px 6px; }
-    .promo-head .order-btns button:hover { color:var(--text); }
-    .promo-toggle-btn { background:none; color:var(--purple-soft); font-size:.82rem; font-weight:600; white-space:nowrap; }
-    .promo-body { padding:16px; display:none; grid-template-columns:1fr 1fr; gap:12px; }
-    .promo-block.open .promo-body { display:grid; }
-    .promo-body .full { grid-column:1 / -1; }
-    .promo-field { display:flex; flex-direction:column; gap:4px; }
-    .promo-field label { font-size:.72rem; color:var(--text-dim); font-weight:600; }
-    .promo-field input[type=text], .promo-field textarea, .promo-field select {
-      background:var(--bg-2); border:1px solid var(--border); border-radius:8px;
-      padding:8px 10px; color:var(--text); font-size:.85rem; font-family:inherit; width:100%;
-    }
-    .promo-field textarea { resize:vertical; min-height:44px; }
-    .promo-field input:focus, .promo-field textarea:focus, .promo-field select:focus { outline:none; border-color:var(--primary-yellow); }
-    .promo-colors { display:flex; gap:14px; flex-wrap:wrap; }
-    .promo-color-field { display:flex; align-items:center; gap:8px; }
-    .promo-color-field input[type=color] { width:38px; height:32px; border:1px solid var(--border); border-radius:8px; background:none; padding:2px; cursor:pointer; }
-    .promo-color-field label { font-size:.78rem; color:var(--text-dim); }
-    .promo-items-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     .promo-foot { display:flex; justify-content:flex-end; gap:8px; padding:0 16px 16px; }
+
+    .admin-tabs { display:flex; gap:8px; margin-bottom:22px; flex-wrap:wrap; border-bottom:1px solid var(--border); padding-bottom:14px; }
+    .tab-btn { padding:10px 18px; border-radius:10px; background:none; border:1px solid transparent; color:var(--text-dim); font-weight:700; font-size:.9rem; transition:.2s; }
+    .tab-btn:hover { color:var(--text); border-color:var(--border); }
+    .tab-btn.active { background:var(--surface); border-color:var(--border); color:var(--primary-yellow); }
+    .admin-tab-panel { display:none; }
+    .admin-tab-panel.active { display:block; }
 
     .coupon-table { width:100%; border-collapse:collapse; margin-top:14px; font-size:.88rem; }
     .coupon-table th { text-align:left; color:var(--text-dim); font-weight:700; font-size:.72rem; text-transform:uppercase; letter-spacing:.5px; padding:8px 10px; border-bottom:1px solid var(--border); }
@@ -140,297 +121,202 @@
       </div>
     </div>
 
-    <div class="add-inline" id="addBrandForm" style="display:none; margin-bottom:18px;">
-      <input type="text" id="newBrandName" placeholder="Nome da nova marca" onkeydown="if(event.key==='Enter') submitAddBrand()">
-      <button class="mini-btn primary" onclick="submitAddBrand()">Criar marca</button>
-      <button class="mini-btn" onclick="toggleAddBrandForm(false)">Cancelar</button>
+    <div class="admin-tabs" id="adminTabs">
+      <button class="tab-btn active" data-tab="catalog" type="button">📦 Catálogo</button>
+      <button class="tab-btn" data-tab="coupons" type="button">🏷️ Cupons</button>
+      <button class="tab-btn" data-tab="shipping" type="button">🗺️ Frete</button>
     </div>
 
-    <div class="sections-block">
-      <div class="sections-head">
-        🧩 Seções do Site <span class="sections-sub">Blocos promocionais (ex: Atacado) — crie quantos quiser, cada um com seu próprio texto, botões e cores</span>
+    <div class="admin-tab-panel active" data-tab-panel="catalog">
+      <div class="add-inline" id="addBrandForm" style="display:none; margin-bottom:18px;">
+        <input type="text" id="newBrandName" placeholder="Nome da nova marca" onkeydown="if(event.key==='Enter') submitAddBrand()">
+        <button class="mini-btn primary" onclick="submitAddBrand()">Criar marca</button>
+        <button class="mini-btn" onclick="toggleAddBrandForm(false)">Cancelar</button>
       </div>
 
-      <div id="promoBlocksContainer">
-        {% for block in promo_blocks %}
-        <div class="promo-block" data-pid="{{ block.id }}">
-          <div class="promo-head">
-            <span class="promo-swatch" style="background: linear-gradient(120deg, {{ block.bg_color_1 }}, {{ block.bg_color_2 }});"></span>
-            <span class="p-name">Bloco {{ loop.index }}{{ ' — ' + block.title if block.title else '' }}</span>
-            <span class="order-btns">
-              <button title="Mover para cima" onclick="movePromo({{ block.id }}, 'up')">▲</button>
-              <button title="Mover para baixo" onclick="movePromo({{ block.id }}, 'down')">▼</button>
-            </span>
-            <span class="stock-toggle" onclick="togglePromoActive({{ block.id }}, this)">
-              <span class="switch {{ 'on' if block.active == 1 }}"></span>
-              <span class="st-state">{{ 'Ligado' if block.active == 1 else 'Desligado' }}</span>
-            </span>
-            <button class="mini-btn" onclick="duplicatePromo({{ block.id }})">⧉ Duplicar</button>
-            <button class="del-btn" onclick="deletePromo({{ block.id }})" title="Excluir bloco">🗑</button>
-            <button class="promo-toggle-btn" onclick="togglePromoBody({{ block.id }}, this)">Editar ▾</button>
+      <div id="brandsContainer">
+        {% for node in tree %}
+        <div class="brand-block" data-bid="{{ node.brand.id }}">
+          <div class="brand-head">
+            <span class="b-icon">🏷️</span>
+            <span class="b-name">{{ node.brand.name }}</span>
+            <button class="mini-btn" onclick="toggleAddModelForm({{ node.brand.id }}, true)">+ Modelo</button>
+            <button class="del-btn" onclick="delBrand({{ node.brand.id }})" title="Excluir marca">🗑</button>
+          </div>
+          <div class="add-inline" id="addModelForm-{{ node.brand.id }}" style="display:none; padding:12px 20px; border-top:1px solid var(--border);">
+            <input type="text" id="mname-{{ node.brand.id }}" placeholder="Nome do modelo (ex: BC25000)" onkeydown="if(event.key==='Enter') submitAddModel({{ node.brand.id }})">
+            <input type="text" id="mpuff-{{ node.brand.id }}" placeholder="Puffs (ex: 25.000 puffs)" onkeydown="if(event.key==='Enter') submitAddModel({{ node.brand.id }})">
+            <button class="mini-btn primary" onclick="submitAddModel({{ node.brand.id }})">Adicionar</button>
+            <button class="mini-btn" onclick="toggleAddModelForm({{ node.brand.id }}, false)">Cancelar</button>
           </div>
 
-          <div class="promo-body">
-            <div class="promo-field">
-              <label>Texto de destaque (eyebrow)</label>
-              <input type="text" value="{{ block.eyebrow }}" onchange="savePromoText({{ block.id }}, 'eyebrow', this.value)">
-            </div>
-            <div class="promo-field">
-              <label>Palavra de fundo (marca d'água)</label>
-              <input type="text" value="{{ block.bg_word }}" onchange="savePromoText({{ block.id }}, 'bg_word', this.value)">
-            </div>
-            <div class="promo-field full">
-              <label>Título</label>
-              <input type="text" value="{{ block.title }}" onchange="savePromoText({{ block.id }}, 'title', this.value)">
-            </div>
-            <div class="promo-field full">
-              <label>Subtítulo</label>
-              <textarea onchange="savePromoText({{ block.id }}, 'subtitle', this.value)">{{ block.subtitle }}</textarea>
-            </div>
-
-            <div class="promo-field full">
-              <label>Itens (lista com ✓)</label>
-              <div class="promo-items-grid">
-                <input type="text" value="{{ block.item_1 }}" onchange="savePromoText({{ block.id }}, 'item_1', this.value)">
-                <input type="text" value="{{ block.item_2 }}" onchange="savePromoText({{ block.id }}, 'item_2', this.value)">
-                <input type="text" value="{{ block.item_3 }}" onchange="savePromoText({{ block.id }}, 'item_3', this.value)">
-                <input type="text" value="{{ block.item_4 }}" onchange="savePromoText({{ block.id }}, 'item_4', this.value)">
+          {% for item in node.models %}
+          {% set m = item.model %}
+          <div class="model-row" data-mid="{{ m.id }}">
+            <div class="model-line">
+              <button class="star-toggle {{ 'on' if m.is_best_seller }}" onclick="toggleBest({{ m.id }}, this)" title="Mais vendido">★</button>
+              <div class="m-photo {{ 'has-img' if m.image_url }}" id="photo-{{ m.id }}" data-mid="{{ m.id }}" onclick="triggerPhotoInput({{ m.id }})" title="Clique ou arraste uma imagem">
+                {% if m.image_url %}
+                <img src="{{ m.image_url }}" alt="">
+                <button class="m-photo-remove" onclick="removeModelImage({{ m.id }}, event)" title="Remover foto">✕</button>
+                {% else %}
+                <span class="m-photo-icon">📷</span>
+                {% endif %}
+                <input type="file" accept="image/*" class="m-photo-input" id="photo-input-{{ m.id }}" onchange="handlePhotoInput({{ m.id }}, this)" onclick="event.stopPropagation()">
               </div>
+              <input type="text" class="m-name" value="{{ m.name }}" onchange="updateModel({{ m.id }}, 'name', this.value)">
+              <input type="text" class="m-puff" value="{{ m.puff_count }}" onchange="updateModel({{ m.id }}, 'puff_count', this.value)">
+              <span class="spacer"></span>
+              <button class="expand-btn" onclick="toggleFlavors({{ m.id }}, this)">Sabores ({{ item.flavors|length }}) ▾</button>
+              <button class="del-btn" onclick="delModel({{ m.id }})" title="Excluir modelo">🗑</button>
             </div>
 
-            <div class="promo-field">
-              <label>Botão principal (texto)</label>
-              <input type="text" value="{{ block.btn_primary }}" onchange="savePromoText({{ block.id }}, 'btn_primary', this.value)">
-            </div>
-            <div class="promo-field">
-              <label>Botão principal — mensagem do WhatsApp</label>
-              <input type="text" value="{{ block.btn_primary_msg }}" onchange="savePromoText({{ block.id }}, 'btn_primary_msg', this.value)">
-            </div>
-            <div class="promo-field">
-              <label>Botão secundário (texto)</label>
-              <input type="text" value="{{ block.btn_secondary }}" onchange="savePromoText({{ block.id }}, 'btn_secondary', this.value)">
-            </div>
-            <div class="promo-field">
-              <label>Botão secundário — mensagem do WhatsApp</label>
-              <input type="text" value="{{ block.btn_secondary_msg }}" onchange="savePromoText({{ block.id }}, 'btn_secondary_msg', this.value)">
-            </div>
-
-            <div class="promo-field full">
-              <label>Aparência</label>
-              <div class="promo-colors">
-                <div class="promo-color-field">
-                  <input type="color" data-field="bg_color_1" value="{{ block.bg_color_1 }}" onchange="savePromoField({{ block.id }}, 'bg_color_1', this.value, this)">
-                  <label>Fundo (início)</label>
-                </div>
-                <div class="promo-color-field">
-                  <input type="color" data-field="bg_color_2" value="{{ block.bg_color_2 }}" onchange="savePromoField({{ block.id }}, 'bg_color_2', this.value, this)">
-                  <label>Fundo (fim)</label>
-                </div>
-                <div class="promo-color-field">
-                  <select onchange="savePromoField({{ block.id }}, 'text_theme', this.value, this)">
-                    <option value="light" {{ 'selected' if block.text_theme == 'light' }}>Texto escuro (fundo claro)</option>
-                    <option value="dark" {{ 'selected' if block.text_theme == 'dark' }}>Texto claro (fundo escuro)</option>
-                  </select>
-                </div>
-                <div class="promo-color-field">
-                  <input type="color" value="{{ block.btn_bg_color }}" onchange="savePromoField({{ block.id }}, 'btn_bg_color', this.value, this)">
-                  <label>Fundo do botão principal</label>
-                </div>
-                <div class="promo-color-field">
-                  <input type="color" value="{{ block.btn_text_color }}" onchange="savePromoField({{ block.id }}, 'btn_text_color', this.value, this)">
-                  <label>Texto do botão principal</label>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-
-      <div class="promo-foot" style="padding-top:16px;">
-        <button class="mini-btn primary" id="addPromoBtn">+ Novo Bloco Promocional</button>
-      </div>
-      <div class="sections-tip">💡 As alterações aqui são salvas automaticamente, direto neste painel.</div>
-    </div>
-
-    <div class="sections-block">
-      <div class="sections-head">
-        🏷️ Cupons de Desconto <span class="sections-sub">Códigos promocionais usados no checkout do site</span>
-      </div>
-
-      <div class="add-inline" id="addCouponForm" style="display:none; margin-top:14px;">
-        <input type="text" id="newCouponCode" placeholder="Código (ex: ROYAL10)" maxlength="30" onkeydown="if(event.key==='Enter') submitAddCoupon()">
-        <select id="newCouponType">
-          <option value="percent">Porcentagem (%)</option>
-          <option value="fixed">Valor fixo (R$)</option>
-        </select>
-        <input type="number" id="newCouponValue" placeholder="Valor" step="0.01" min="0" style="width:100px" onkeydown="if(event.key==='Enter') submitAddCoupon()">
-        <button class="mini-btn primary" onclick="submitAddCoupon()">Criar cupom</button>
-        <button class="mini-btn" onclick="toggleAddCouponForm(false)">Cancelar</button>
-      </div>
-
-      <table class="coupon-table">
-        <thead>
-          <tr><th>Código</th><th>Tipo</th><th>Valor</th><th>Status</th><th>Ações</th></tr>
-        </thead>
-        <tbody id="couponTableBody">
-          {% for c in coupons %}
-          <tr data-cid="{{ c.id }}">
-            <td class="cp-code">{{ c.code }}</td>
-            <td>{{ 'Porcentagem' if c.type == 'percent' else 'Valor fixo' }}</td>
-            <td>{{ c.value_display }}</td>
-            <td><span class="coupon-status-badge {{ 'on' if c.active == 1 else 'off' }}">{{ 'Ativo' if c.active == 1 else 'Inativo' }}</span></td>
-            <td>
-              <div class="coupon-actions">
-                <span class="stock-toggle" onclick="toggleCouponActive({{ c.id }}, this)" title="Ativar/Desativar">
-                  <span class="switch {{ 'on' if c.active == 1 }}"></span>
+            <div class="flavors-box" id="flavors-{{ m.id }}">
+              {% for f in item.flavors %}
+              <div class="flavor-line" data-fid="{{ f.id }}">
+                <input type="text" value="{{ f.name }}" onchange="updateProduct({{ f.id }}, 'name', this.value, this)">
+                <input type="number" step="0.01" value="{{ '%.2f'|format(f.price) }}" onchange="updateProduct({{ f.id }}, 'price', this.value, this)">
+                <span class="stock-toggle" onclick="toggleStock({{ f.id }}, this)">
+                  <span class="switch {{ 'on' if f.is_in_stock }}"></span>
+                  <span>Estoque</span>
                 </span>
-                <button class="del-btn" onclick="deleteCoupon({{ c.id }})" title="Excluir cupom">🗑</button>
+                <button class="del-btn" onclick="delProduct({{ f.id }})" title="Excluir sabor">🗑</button>
+                <span class="save-flag">salvo ✓</span>
               </div>
-            </td>
-          </tr>
-          {% else %}
-          <tr id="couponEmptyRow"><td colspan="5" style="color:var(--text-dim); text-align:center; padding:16px;">Nenhum cupom cadastrado ainda.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-
-      <div class="promo-foot" style="padding-top:16px;">
-        <button class="mini-btn primary" id="addCouponBtn">+ Novo Cupom</button>
-      </div>
-    </div>
-
-    <div class="sections-block">
-      <div class="sections-head">
-        🗺️ Zonas de Frete <span class="sections-sub">Rotas usadas no checkout para calcular o frete pela localização do cliente</span>
-      </div>
-
-      <div class="add-inline" id="addZoneForm" style="display:none; margin-top:14px; flex-wrap:wrap;">
-        <select id="newZoneType">
-          <option value="concentric">Concêntrica</option>
-          <option value="special">Especial (bolsão)</option>
-        </select>
-        <input type="text" id="newZoneLabel" placeholder="Nome (ex: Zona 6)">
-        <input type="number" id="newZoneLat" placeholder="Latitude" step="0.000001" style="width:130px">
-        <input type="number" id="newZoneLng" placeholder="Longitude" step="0.000001" style="width:130px">
-        <input type="number" id="newZoneRadius" placeholder="Raio (m)" step="1" min="1" style="width:100px">
-        <input type="number" id="newZonePrice" placeholder="Preço (R$)" step="0.01" min="0" style="width:110px">
-        <button class="mini-btn primary" onclick="submitAddZone()">Criar zona</button>
-        <button class="mini-btn" onclick="toggleAddZoneForm(false)">Cancelar</button>
-      </div>
-
-      <div class="zone-group-label">
-        🎯 Zonas especiais <span class="sections-sub">bolsões isolados — testados ANTES das concêntricas</span>
-      </div>
-      <table class="coupon-table zone-table">
-        <thead>
-          <tr><th>Nome</th><th>Latitude</th><th>Longitude</th><th>Raio (m)</th><th>Preço</th><th>Ações</th></tr>
-        </thead>
-        <tbody id="specialZoneTableBody">
-          {% for z in special_zones %}
-          <tr data-zid="{{ z.id }}">
-            <td><input class="zone-input" type="text" value="{{ z.label }}" onchange="updateZone({{ z.id }}, 'label', this.value, this)"></td>
-            <td><input class="zone-input zone-input-num" type="number" step="0.000001" value="{{ z.lat }}" onchange="updateZone({{ z.id }}, 'lat', this.value, this)"></td>
-            <td><input class="zone-input zone-input-num" type="number" step="0.000001" value="{{ z.lng }}" onchange="updateZone({{ z.id }}, 'lng', this.value, this)"></td>
-            <td><input class="zone-input zone-input-num" type="number" step="1" min="1" value="{{ z.radius_m|int }}" onchange="updateZone({{ z.id }}, 'radius_m', this.value, this)"></td>
-            <td><input class="zone-input zone-input-num" type="number" step="0.01" min="0" placeholder="a combinar" value="{{ '' if z.price is none else ('%.2f'|format(z.price)) }}" onchange="updateZone({{ z.id }}, 'price', this.value, this)"></td>
-            <td><button class="del-btn" onclick="deleteZone({{ z.id }})" title="Excluir zona">🗑</button> <span class="save-flag">salvo ✓</span></td>
-          </tr>
-          {% else %}
-          <tr><td colspan="6" style="color:var(--text-dim); text-align:center; padding:16px;">Nenhuma zona especial cadastrada.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-
-      <div class="zone-group-label" style="margin-top:20px;">
-        🎯 Zonas concêntricas <span class="sections-sub">testadas da menor para a maior — a primeira em que o cliente couber define o frete</span>
-      </div>
-      <table class="coupon-table zone-table">
-        <thead>
-          <tr><th>Nome</th><th>Latitude</th><th>Longitude</th><th>Raio (m)</th><th>Preço</th><th>Ações</th></tr>
-        </thead>
-        <tbody id="concentricZoneTableBody">
-          {% for z in concentric_zones %}
-          <tr data-zid="{{ z.id }}">
-            <td><input class="zone-input" type="text" value="{{ z.label }}" onchange="updateZone({{ z.id }}, 'label', this.value, this)"></td>
-            <td><input class="zone-input zone-input-num" type="number" step="0.000001" value="{{ z.lat }}" onchange="updateZone({{ z.id }}, 'lat', this.value, this)"></td>
-            <td><input class="zone-input zone-input-num" type="number" step="0.000001" value="{{ z.lng }}" onchange="updateZone({{ z.id }}, 'lng', this.value, this)"></td>
-            <td><input class="zone-input zone-input-num" type="number" step="1" min="1" value="{{ z.radius_m|int }}" onchange="updateZone({{ z.id }}, 'radius_m', this.value, this)"></td>
-            <td><input class="zone-input zone-input-num" type="number" step="0.01" min="0" value="{{ '' if z.price is none else ('%.2f'|format(z.price)) }}" onchange="updateZone({{ z.id }}, 'price', this.value, this)"></td>
-            <td><button class="del-btn" onclick="deleteZone({{ z.id }})" title="Excluir zona">🗑</button> <span class="save-flag">salvo ✓</span></td>
-          </tr>
-          {% else %}
-          <tr><td colspan="6" style="color:var(--text-dim); text-align:center; padding:16px;">Nenhuma zona concêntrica cadastrada.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-
-      <div class="promo-foot" style="padding-top:16px;">
-        <button class="mini-btn primary" id="addZoneBtn">+ Nova Zona</button>
-      </div>
-      <div class="sections-tip">💡 Preço em branco só é permitido em zona especial — fica marcado como "frete a combinar" no checkout até você definir um valor.</div>
-    </div>
-
-    <div id="brandsContainer">
-      {% for node in tree %}
-      <div class="brand-block" data-bid="{{ node.brand.id }}">
-        <div class="brand-head">
-          <span class="b-icon">🏷️</span>
-          <span class="b-name">{{ node.brand.name }}</span>
-          <button class="mini-btn" onclick="toggleAddModelForm({{ node.brand.id }}, true)">+ Modelo</button>
-          <button class="del-btn" onclick="delBrand({{ node.brand.id }})" title="Excluir marca">🗑</button>
-        </div>
-        <div class="add-inline" id="addModelForm-{{ node.brand.id }}" style="display:none; padding:12px 20px; border-top:1px solid var(--border);">
-          <input type="text" id="mname-{{ node.brand.id }}" placeholder="Nome do modelo (ex: BC25000)" onkeydown="if(event.key==='Enter') submitAddModel({{ node.brand.id }})">
-          <input type="text" id="mpuff-{{ node.brand.id }}" placeholder="Puffs (ex: 25.000 puffs)" onkeydown="if(event.key==='Enter') submitAddModel({{ node.brand.id }})">
-          <button class="mini-btn primary" onclick="submitAddModel({{ node.brand.id }})">Adicionar</button>
-          <button class="mini-btn" onclick="toggleAddModelForm({{ node.brand.id }}, false)">Cancelar</button>
-        </div>
-
-        {% for item in node.models %}
-        {% set m = item.model %}
-        <div class="model-row" data-mid="{{ m.id }}">
-          <div class="model-line">
-            <button class="star-toggle {{ 'on' if m.is_best_seller }}" onclick="toggleBest({{ m.id }}, this)" title="Mais vendido">★</button>
-            <div class="m-photo {{ 'has-img' if m.image_url }}" id="photo-{{ m.id }}" data-mid="{{ m.id }}" onclick="triggerPhotoInput({{ m.id }})" title="Clique ou arraste uma imagem">
-              {% if m.image_url %}
-              <img src="{{ m.image_url }}" alt="">
-              <button class="m-photo-remove" onclick="removeModelImage({{ m.id }}, event)" title="Remover foto">✕</button>
-              {% else %}
-              <span class="m-photo-icon">📷</span>
-              {% endif %}
-              <input type="file" accept="image/*" class="m-photo-input" id="photo-input-{{ m.id }}" onchange="handlePhotoInput({{ m.id }}, this)" onclick="event.stopPropagation()">
-            </div>
-            <input type="text" class="m-name" value="{{ m.name }}" onchange="updateModel({{ m.id }}, 'name', this.value)">
-            <input type="text" class="m-puff" value="{{ m.puff_count }}" onchange="updateModel({{ m.id }}, 'puff_count', this.value)">
-            <span class="spacer"></span>
-            <button class="expand-btn" onclick="toggleFlavors({{ m.id }}, this)">Sabores ({{ item.flavors|length }}) ▾</button>
-            <button class="del-btn" onclick="delModel({{ m.id }})" title="Excluir modelo">🗑</button>
-          </div>
-
-          <div class="flavors-box" id="flavors-{{ m.id }}">
-            {% for f in item.flavors %}
-            <div class="flavor-line" data-fid="{{ f.id }}">
-              <input type="text" value="{{ f.name }}" onchange="updateProduct({{ f.id }}, 'name', this.value, this)">
-              <input type="number" step="0.01" value="{{ '%.2f'|format(f.price) }}" onchange="updateProduct({{ f.id }}, 'price', this.value, this)">
-              <span class="stock-toggle" onclick="toggleStock({{ f.id }}, this)">
-                <span class="switch {{ 'on' if f.is_in_stock }}"></span>
-                <span>Estoque</span>
-              </span>
-              <button class="del-btn" onclick="delProduct({{ f.id }})" title="Excluir sabor">🗑</button>
-              <span class="save-flag">salvo ✓</span>
-            </div>
-            {% endfor %}
-            <div class="add-inline">
-              <input type="text" placeholder="Nome do sabor" id="fname-{{ m.id }}">
-              <input type="number" step="0.01" placeholder="Preço" id="fprice-{{ m.id }}" style="width:100px">
-              <button class="mini-btn primary" onclick="addProduct({{ m.id }})">+ Sabor</button>
+              {% endfor %}
+              <div class="add-inline">
+                <input type="text" placeholder="Nome do sabor" id="fname-{{ m.id }}">
+                <input type="number" step="0.01" placeholder="Preço" id="fprice-{{ m.id }}" style="width:100px">
+                <button class="mini-btn primary" onclick="addProduct({{ m.id }})">+ Sabor</button>
+              </div>
             </div>
           </div>
+          {% endfor %}
         </div>
         {% endfor %}
       </div>
-      {% endfor %}
+    </div>
+
+    <div class="admin-tab-panel" data-tab-panel="coupons">
+      <div class="sections-block">
+        <div class="sections-head">
+          🏷️ Cupons de Desconto <span class="sections-sub">Códigos promocionais usados no checkout do site</span>
+        </div>
+
+        <div class="add-inline" id="addCouponForm" style="display:none; margin-top:14px;">
+          <input type="text" id="newCouponCode" placeholder="Código (ex: ROYAL10)" maxlength="30" onkeydown="if(event.key==='Enter') submitAddCoupon()">
+          <select id="newCouponType">
+            <option value="percent">Porcentagem (%)</option>
+            <option value="fixed">Valor fixo (R$)</option>
+          </select>
+          <input type="number" id="newCouponValue" placeholder="Valor" step="0.01" min="0" style="width:100px" onkeydown="if(event.key==='Enter') submitAddCoupon()">
+          <button class="mini-btn primary" onclick="submitAddCoupon()">Criar cupom</button>
+          <button class="mini-btn" onclick="toggleAddCouponForm(false)">Cancelar</button>
+        </div>
+
+        <table class="coupon-table">
+          <thead>
+            <tr><th>Código</th><th>Tipo</th><th>Valor</th><th>Status</th><th>Ações</th></tr>
+          </thead>
+          <tbody id="couponTableBody">
+            {% for c in coupons %}
+            <tr data-cid="{{ c.id }}">
+              <td class="cp-code">{{ c.code }}</td>
+              <td>{{ 'Porcentagem' if c.type == 'percent' else 'Valor fixo' }}</td>
+              <td>{{ c.value_display }}</td>
+              <td><span class="coupon-status-badge {{ 'on' if c.active == 1 else 'off' }}">{{ 'Ativo' if c.active == 1 else 'Inativo' }}</span></td>
+              <td>
+                <div class="coupon-actions">
+                  <span class="stock-toggle" onclick="toggleCouponActive({{ c.id }}, this)" title="Ativar/Desativar">
+                    <span class="switch {{ 'on' if c.active == 1 }}"></span>
+                  </span>
+                  <button class="del-btn" onclick="deleteCoupon({{ c.id }})" title="Excluir cupom">🗑</button>
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr id="couponEmptyRow"><td colspan="5" style="color:var(--text-dim); text-align:center; padding:16px;">Nenhum cupom cadastrado ainda.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <div class="promo-foot" style="padding-top:16px;">
+          <button class="mini-btn primary" id="addCouponBtn">+ Novo Cupom</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-tab-panel" data-tab-panel="shipping">
+      <div class="sections-block">
+        <div class="sections-head">
+          🗺️ Zonas de Frete <span class="sections-sub">Rotas usadas no checkout para calcular o frete pela localização do cliente</span>
+        </div>
+
+        <div class="add-inline" id="addZoneForm" style="display:none; margin-top:14px; flex-wrap:wrap;">
+          <select id="newZoneType">
+            <option value="concentric">Concêntrica</option>
+            <option value="special">Especial (bolsão)</option>
+          </select>
+          <input type="text" id="newZoneLabel" placeholder="Nome (ex: Zona 6)">
+          <input type="number" id="newZoneLat" placeholder="Latitude" step="0.000001" style="width:130px">
+          <input type="number" id="newZoneLng" placeholder="Longitude" step="0.000001" style="width:130px">
+          <input type="number" id="newZoneRadius" placeholder="Raio (m)" step="1" min="1" style="width:100px">
+          <input type="number" id="newZonePrice" placeholder="Preço (R$)" step="0.01" min="0" style="width:110px">
+          <button class="mini-btn primary" onclick="submitAddZone()">Criar zona</button>
+          <button class="mini-btn" onclick="toggleAddZoneForm(false)">Cancelar</button>
+        </div>
+
+        <div class="zone-group-label">
+          🎯 Zonas especiais <span class="sections-sub">bolsões isolados — testados ANTES das concêntricas</span>
+        </div>
+        <table class="coupon-table zone-table">
+          <thead>
+            <tr><th>Nome</th><th>Latitude</th><th>Longitude</th><th>Raio (m)</th><th>Preço</th><th>Ações</th></tr>
+          </thead>
+          <tbody id="specialZoneTableBody">
+            {% for z in special_zones %}
+            <tr data-zid="{{ z.id }}">
+              <td><input class="zone-input" type="text" value="{{ z.label }}" onchange="updateZone({{ z.id }}, 'label', this.value, this)"></td>
+              <td><input class="zone-input zone-input-num" type="number" step="0.000001" value="{{ z.lat }}" onchange="updateZone({{ z.id }}, 'lat', this.value, this)"></td>
+              <td><input class="zone-input zone-input-num" type="number" step="0.000001" value="{{ z.lng }}" onchange="updateZone({{ z.id }}, 'lng', this.value, this)"></td>
+              <td><input class="zone-input zone-input-num" type="number" step="1" min="1" value="{{ z.radius_m|int }}" onchange="updateZone({{ z.id }}, 'radius_m', this.value, this)"></td>
+              <td><input class="zone-input zone-input-num" type="number" step="0.01" min="0" placeholder="a combinar" value="{{ '' if z.price is none else ('%.2f'|format(z.price)) }}" onchange="updateZone({{ z.id }}, 'price', this.value, this)"></td>
+              <td><button class="del-btn" onclick="deleteZone({{ z.id }})" title="Excluir zona">🗑</button> <span class="save-flag">salvo ✓</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="color:var(--text-dim); text-align:center; padding:16px;">Nenhuma zona especial cadastrada.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <div class="zone-group-label" style="margin-top:20px;">
+          🎯 Zonas concêntricas <span class="sections-sub">testadas da menor para a maior — a primeira em que o cliente couber define o frete</span>
+        </div>
+        <table class="coupon-table zone-table">
+          <thead>
+            <tr><th>Nome</th><th>Latitude</th><th>Longitude</th><th>Raio (m)</th><th>Preço</th><th>Ações</th></tr>
+          </thead>
+          <tbody id="concentricZoneTableBody">
+            {% for z in concentric_zones %}
+            <tr data-zid="{{ z.id }}">
+              <td><input class="zone-input" type="text" value="{{ z.label }}" onchange="updateZone({{ z.id }}, 'label', this.value, this)"></td>
+              <td><input class="zone-input zone-input-num" type="number" step="0.000001" value="{{ z.lat }}" onchange="updateZone({{ z.id }}, 'lat', this.value, this)"></td>
+              <td><input class="zone-input zone-input-num" type="number" step="0.000001" value="{{ z.lng }}" onchange="updateZone({{ z.id }}, 'lng', this.value, this)"></td>
+              <td><input class="zone-input zone-input-num" type="number" step="1" min="1" value="{{ z.radius_m|int }}" onchange="updateZone({{ z.id }}, 'radius_m', this.value, this)"></td>
+              <td><input class="zone-input zone-input-num" type="number" step="0.01" min="0" value="{{ '' if z.price is none else ('%.2f'|format(z.price)) }}" onchange="updateZone({{ z.id }}, 'price', this.value, this)"></td>
+              <td><button class="del-btn" onclick="deleteZone({{ z.id }})" title="Excluir zona">🗑</button> <span class="save-flag">salvo ✓</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" style="color:var(--text-dim); text-align:center; padding:16px;">Nenhuma zona concêntrica cadastrada.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <div class="promo-foot" style="padding-top:16px;">
+          <button class="mini-btn primary" id="addZoneBtn">+ Nova Zona</button>
+        </div>
+        <div class="sections-tip">💡 Preço em branco só é permitido em zona especial — fica marcado como "frete a combinar" no checkout até você definir um valor.</div>
+      </div>
     </div>
   </div>
 
@@ -450,6 +336,15 @@
       const f = line.querySelector('.save-flag');
       if (f) { f.classList.add('show'); setTimeout(()=>f.classList.remove('show'),1500); }
     }
+
+    document.querySelectorAll('#adminTabs .tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#adminTabs .tab-btn').forEach((b) => b.classList.remove('active'));
+        document.querySelectorAll('.admin-tab-panel').forEach((p) => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelector('.admin-tab-panel[data-tab-panel="'+btn.dataset.tab+'"]').classList.add('active');
+      });
+    });
 
     function toggleAddBrandForm(show) {
       const el = document.getElementById('addBrandForm');
@@ -553,12 +448,6 @@
       const open = box.classList.toggle('open');
       el.textContent = el.textContent.replace(open ? '▾' : '▴', open ? '▴' : '▾');
     }
-    function togglePromoBody(pid, el) {
-      const block = document.querySelector('.promo-block[data-pid="'+pid+'"]');
-      const open = block.classList.toggle('open');
-      el.textContent = open ? 'Fechar ▴' : 'Editar ▾';
-    }
-
     async function updateProduct(id, field, value, el) {
       const body = {}; body[field] = value;
       await api('/api/product/'+id,'POST',body);
@@ -570,48 +459,6 @@
       await api('/api/product/'+id,'POST',{is_in_stock: on});
       toast(on ? "Em estoque" : "Fora de estoque");
     }
-    async function savePromoText(pid, field, value) {
-      await api('/api/update_config','POST',{key: 'promo_'+pid+'_'+field, value});
-      toast("Salvo ✓");
-    }
-    async function savePromoField(pid, field, value, el) {
-      await api('/api/promo_block/'+pid,'POST',{[field]: value});
-      const block = el.closest('.promo-block');
-      if (field === 'bg_color_1' || field === 'bg_color_2') {
-        const swatch = block.querySelector('.promo-swatch');
-        const c1 = block.querySelector('[data-field="bg_color_1"]').value;
-        const c2 = block.querySelector('[data-field="bg_color_2"]').value;
-        swatch.style.background = `linear-gradient(120deg, ${c1}, ${c2})`;
-      }
-      toast("Salvo ✓");
-    }
-    async function togglePromoActive(pid, el) {
-      const sw = el.querySelector('.switch');
-      const on = sw.classList.toggle('on');
-      const stateLabel = el.querySelector('.st-state');
-      if (stateLabel) stateLabel.textContent = on ? 'Ligado' : 'Desligado';
-      await api('/api/promo_block/'+pid,'POST',{active: on ? 1 : 0});
-      toast(on ? "Bloco ligado ✓" : "Bloco desligado");
-    }
-    async function duplicatePromo(pid) {
-      await api('/api/promo_block','POST',{duplicate_from: pid});
-      toast("Bloco duplicado ✓");
-      location.reload();
-    }
-    async function deletePromo(pid) {
-      if (!confirm("Excluir este bloco promocional?")) return;
-      await api('/api/promo_block/'+pid,'DELETE');
-      location.reload();
-    }
-    async function movePromo(pid, direction) {
-      await api('/api/promo_block/'+pid+'/move','POST',{direction});
-      location.reload();
-    }
-    document.getElementById('addPromoBtn').addEventListener('click', async () => {
-      await api('/api/promo_block','POST',{});
-      toast("Novo bloco criado ✓");
-      location.reload();
-    });
     async function delProduct(id) {
       if (!confirm("Excluir este sabor?")) return;
       await api('/api/product/'+id,'DELETE');
