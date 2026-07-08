@@ -79,10 +79,10 @@
     setInterval(update, 60000);
   })();
 
-  // ---- Cart state (localStorage) ----
+  // ---- Cart state (apenas em memória — zera a cada recarregamento da página) ----
   let cart = [];
-  try { cart = JSON.parse(localStorage.getItem("royal_cart")) || []; } catch (e) { cart = []; }
-  const saveCart = () => localStorage.setItem("royal_cart", JSON.stringify(cart));
+  try { localStorage.removeItem("royal_cart"); } catch (e) {}
+  const saveCart = () => {};
 
   // ---------------------------------------------------------------
   // TOAST
