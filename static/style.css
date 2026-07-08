@@ -995,6 +995,24 @@ header.site-header {
 .geo-status.warn { color: var(--yellow-soft); }
 .geo-status.danger { color: #ff5a5a; }
 
+.pickup-field {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border .2s, background .2s;
+}
+.pickup-field:hover { border-color: var(--primary-yellow); }
+.pickup-field input[type=checkbox] {
+  width: 20px; height: 20px; flex-shrink: 0;
+  accent-color: var(--primary-yellow);
+  cursor: pointer;
+}
+.pickup-text { font-size: .88rem; font-weight: 600; color: var(--text); }
+.pickup-text em { font-style: normal; font-weight: 500; color: var(--text-dim); }
+
 .coupon-box {
   margin-bottom: 14px;
   padding: 12px 14px;

@@ -347,7 +347,7 @@
           <span class="field-error" id="errPhone">Informe um telefone válido.</span>
         </label>
 
-        <label class="field">
+        <label class="field" id="addressField">
           <span class="field-label">Endereço de entrega *</span>
 
           <div class="geo-card">
@@ -362,6 +362,11 @@
 
           <textarea id="custAddress" name="custAddress" rows="3" placeholder="Condominio, rua, número, bairro, ponto de referência" autocomplete="street-address"></textarea>
           <span class="field-error" id="errAddress">Informe o endereço de entrega.</span>
+        </label>
+
+        <label class="pickup-field">
+          <input type="checkbox" id="custPickup">
+          <span class="pickup-text">🏪 Vou retirar o pedido no local <em>(sem frete)</em></span>
         </label>
 
         <label class="field">

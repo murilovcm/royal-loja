@@ -358,8 +358,9 @@
       byId("checkoutDiscountValue").textContent = "-" + brl(discount);
     }
 
-    // Frete: só existe depois que o cliente usa a geolocalização no checkout.
-    const hasNumericShipping = !!(shippingInfo && shippingInfo.ok && typeof shippingInfo.price === "number");
+    // Frete: só existe depois que o cliente usa a geolocalização no checkout (e não pediu retirada).
+    const pickup = pickupCheckbox.checked;
+    const hasNumericShipping = !pickup && !!(shippingInfo && shippingInfo.ok && typeof shippingInfo.price === "number");
     const shippingPrice = hasNumericShipping ? shippingInfo.price : 0;
 
     const checkoutShippingRow = byId("checkoutShippingRow");
@@ -370,7 +371,10 @@
     }
 
     const checkoutShippingNote = byId("checkoutShippingNote");
-    if (shippingInfo && !hasNumericShipping) {
+    if (pickup) {
+      checkoutShippingNote.textContent = "🏪 Retirada no local — sem frete";
+      checkoutShippingNote.className = "geo-status show ok";
+    } else if (shippingInfo && !hasNumericShipping) {
       checkoutShippingNote.textContent = shippingInfo.message || "";
       checkoutShippingNote.className = "geo-status show " + (shippingInfo.ok ? "warn" : "danger");
     } else {
@@ -539,6 +543,16 @@
   let geoAccuracy = null;
   let shippingInfo = null; // resultado de /api/shipping/calc: { ok, special, zone_label, price, message }
 
+  // ---- Retirada no local ----
+  const pickupCheckbox = byId("custPickup");
+  const addressField = byId("addressField");
+  function isPickup() { return pickupCheckbox.checked; }
+  pickupCheckbox.addEventListener("change", () => {
+    addressField.style.display = isPickup() ? "none" : "";
+    if (isPickup()) setFieldError(byId("custAddress"), byId("errAddress"), false);
+    updateTotals();
+  });
+
   function setGeoStatus(text, level) {
     const statusEl = byId("geoStatus");
     statusEl.textContent = text;
@@ -634,6 +648,7 @@
     const paymentEl = byId("custPayment");
     const notesEl = byId("custNotes");
 
+    const pickup = pickupCheckbox.checked;
     const nameVal = nameEl.value.trim();
     const phoneDigits = phoneEl.value.replace(/\D/g, "");
     const addressVal = addressEl.value.trim();
@@ -642,7 +657,7 @@
     let hasError = false;
     if (setFieldError(nameEl, byId("errName"), nameVal.length === 0)) hasError = true;
     if (setFieldError(phoneEl, byId("errPhone"), phoneDigits.length < 10)) hasError = true;
-    if (setFieldError(addressEl, byId("errAddress"), addressVal.length === 0)) hasError = true;
+    if (!pickup && setFieldError(addressEl, byId("errAddress"), addressVal.length === 0)) hasError = true;
     if (setFieldError(paymentEl, byId("errPayment"), paymentVal.length === 0)) hasError = true;
 
     if (hasError) {
@@ -670,9 +685,11 @@
       msg += `💸 *Desconto:* ${appliedCoupon.type === "percent" ? "-" + appliedCoupon.value + "%" : "-" + brl(discount)}\n`;
     }
 
-    const hasNumericShipping = !!(shippingInfo && shippingInfo.ok && typeof shippingInfo.price === "number");
+    const hasNumericShipping = !pickup && !!(shippingInfo && shippingInfo.ok && typeof shippingInfo.price === "number");
     const shippingPrice = hasNumericShipping ? shippingInfo.price : 0;
-    if (shippingInfo) {
+    if (pickup) {
+      msg += `🏪 *Retirada no local* (sem frete)\n`;
+    } else if (shippingInfo) {
       if (hasNumericShipping) {
         msg += `🚚 *Frete:* ${brl(shippingInfo.price)} (${shippingInfo.zone_label})\n`;
       } else {
@@ -690,10 +707,11 @@
     }
     msg += `👤 *Cliente:* ${nameVal}\n`;
     msg += `📱 *Telefone:* ${phoneEl.value}\n`;
-    msg += `📍 *Endereço:* ${addressVal}\n`;
+    if (pickup) msg += `🏪 *Retirada:* no local\n`;
+    else msg += `📍 *Endereço:* ${addressVal}\n`;
     msg += `💳 *Pagamento:* ${paymentVal}\n`;
     if (notesEl.value.trim()) msg += `📝 *Obs:* ${notesEl.value.trim()}\n`;
-    if (geoCoords) {
+    if (!pickup && geoCoords) {
       let mapNote = "";
       if (geoAccuracy != null && geoAccuracy > 500) {
         mapNote = ` (localização aproximada, ~${Math.round(geoAccuracy)} metros — confira o endereço)`;
