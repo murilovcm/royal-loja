@@ -169,15 +169,36 @@
       background:var(--preview-primary, #FFD60A); color:var(--preview-on-primary, #000); transition:.15s;
     }
     .identity-save-row { display:flex; justify-content:flex-end; margin-top:20px; }
+
+    /* ---- Controle de acesso (funcionários) ---- */
+    .readonly-lock { pointer-events:none; opacity:.55; user-select:none; }
+    .readonly-banner {
+      background:rgba(255,159,10,.1); border:1px solid rgba(255,159,10,.3); color:#ffb84d;
+      font-size:.82rem; font-weight:600; padding:10px 14px; border-radius:10px; margin-bottom:16px;
+    }
+    .whoami { font-size:.8rem; color:var(--text-dim); }
+    .whoami b { color:var(--text); }
+    .role-badge {
+      font-size:.68rem; font-weight:800; padding:2px 9px; border-radius:999px; margin-left:6px;
+      background:rgba(255,214,10,.12); color:var(--yellow-soft); text-transform:uppercase; letter-spacing:.4px;
+    }
+    .emp-row { display:flex; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+    .emp-row:last-child { border-bottom:none; }
+    .emp-name { font-weight:700; min-width:140px; }
+    .emp-perm { display:inline-flex; align-items:center; gap:6px; font-size:.78rem; cursor:pointer; user-select:none; }
+    .emp-perm.off-label { color:var(--text-dim); }
   </style>
 </head>
 <body>
   <div class="admin-wrap">
     <div class="admin-top">
-      <h1><span class="crown" style="color:var(--primary-yellow)">♛</span> Painel Royal</h1>
+      <div>
+        <h1><span class="crown" style="color:var(--primary-yellow)">♛</span> Painel Royal</h1>
+        <div class="whoami">Logado como <b>{{ current_user.username }}</b><span class="role-badge">{{ 'Dono' if is_owner else 'Funcionário' }}</span></div>
+      </div>
       <div class="actions">
         <a href="/" class="mini-btn">👁 Ver Loja</a>
-        <button class="mini-btn primary" id="addBrandBtn">+ Nova Marca</button>
+        {% if can_catalog %}<button class="mini-btn primary" id="addBrandBtn">+ Nova Marca</button>{% endif %}
         <a href="/admin/logout" class="mini-btn" style="color:#ff8a8a">⏻ Sair</a>
       </div>
     </div>
@@ -187,14 +208,19 @@
       <button class="tab-btn" data-tab="coupons" type="button">🏷️ Cupons</button>
       <button class="tab-btn" data-tab="shipping" type="button">🗺️ Frete</button>
       <button class="tab-btn" data-tab="identity" type="button">🎨 Identidade Visual</button>
+      {% if is_owner %}<button class="tab-btn" data-tab="employees" type="button">👥 Funcionários</button>{% endif %}
     </div>
 
     <div class="admin-tab-panel active" data-tab-panel="catalog">
+      {% if not can_catalog %}<div class="readonly-banner">🔒 Somente leitura — fale com o dono da loja para poder editar o catálogo.</div>{% endif %}
+      <div class="{{ 'readonly-lock' if not can_catalog }}">
+      {% if can_catalog %}
       <div class="add-inline" id="addBrandForm" style="display:none; margin-bottom:18px;">
         <input type="text" id="newBrandName" placeholder="Nome da nova marca" onkeydown="if(event.key==='Enter') submitAddBrand()">
         <button class="mini-btn primary" onclick="submitAddBrand()">Criar marca</button>
         <button class="mini-btn" onclick="toggleAddBrandForm(false)">Cancelar</button>
       </div>
+      {% endif %}
 
       <div id="brandsContainer">
         {% for node in tree %}
@@ -203,7 +229,7 @@
             <span class="b-icon">🏷️</span>
             <span class="b-name">{{ node.brand.name }}</span>
             <button class="mini-btn" onclick="toggleAddModelForm({{ node.brand.id }}, true)">+ Modelo</button>
-            <button class="del-btn" onclick="delBrand({{ node.brand.id }})" title="Excluir marca">🗑</button>
+            <button class="del-btn" onclick="delBrand({{ node.brand.id }}, {{ node.brand.name | tojson }})" title="Excluir marca">🗑</button>
           </div>
           <div class="add-inline" id="addModelForm-{{ node.brand.id }}" style="display:none; padding:12px 20px; border-top:1px solid var(--border);">
             <input type="text" id="mname-{{ node.brand.id }}" placeholder="Nome do modelo (ex: BC25000)" onkeydown="if(event.key==='Enter') submitAddModel({{ node.brand.id }})">
@@ -257,14 +283,17 @@
         </div>
         {% endfor %}
       </div>
+      </div>
     </div>
 
     <div class="admin-tab-panel" data-tab-panel="coupons">
-      <div class="sections-block">
+      {% if not can_coupons %}<div class="readonly-banner">🔒 Somente leitura — fale com o dono da loja para poder editar cupons.</div>{% endif %}
+      <div class="{{ 'readonly-lock' if not can_coupons }} sections-block">
         <div class="sections-head">
           🏷️ Cupons de Desconto <span class="sections-sub">Códigos promocionais usados no checkout do site</span>
         </div>
 
+        {% if can_coupons %}
         <div class="add-inline" id="addCouponForm" style="display:none; margin-top:14px;">
           <input type="text" id="newCouponCode" placeholder="Código (ex: ROYAL10)" maxlength="30" onkeydown="if(event.key==='Enter') submitAddCoupon()">
           <select id="newCouponType">
@@ -275,6 +304,7 @@
           <button class="mini-btn primary" onclick="submitAddCoupon()">Criar cupom</button>
           <button class="mini-btn" onclick="toggleAddCouponForm(false)">Cancelar</button>
         </div>
+        {% endif %}
 
         <table class="coupon-table">
           <thead>
@@ -302,18 +332,22 @@
           </tbody>
         </table>
 
+        {% if can_coupons %}
         <div class="promo-foot" style="padding-top:16px;">
           <button class="mini-btn primary" id="addCouponBtn">+ Novo Cupom</button>
         </div>
+        {% endif %}
       </div>
     </div>
 
     <div class="admin-tab-panel" data-tab-panel="shipping">
-      <div class="sections-block">
+      {% if not is_owner %}<div class="readonly-banner">🔒 Somente leitura — apenas o dono da loja pode alterar o frete.</div>{% endif %}
+      <div class="{{ 'readonly-lock' if not is_owner }} sections-block">
         <div class="sections-head">
           🗺️ Zonas de Frete <span class="sections-sub">Rotas usadas no checkout para calcular o frete pela localização do cliente</span>
         </div>
 
+        {% if is_owner %}
         <div class="add-inline" id="addZoneForm" style="display:none; margin-top:14px; flex-wrap:wrap;">
           <select id="newZoneType">
             <option value="concentric">Concêntrica</option>
@@ -327,6 +361,7 @@
           <button class="mini-btn primary" onclick="submitAddZone()">Criar zona</button>
           <button class="mini-btn" onclick="toggleAddZoneForm(false)">Cancelar</button>
         </div>
+        {% endif %}
 
         <div class="zone-group-label">
           🎯 Zonas especiais <span class="sections-sub">bolsões isolados — testados ANTES das concêntricas</span>
@@ -374,15 +409,18 @@
           </tbody>
         </table>
 
+        {% if is_owner %}
         <div class="promo-foot" style="padding-top:16px;">
           <button class="mini-btn primary" id="addZoneBtn">+ Nova Zona</button>
         </div>
+        {% endif %}
         <div class="sections-tip">💡 Preço em branco só é permitido em zona especial — fica marcado como "frete a combinar" no checkout até você definir um valor.</div>
       </div>
     </div>
 
     <div class="admin-tab-panel" data-tab-panel="identity">
-      <div class="identity-grid">
+      {% if not is_owner %}<div class="readonly-banner">🔒 Somente leitura — apenas o dono da loja pode alterar a identidade visual.</div>{% endif %}
+      <div class="{{ 'readonly-lock' if not is_owner }} identity-grid">
         <div>
           <div class="sections-block">
             <div class="sections-head">
@@ -464,14 +502,63 @@
         </div>
       </div>
     </div>
+
+    {% if is_owner %}
+    <div class="admin-tab-panel" data-tab-panel="employees">
+      <div class="sections-block">
+        <div class="sections-head">
+          👥 Funcionários <span class="sections-sub">Contas de acesso para sua equipe — só você pode criar, editar poderes ou excluir</span>
+        </div>
+
+        <div class="add-inline" id="addEmployeeForm" style="display:none; margin-top:14px; flex-wrap:wrap;">
+          <input type="text" id="newEmpUsername" placeholder="Usuário">
+          <input type="text" id="newEmpPassword" placeholder="Senha (mín. 6 caracteres)">
+          <label class="emp-perm"><input type="checkbox" id="newEmpCatalog" checked> Catálogo</label>
+          <label class="emp-perm"><input type="checkbox" id="newEmpCoupons" checked> Cupons</label>
+          <button class="mini-btn primary" onclick="submitAddEmployee()">Criar funcionário</button>
+          <button class="mini-btn" onclick="toggleAddEmployeeForm(false)">Cancelar</button>
+        </div>
+
+        <div id="employeesList">
+          {% for u in employees %}
+          <div class="emp-row" data-uid="{{ u.id }}">
+            <span class="emp-name">{{ u.username }}{% if not u.is_active %} <span style="color:var(--text-dim); font-weight:500; font-size:.75rem;">(desativado)</span>{% endif %}</span>
+            <span class="stock-toggle emp-perm" onclick="toggleEmployeePerm({{ u.id }}, 'can_catalog', this)" title="Acesso ao Catálogo">
+              <span class="switch {{ 'on' if u.can_catalog }}"></span>
+              <span>Catálogo</span>
+            </span>
+            <span class="stock-toggle emp-perm" onclick="toggleEmployeePerm({{ u.id }}, 'can_coupons', this)" title="Acesso a Cupons">
+              <span class="switch {{ 'on' if u.can_coupons }}"></span>
+              <span>Cupons</span>
+            </span>
+            <span class="stock-toggle emp-perm" onclick="toggleEmployeeActive({{ u.id }}, this)" title="Ativar/Desativar login">
+              <span class="switch {{ 'on' if u.is_active }}"></span>
+              <span>Ativo</span>
+            </span>
+            <button class="mini-btn" onclick="resetEmployeePassword({{ u.id }}, {{ u.username | tojson }})">Trocar senha</button>
+            <button class="del-btn" onclick="deleteEmployee({{ u.id }}, {{ u.username | tojson }})" title="Excluir funcionário">🗑</button>
+          </div>
+          {% else %}
+          <p style="color:var(--text-dim); padding:12px 0;">Nenhum funcionário cadastrado ainda.</p>
+          {% endfor %}
+        </div>
+
+        <div class="promo-foot" style="padding-top:16px;">
+          <button class="mini-btn primary" id="addEmployeeBtn">+ Novo Funcionário</button>
+        </div>
+        <div class="sections-tip">💡 Funcionários nunca têm acesso a Identidade Visual ou Frete, mesmo com todos os poderes ligados — isso é reservado só pra sua conta.</div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <div class="toast" id="toast"></div>
 
   <script>
+    const CSRF_TOKEN = "{{ csrf_token }}";
     const toast = (m) => { const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); };
     async function api(url, method, body) {
-      const opt = { method, headers: {'Content-Type':'application/json'} };
+      const opt = { method, headers: {'Content-Type':'application/json', 'X-Admin-Token': CSRF_TOKEN} };
       if (body) opt.body = JSON.stringify(body);
       const r = await fetch(url, opt);
       return r.json();
@@ -498,7 +585,7 @@
       if (show) document.getElementById('newBrandName').focus();
       else document.getElementById('newBrandName').value = '';
     }
-    document.getElementById('addBrandBtn').addEventListener('click', () => toggleAddBrandForm(true));
+    document.getElementById('addBrandBtn')?.addEventListener('click', () => toggleAddBrandForm(true));
     async function submitAddBrand() {
       const name = document.getElementById('newBrandName').value.trim();
       if (!name) { toast("Digite o nome da marca"); return; }
@@ -506,10 +593,13 @@
       location.reload();
     }
 
-    async function delBrand(id) {
-      if (!confirm("Excluir marca e TODOS os modelos/sabores dela?")) return;
-      await api('/api/brand/'+id,'DELETE');
-      location.reload();
+    async function delBrand(id, name) {
+      const typed = prompt('Para excluir a marca "' + name + '" e TODOS os modelos/sabores dela, digite o nome exato da marca:');
+      if (typed === null) return;
+      if (typed.trim() !== name) { toast("Nome não confere — exclusão cancelada"); return; }
+      const res = await api('/api/brand/'+id, 'DELETE', { confirm_name: typed.trim() });
+      if (res.ok) { toast("Marca excluída"); location.reload(); }
+      else toast(res.error || "Erro ao excluir marca");
     }
 
     function toggleAddModelForm(bid, show) {
@@ -546,7 +636,7 @@
       fd.append('model_id', mid);
       toast("Enviando imagem...");
       try {
-        const r = await fetch('/api/upload_image', { method: 'POST', body: fd });
+        const r = await fetch('/api/upload_image', { method: 'POST', body: fd, headers: { 'X-Admin-Token': CSRF_TOKEN } });
         const data = await r.json();
         if (data.ok) {
           const box = document.getElementById('photo-'+mid);
@@ -628,7 +718,7 @@
         document.getElementById('newCouponValue').value = '';
       }
     }
-    document.getElementById('addCouponBtn').addEventListener('click', () => toggleAddCouponForm(true));
+    document.getElementById('addCouponBtn')?.addEventListener('click', () => toggleAddCouponForm(true));
 
     async function submitAddCoupon() {
       const code = document.getElementById('newCouponCode').value.trim().toUpperCase();
@@ -694,7 +784,7 @@
         document.getElementById('newZonePrice').value = '';
       }
     }
-    document.getElementById('addZoneBtn').addEventListener('click', () => toggleAddZoneForm(true));
+    document.getElementById('addZoneBtn')?.addEventListener('click', () => toggleAddZoneForm(true));
 
     async function submitAddZone() {
       const zone_type = document.getElementById('newZoneType').value;
@@ -761,7 +851,7 @@
       fd.append('file', file);
       fd.append('slot', slot);
       try {
-        const r = await fetch('/api/upload_logo', { method: 'POST', body: fd });
+        const r = await fetch('/api/upload_logo', { method: 'POST', body: fd, headers: { 'X-Admin-Token': CSRF_TOKEN } });
         const data = await r.json();
         if (data.ok) { pendingLogoFiles[slot] = null; return true; }
         toast(data.error || "Erro ao enviar logo");
@@ -796,6 +886,66 @@
         btn.disabled = false;
         btn.textContent = originalLabel;
       }
+    }
+
+    // ---- Funcionários ----
+    function toggleAddEmployeeForm(show) {
+      const el = document.getElementById('addEmployeeForm');
+      if (!el) return;
+      el.style.display = show ? 'flex' : 'none';
+      if (show) document.getElementById('newEmpUsername').focus();
+      else {
+        document.getElementById('newEmpUsername').value = '';
+        document.getElementById('newEmpPassword').value = '';
+        document.getElementById('newEmpCatalog').checked = true;
+        document.getElementById('newEmpCoupons').checked = true;
+      }
+    }
+    document.getElementById('addEmployeeBtn')?.addEventListener('click', () => toggleAddEmployeeForm(true));
+
+    async function submitAddEmployee() {
+      const username = document.getElementById('newEmpUsername').value.trim();
+      const password = document.getElementById('newEmpPassword').value;
+      const can_catalog = document.getElementById('newEmpCatalog').checked;
+      const can_coupons = document.getElementById('newEmpCoupons').checked;
+      if (!username) { toast("Digite o usuário do funcionário"); return; }
+      if (password.length < 6) { toast("A senha precisa ter pelo menos 6 caracteres"); return; }
+      const res = await api('/api/user', 'POST', { username, password, can_catalog, can_coupons });
+      if (res.ok) { toast("Funcionário criado ✓"); location.reload(); }
+      else toast(res.error || "Erro ao criar funcionário");
+    }
+
+    async function toggleEmployeePerm(id, field, el) {
+      const sw = el.querySelector('.switch');
+      const on = sw.classList.toggle('on');
+      const body = {}; body[field] = on;
+      const res = await api('/api/user/'+id, 'POST', body);
+      if (res.ok) toast(on ? "Poder concedido ✓" : "Poder removido");
+      else { sw.classList.toggle('on'); toast(res.error || "Erro ao atualizar"); }
+    }
+
+    async function toggleEmployeeActive(id, el) {
+      const sw = el.querySelector('.switch');
+      const on = sw.classList.toggle('on');
+      const res = await api('/api/user/'+id, 'POST', { is_active: on });
+      if (res.ok) toast(on ? "Login reativado ✓" : "Login desativado — a pessoa é deslogada na próxima ação dela");
+      else { sw.classList.toggle('on'); toast(res.error || "Erro ao atualizar"); }
+    }
+
+    async function resetEmployeePassword(id, username) {
+      const pwd = prompt('Nova senha para "' + username + '" (mínimo 6 caracteres):');
+      if (pwd === null) return;
+      if (pwd.length < 6) { toast("A senha precisa ter pelo menos 6 caracteres"); return; }
+      const res = await api('/api/user/'+id, 'POST', { password: pwd });
+      if (res.ok) toast("Senha alterada ✓");
+      else toast(res.error || "Erro ao trocar senha");
+    }
+
+    async function deleteEmployee(id, username) {
+      if (!confirm('Excluir o acesso de "' + username + '"? Essa ação não pode ser desfeita.')) return;
+      const res = await api('/api/user/'+id, 'DELETE');
+      if (res.ok) { toast("Funcionário excluído"); location.reload(); }
+      else toast(res.error || "Erro ao excluir funcionário");
     }
   </script>
 </body>

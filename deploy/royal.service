@@ -7,6 +7,17 @@ User=www-data
 Group=www-data
 WorkingDirectory=/var/www/royal
 Environment="PATH=/var/www/royal/venv/bin"
+# >>> OBRIGATÓRIO: troque os três valores abaixo antes de iniciar o serviço <<<
+# ADMIN_USERNAME/ADMIN_PASSWORD só têm efeito na PRIMEIRÍSSIMA vez que a loja
+# roda (criam a conta "dono" no banco) — depois disso, a senha real já mora
+# hasheada no royal.db e essas variáveis não fazem mais nada. Sem isso, a
+# loja seria criada com usuário/senha padrão do código-fonte (públicos no
+# repositório). SECRET_KEY sempre importa (assina a sessão de login em toda
+# request). Veja deploy/GUIA_DEPLOY_VPS.md.
+# Gere a SECRET_KEY com:  openssl rand -hex 32
+Environment="ADMIN_USERNAME=TROQUE_ESTE_USUARIO"
+Environment="ADMIN_PASSWORD=TROQUE_ESTA_SENHA"
+Environment="SECRET_KEY=TROQUE_ESTA_CHAVE"
 ExecStart=/var/www/royal/venv/bin/gunicorn --workers 3 --bind unix:/var/www/royal/royal.sock -m 007 app:app
 Restart=always
 

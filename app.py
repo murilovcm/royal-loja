@@ -1,11 +1,21 @@
+import hmac
 import os
+import re
+import secrets
 import sqlite3
+import time
 import uuid
+import xml.etree.ElementTree as ET
+from datetime import timedelta
 from functools import wraps
+from defusedxml import ElementTree as DefusedET
+from defusedxml.common import DefusedXmlException
 from flask import (
     Flask, g, render_template, request, jsonify,
     redirect, url_for, send_from_directory, session, abort
 )
+from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from PIL import Image, ImageOps
 
@@ -32,6 +42,59 @@ LOGO_ALLOWED_EXT = {"png", "svg"}
 LOGO_SLOTS = {"main": "logo_main_url", "footer": "logo_footer_url"}
 LOGO_MAX_DIM = 600
 
+# Elementos e atributos removidos de qualquer SVG enviado pelo admin, para
+# impedir que um arquivo "logo.svg" carregue <script>, handlers de evento
+# (onload, onerror...) ou referências javascript:/data:text/html — SVGs são
+# servidos na mesma origem do site (/static/uploads/...), então script
+# embutido executaria com a mesma sessão/cookies do painel admin.
+SVG_DISALLOWED_TAGS = {
+    "script", "foreignobject", "iframe", "embed", "object", "audio", "video",
+    "animate", "animatetransform", "animatemotion", "set", "handler", "listener",
+}
+SVG_URI_ATTRS = {"href", "xlink:href", "src"}
+SVG_DANGEROUS_URI_SCHEMES = ("javascript:", "data:text/html", "vbscript:")
+SVG_DANGEROUS_STYLE_RE = re.compile(r"expression\s*\(|-moz-binding|behavior\s*:", re.IGNORECASE)
+
+
+def sanitize_svg(raw_bytes):
+    """Analisa e limpa um SVG enviado pelo admin, removendo qualquer coisa que
+    possa executar JavaScript. Retorna os bytes limpos, ou None se o arquivo
+    não for um SVG válido (nesse caso o upload deve ser rejeitado)."""
+    try:
+        root = DefusedET.fromstring(raw_bytes)
+    except (ET.ParseError, DefusedXmlException, ValueError):
+        return None
+
+    root_tag = root.tag.rsplit("}", 1)[-1].lower() if isinstance(root.tag, str) else ""
+    if root_tag != "svg":
+        return None
+
+    def clean_attrs(el):
+        for attr in list(el.attrib):
+            attr_local = attr.rsplit("}", 1)[-1].lower()
+            value = el.attrib[attr]
+            if attr_local.startswith("on"):
+                del el.attrib[attr]
+            elif attr_local in SVG_URI_ATTRS and value.strip().lower().startswith(SVG_DANGEROUS_URI_SCHEMES):
+                del el.attrib[attr]
+            elif attr_local == "style" and SVG_DANGEROUS_STYLE_RE.search(value):
+                del el.attrib[attr]
+
+    def clean(el):
+        clean_attrs(el)
+        for child in list(el):
+            tag = child.tag.rsplit("}", 1)[-1].lower() if isinstance(child.tag, str) else ""
+            if tag in SVG_DISALLOWED_TAGS:
+                el.remove(child)
+                continue
+            clean(child)
+
+    clean(root)
+
+    ET.register_namespace("", "http://www.w3.org/2000/svg")
+    ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
 # Todas as fotos de produto são padronizadas para este tamanho (quadrado)
 # ao serem enviadas pelo painel admin, garantindo o mesmo enquadramento
 # em qualquer card ou modal do site.
@@ -41,10 +104,17 @@ PRODUCT_IMAGE_SIZE = 800
 # CONFIRME: celular brasileiro tem 9 dígitos após o DDD (começa com 9).
 WHATSAPP_PHONE = "5598985086085"
 
-# Senha do painel admin.
-# Na VPS, defina a variável de ambiente ADMIN_PASSWORD para não deixar a senha no código.
-# Se não definir, usa a senha padrão abaixo (só para testes no seu PC).
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "386121")
+# Conta "dono" do painel admin (acesso completo, único que pode criar/editar
+# funcionários). É semeada no banco só na primeíssima vez que a loja roda
+# (tabela users vazia) — depois disso, a senha real mora só no banco (com
+# hash), então trocar essas variáveis de ambiente não muda mais nada.
+# Na VPS, defina ADMIN_USERNAME/ADMIN_PASSWORD antes do primeiro start para
+# não deixar a senha do dono no código-fonte.
+_DEFAULT_ADMIN_USERNAME = "admin"
+_DEFAULT_ADMIN_PASSWORD = "386121"
+_DEFAULT_SECRET_KEY = "royal-troque-esta-chave-secreta-na-vps-2026"
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", _DEFAULT_ADMIN_USERNAME)
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", _DEFAULT_ADMIN_PASSWORD)
 
 # Textos padrão usados ao criar um novo bloco promocional (ex: "+ Novo Bloco").
 PROMO_BLOCK_TEXT_DEFAULTS = {
@@ -65,8 +135,50 @@ PROMO_BLOCK_TEXT_DEFAULTS = {
 app = Flask(__name__)
 app.config["UPLOAD_DIR"] = UPLOAD_DIR
 # Chave usada para assinar a sessão de login (troque por qualquer texto aleatório na VPS)
-app.secret_key = os.environ.get("SECRET_KEY", "royal-troque-esta-chave-secreta-na-vps-2026")
+app.secret_key = os.environ.get("SECRET_KEY", _DEFAULT_SECRET_KEY)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Sinaliza se a senha e/ou a chave de sessão ainda são as padrão do código-fonte
+# (públicas no repositório) em vez de terem sido definidas via variável de
+# ambiente — usado para avisar bem alto no log de inicialização (mais abaixo)
+# e não deixar isso passar despercebido numa VPS real.
+USING_DEFAULT_SECRETS = (
+    ADMIN_PASSWORD == _DEFAULT_ADMIN_PASSWORD or app.secret_key == _DEFAULT_SECRET_KEY
+)
+if USING_DEFAULT_SECRETS:
+    app.logger.warning(
+        "\n"
+        + "  " + "=" * 68 + "\n"
+        + "  ATENCAO: ADMIN_PASSWORD e/ou SECRET_KEY nao foram definidos por\n"
+        + "  variavel de ambiente - a loja esta usando os valores padrao do\n"
+        + "  codigo-fonte, que sao PUBLICOS para quem tiver acesso ao repositorio.\n"
+        + "  Isso permite login por senha fraca e ate forjar sessao de admin.\n"
+        + "  Defina ADMIN_PASSWORD e SECRET_KEY antes de publicar a loja -\n"
+        + "  veja deploy/GUIA_DEPLOY_VPS.md.\n"
+        + "  " + "=" * 68
+    )
+
+# Atrás do Nginx (deploy/nginx-royal.conf), a conexão real chega via socket/porta
+# local — sem isso, request.remote_addr veria sempre o IP do proxy, e não do
+# cliente, quebrando o bloqueio de força-bruta e o log de auditoria por IP.
+# x_for=1 confia em exatamente um hop de proxy (o Nginx da própria VPS).
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=0)
+
+# Tamanho máximo de qualquer requisição (uploads de logo/produto inclusos).
+# Evita que alguém com sessão válida (ou via CSRF numa rota sem token) mande
+# um corpo gigante e esgote memória/disco antes de qualquer validação rodar.
+app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024  # 8 MB
+
+# Cookie de sessão: HttpOnly (padrão do Flask) evita leitura via JS; SameSite=Lax
+# barra a maioria dos ataques CSRF cross-site; Secure impede que o cookie
+# trafegue em HTTP puro (exige HTTPS já configurado via Nginx/Certbot na VPS —
+# ver deploy/GUIA_DEPLOY_VPS.md, Fase 6).
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "1") != "0"
+# Sessão expira em 7 dias em vez do padrão de 31 dias do Flask — reduz a janela
+# em que um cookie de sessão vazado/roubado continua valendo.
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 
 # Versão dos assets estáticos (evita o navegador servir style.css/app.js antigos do cache
 # depois de um deploy/edição, já que o Flask não versiona esses arquivos por padrão).
@@ -81,29 +193,147 @@ def inject_asset_version():
     return {"asset_v": ASSET_VERSION}
 
 
+@app.after_request
+def set_security_headers(response):
+    """Headers de defesa-em-profundidade contra clickjacking, MIME-sniffing e
+    XSS. A CSP permite 'unsafe-inline' em script/style porque os templates
+    usam onclick=... e <style> inline hoje — bloqueia carregar script/estilo
+    de outra origem e qualquer enquadramento do site em <iframe>, o que já
+    cobre o principal risco (ex.: um SVG malicioso plantado via upload não
+    consegue puxar recursos externos nem ser enquadrado)."""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "font-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'"
+    )
+    return response
+
+
 # ---------------------------------------------------------------------------
 # Autenticação do painel admin
 # ---------------------------------------------------------------------------
+# Bloqueio simples por IP contra força-bruta em /admin/login. Em memória
+# (reseta se o processo reiniciar) — suficiente para 1 único processo/worker;
+# como o gunicorn roda com múltiplos workers (Procfile/royal.service), o
+# bloqueio é por worker, não global, mas ainda reduz bastante a velocidade
+# de um ataque de força-bruta.
+LOGIN_ATTEMPTS = {}
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_ATTEMPT_WINDOW_SECONDS = 5 * 60
+LOGIN_LOCKOUT_SECONDS = 5 * 60
+
+# Hash "de mentira" usado quando o username digitado não existe, só para o
+# tempo de resposta do login não denunciar se um usuário existe ou não.
+_DUMMY_PASSWORD_HASH = generate_password_hash("dummy-timing-safety")
+
+
+def _client_ip():
+    return request.remote_addr or "desconhecido"
+
+
+def _login_lockout_remaining(ip):
+    entry = LOGIN_ATTEMPTS.get(ip)
+    if not entry:
+        return 0
+    locked_until = entry.get("locked_until", 0)
+    remaining = locked_until - time.time()
+    return int(remaining) if remaining > 0 else 0
+
+
+def _register_failed_login(ip):
+    now = time.time()
+    entry = LOGIN_ATTEMPTS.setdefault(ip, {"count": 0, "first_failure": now})
+    if now - entry["first_failure"] > LOGIN_ATTEMPT_WINDOW_SECONDS:
+        entry["count"] = 0
+        entry["first_failure"] = now
+    entry["count"] += 1
+    if entry["count"] >= LOGIN_MAX_ATTEMPTS:
+        entry["locked_until"] = now + LOGIN_LOCKOUT_SECONDS
+
+
+def _clear_login_attempts(ip):
+    LOGIN_ATTEMPTS.pop(ip, None)
+
+
+def _is_safe_redirect_target(path):
+    """Só permite redirecionar para caminhos internos (evita open redirect
+    via 'next=//evil.com' ou 'next=https://evil.com')."""
+    return bool(path) and path.startswith("/") and not path.startswith("//") and "://" not in path
+
+
 def login_required(view):
-    """Protege rotas: se não estiver logado, manda para a tela de senha."""
+    """Protege páginas HTML do painel: se não estiver logado (ou a conta foi
+    desativada), manda para a tela de senha."""
     @wraps(view)
     def wrapped(*args, **kwargs):
-        if not session.get("is_admin"):
+        if not _current_user():
+            session.clear()
             return redirect(url_for("admin_login", next=request.path))
+        # Sessões que já existiam antes do token CSRF ser introduzido não têm
+        # essa chave ainda — gera aqui para não deixar o admin "preso" tendo
+        # que deslogar/logar de novo manualmente.
+        if not session.get("csrf_token"):
+            session["csrf_token"] = secrets.token_hex(32)
         return view(*args, **kwargs)
     return wrapped
 
 
-def api_login_required(view):
-    """Protege as APIs de escrita: bloqueia quem não está logado."""
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if not session.get("is_admin"):
-            return jsonify({"ok": False, "error": "não autorizado"}), 401
-        return view(*args, **kwargs)
-    return wrapped
+def _write_api_guard(permission_check=None):
+    """Fábrica dos decorators usados por toda API de escrita do painel.
+
+    Sempre exige estar logado (com a conta ainda ativa) e o token CSRF da
+    sessão (header X-Admin-Token). Se `permission_check` for passado, o dono
+    sempre passa; um funcionário só passa se `permission_check(user)` for
+    verdadeiro — é assim que Identidade Visual e Frete ficam travados pra
+    funcionário (permission_check=lambda u: False) e Catálogo/Cupons
+    respeitam o que o dono liberou para cada um.
+
+    A permissão é checada consultando o banco a cada request (não confiando
+    em dado guardado na sessão) — assim, se o dono desativar alguém ou tirar
+    um poder, isso vale já na próxima ação daquela pessoa, sem esperar a
+    sessão expirar.
+    """
+    def decorator(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            user = _current_user()
+            if not user:
+                session.clear()
+                return jsonify({"ok": False, "error": "não autorizado"}), 401
+            if permission_check is not None and user["role"] != "owner" and not permission_check(user):
+                return jsonify({"ok": False, "error": "você não tem permissão para isso — fale com o dono da loja"}), 403
+            expected = session.get("csrf_token")
+            provided = request.headers.get("X-Admin-Token", "")
+            if not expected or not hmac.compare_digest(provided, expected):
+                return jsonify({"ok": False, "error": "token CSRF inválido — recarregue a página e faça login novamente"}), 403
+            detail = ""
+            if request.method != "GET" and request.is_json:
+                detail = request.get_json(silent=True) or ""
+            result = view(*args, **kwargs)
+            log_audit(f"{request.method} {request.path}", detail, username=user["username"])
+            return result
+        return wrapped
+    return decorator
 
 
+# Qualquer conta logada (dono ou funcionário) pode chamar.
+api_login_required = _write_api_guard()
+# Só passa quem tem can_catalog=1 (ou é dono).
+api_catalog_required = _write_api_guard(lambda u: u["can_catalog"])
+# Só passa quem tem can_coupons=1 (ou é dono).
+api_coupons_required = _write_api_guard(lambda u: u["can_coupons"])
+# Nunca passa pra quem não é dono — usado em Identidade Visual, Frete e
+# gestão de funcionários, que não têm toggle: são sempre exclusivos do dono.
+api_owner_required = _write_api_guard(lambda u: False)
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +352,33 @@ def close_db(exc):
     db = g.pop("db", None)
     if db is not None:
         db.close()
+
+
+def _current_user():
+    """Usuário logado nesta sessão, buscado no banco a cada request (não
+    confia em papel/permissão guardado na sessão). Retorna None se não há
+    sessão, o usuário foi excluído, ou a conta foi desativada pelo dono."""
+    uid = session.get("user_id")
+    if not uid:
+        return None
+    return get_db().execute(
+        "SELECT * FROM users WHERE id = ? AND is_active = 1", (uid,)
+    ).fetchone()
+
+
+def log_audit(action, detail="", username=None):
+    """Registra uma ação administrativa (login, logout, criação/edição/exclusão
+    de dados) para dar rastreabilidade caso algo precise ser investigado
+    depois. Nunca deixa uma falha de log derrubar a ação em si."""
+    try:
+        db = get_db()
+        db.execute(
+            "INSERT INTO audit_log (ts, ip, action, detail, username) VALUES (?, ?, ?, ?, ?)",
+            (time.time(), _client_ip(), action, str(detail)[:500], username),
+        )
+        db.commit()
+    except Exception:
+        pass
 
 
 def init_db():
@@ -186,9 +443,49 @@ def init_db():
             radius_m  REAL NOT NULL,
             price     REAL                -- NULL = placeholder ("frete a combinar"), só permitido em zona especial
         );
+
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id     INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts     REAL NOT NULL,
+            ip     TEXT,
+            action TEXT NOT NULL,
+            detail TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            username      TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role          TEXT NOT NULL DEFAULT 'staff',  -- 'owner' ou 'staff'
+            can_catalog   INTEGER NOT NULL DEFAULT 1,     -- pode mexer em marcas/modelos/sabores/estoque
+            can_coupons   INTEGER NOT NULL DEFAULT 1,     -- pode mexer em cupons de desconto
+            is_active     INTEGER NOT NULL DEFAULT 1,
+            created_at    REAL NOT NULL
+        );
         """
     )
     db.commit()
+
+    # Migração: audit_log ganhou a coluna username depois de já existir em
+    # bancos antigos — ALTER TABLE ADD COLUMN é seguro de rodar sempre que
+    # a coluna ainda não existir.
+    audit_cols = {row["name"] for row in db.execute("PRAGMA table_info(audit_log)").fetchall()}
+    if "username" not in audit_cols:
+        db.execute("ALTER TABLE audit_log ADD COLUMN username TEXT")
+        db.commit()
+
+    # Semeia a conta "dono" (acesso completo) só na primeiríssima vez que a
+    # loja roda — depois disso, a senha real mora hasheada no banco, e essas
+    # variáveis de ambiente não têm mais efeito nenhum sobre o login.
+    owner_exists = db.execute("SELECT 1 FROM users WHERE role = 'owner' LIMIT 1").fetchone()
+    if not owner_exists:
+        db.execute(
+            "INSERT OR IGNORE INTO users "
+            "(username, password_hash, role, can_catalog, can_coupons, is_active, created_at) "
+            "VALUES (?, ?, 'owner', 1, 1, 1, ?)",
+            (ADMIN_USERNAME, generate_password_hash(ADMIN_PASSWORD), time.time()),
+        )
+        db.commit()
 
     # Config padrão
     defaults = {
@@ -518,22 +815,46 @@ def uploaded_file(filename):
 def admin_login():
     error = None
     if request.method == "POST":
-        pwd = request.form.get("password", "")
-        if pwd == ADMIN_PASSWORD:
-            session["is_admin"] = True
-            session.permanent = True
-            nxt = request.args.get("next") or url_for("admin")
-            # segurança: só redireciona para caminhos internos
-            if not nxt.startswith("/"):
-                nxt = url_for("admin")
-            return redirect(nxt)
-        error = "Senha incorreta. Tente novamente."
+        ip = _client_ip()
+        remaining = _login_lockout_remaining(ip)
+        if remaining > 0:
+            error = f"Muitas tentativas erradas. Tente novamente em {max(1, remaining // 60 + 1)} min."
+        else:
+            username = request.form.get("username", "").strip()
+            pwd = request.form.get("password", "")
+            user = get_db().execute(
+                "SELECT * FROM users WHERE username = ? AND is_active = 1", (username,)
+            ).fetchone()
+            if user:
+                password_ok = check_password_hash(user["password_hash"], pwd)
+            else:
+                # Roda um hash mesmo sem usuário encontrado, só pra não dar
+                # pra perceber (pelo tempo de resposta) se um username existe
+                # ou não.
+                check_password_hash(_DUMMY_PASSWORD_HASH, pwd)
+                password_ok = False
+            if user and password_ok:
+                _clear_login_attempts(ip)
+                session["user_id"] = user["id"]
+                session["csrf_token"] = secrets.token_hex(32)
+                session.permanent = True
+                log_audit("login_success", username=user["username"])
+                nxt = request.args.get("next") or url_for("admin")
+                if not _is_safe_redirect_target(nxt):
+                    nxt = url_for("admin")
+                return redirect(nxt)
+            _register_failed_login(ip)
+            log_audit("login_failed", username=username or "(vazio)")
+            error = "Usuário ou senha incorretos."
     return render_template("login.html", error=error)
 
 
 @app.route("/admin/logout")
 def admin_logout():
-    session.pop("is_admin", None)
+    user = _current_user()
+    if user:
+        log_audit("logout", username=user["username"])
+    session.clear()
     return redirect(url_for("admin_login"))
 
 
@@ -567,6 +888,15 @@ def admin():
             mlist.append({"model": dict(m), "flavors": [dict(f) for f in flavors]})
         tree.append({"brand": dict(b), "models": mlist})
     special_zones, concentric_zones = get_shipping_zones()
+    user = _current_user()
+    is_owner = user["role"] == "owner"
+    employees = []
+    if is_owner:
+        employees = [
+            dict(u) for u in db.execute(
+                "SELECT * FROM users WHERE role = 'staff' ORDER BY username"
+            ).fetchall()
+        ]
     return render_template(
         "admin.html",
         tree=tree,
@@ -574,14 +904,92 @@ def admin():
         coupons=get_coupons(),
         special_zones=special_zones,
         concentric_zones=concentric_zones,
+        csrf_token=session.get("csrf_token", ""),
+        current_user=dict(user),
+        is_owner=is_owner,
+        can_catalog=is_owner or bool(user["can_catalog"]),
+        can_coupons=is_owner or bool(user["can_coupons"]),
+        employees=employees,
     )
+
+
+# ---------------------------------------------------------------------------
+# Gestão de funcionários — só o dono cria, edita poderes ou exclui logins.
+# ---------------------------------------------------------------------------
+@app.route("/api/user", methods=["POST"])
+@api_owner_required
+def api_create_user():
+    data = request.get_json(force=True) or {}
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+    if not username:
+        return jsonify({"ok": False, "error": "digite um nome de usuário"}), 400
+    if len(password) < 6:
+        return jsonify({"ok": False, "error": "a senha precisa ter pelo menos 6 caracteres"}), 400
+    db = get_db()
+    if db.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone():
+        return jsonify({"ok": False, "error": "esse nome de usuário já existe"}), 400
+    can_catalog = 1 if data.get("can_catalog", True) else 0
+    can_coupons = 1 if data.get("can_coupons", True) else 0
+    cur = db.execute(
+        "INSERT INTO users (username, password_hash, role, can_catalog, can_coupons, is_active, created_at) "
+        "VALUES (?, ?, 'staff', ?, ?, 1, ?)",
+        (username, generate_password_hash(password), can_catalog, can_coupons, time.time()),
+    )
+    db.commit()
+    return jsonify({"ok": True, "id": cur.lastrowid, "username": username})
+
+
+@app.route("/api/user/<int:uid>", methods=["POST"])
+@api_owner_required
+def api_update_user(uid):
+    db = get_db()
+    target = db.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+    if not target:
+        return jsonify({"ok": False, "error": "usuário não encontrado"}), 404
+    if target["role"] == "owner":
+        return jsonify({"ok": False, "error": "não é possível alterar a conta do dono por aqui"}), 400
+
+    data = request.get_json(force=True) or {}
+    fields, vals = [], []
+    if "can_catalog" in data:
+        fields.append("can_catalog = ?"); vals.append(1 if data["can_catalog"] else 0)
+    if "can_coupons" in data:
+        fields.append("can_coupons = ?"); vals.append(1 if data["can_coupons"] else 0)
+    if "is_active" in data:
+        fields.append("is_active = ?"); vals.append(1 if data["is_active"] else 0)
+    if data.get("password"):
+        if len(data["password"]) < 6:
+            return jsonify({"ok": False, "error": "a senha precisa ter pelo menos 6 caracteres"}), 400
+        fields.append("password_hash = ?"); vals.append(generate_password_hash(data["password"]))
+    if not fields:
+        return jsonify({"ok": False, "error": "nada para atualizar"}), 400
+
+    vals.append(uid)
+    db.execute(f"UPDATE users SET {', '.join(fields)} WHERE id = ?", vals)
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/user/<int:uid>", methods=["DELETE"])
+@api_owner_required
+def api_delete_user(uid):
+    db = get_db()
+    target = db.execute("SELECT * FROM users WHERE id = ?", (uid,)).fetchone()
+    if not target:
+        return jsonify({"ok": False, "error": "usuário não encontrado"}), 404
+    if target["role"] == "owner":
+        return jsonify({"ok": False, "error": "não é possível excluir a conta do dono"}), 400
+    db.execute("DELETE FROM users WHERE id = ?", (uid,))
+    db.commit()
+    return jsonify({"ok": True})
 
 
 # ---------------------------------------------------------------------------
 # API
 # ---------------------------------------------------------------------------
 @app.route("/api/update_config", methods=["POST"])
-@api_login_required
+@api_owner_required
 def api_update_config():
     data = request.get_json(force=True)
     key = data.get("key")
@@ -609,7 +1017,7 @@ THEME_COLOR_KEYS = {
 
 
 @app.route("/api/update_theme_colors", methods=["POST"])
-@api_login_required
+@api_owner_required
 def api_update_theme_colors():
     data = request.get_json(force=True) or {}
     db = get_db()
@@ -625,7 +1033,7 @@ def api_update_theme_colors():
 
 
 @app.route("/api/upload_logo", methods=["POST"])
-@api_login_required
+@api_owner_required
 def api_upload_logo():
     slot = request.form.get("slot")
     if slot not in LOGO_SLOTS:
@@ -644,10 +1052,11 @@ def api_upload_logo():
 
     if ext == "svg":
         raw = file.read()
-        if b"<svg" not in raw.lower():
-            return jsonify({"ok": False, "error": "arquivo SVG inválido"}), 400
+        sanitized = sanitize_svg(raw)
+        if sanitized is None:
+            return jsonify({"ok": False, "error": "arquivo SVG inválido ou não permitido"}), 400
         with open(path, "wb") as fp:
-            fp.write(raw)
+            fp.write(sanitized)
     else:
         try:
             img = Image.open(file.stream)
@@ -675,7 +1084,7 @@ def api_upload_logo():
 
 # ---- Blocos promocionais (ex: Atacado) ----
 @app.route("/api/promo_block", methods=["POST"])
-@api_login_required
+@api_owner_required
 def api_create_promo_block():
     d = request.get_json(force=True) or {}
     pid = create_promo_block(duplicate_from=d.get("duplicate_from"))
@@ -683,7 +1092,7 @@ def api_create_promo_block():
 
 
 @app.route("/api/promo_block/<int:pid>", methods=["POST"])
-@api_login_required
+@api_owner_required
 def api_update_promo_block(pid):
     d = request.get_json(force=True)
     db = get_db()
@@ -702,7 +1111,7 @@ def api_update_promo_block(pid):
 
 
 @app.route("/api/promo_block/<int:pid>", methods=["DELETE"])
-@api_login_required
+@api_owner_required
 def api_delete_promo_block(pid):
     db = get_db()
     db.execute("DELETE FROM promo_blocks WHERE id = ?", (pid,))
@@ -712,7 +1121,7 @@ def api_delete_promo_block(pid):
 
 
 @app.route("/api/promo_block/<int:pid>/move", methods=["POST"])
-@api_login_required
+@api_owner_required
 def api_move_promo_block(pid):
     direction = (request.get_json(force=True) or {}).get("direction")
     db = get_db()
@@ -748,7 +1157,7 @@ def _validate_coupon_fields(ctype, value):
 
 
 @app.route("/api/coupon", methods=["POST"])
-@api_login_required
+@api_coupons_required
 def api_create_coupon():
     d = request.get_json(force=True) or {}
     code = (d.get("code") or "").strip().upper()
@@ -771,7 +1180,7 @@ def api_create_coupon():
 
 
 @app.route("/api/coupon/<int:cid>", methods=["POST"])
-@api_login_required
+@api_coupons_required
 def api_update_coupon(cid):
     d = request.get_json(force=True) or {}
     db = get_db()
@@ -811,7 +1220,7 @@ def api_update_coupon(cid):
 
 
 @app.route("/api/coupon/<int:cid>", methods=["DELETE"])
-@api_login_required
+@api_coupons_required
 def api_delete_coupon(cid):
     db = get_db()
     db.execute("DELETE FROM coupons WHERE id = ?", (cid,))
@@ -904,7 +1313,7 @@ def _parse_zone_price(price, zone_type):
 
 
 @app.route("/api/shipping_zone", methods=["POST"])
-@api_login_required
+@api_owner_required
 def api_create_shipping_zone():
     d = request.get_json(force=True) or {}
     zone_type = d.get("zone_type")
@@ -932,7 +1341,7 @@ def api_create_shipping_zone():
 
 
 @app.route("/api/shipping_zone/<int:zid>", methods=["POST"])
-@api_login_required
+@api_owner_required
 def api_update_shipping_zone(zid):
     d = request.get_json(force=True) or {}
     db = get_db()
@@ -976,7 +1385,7 @@ def api_update_shipping_zone(zid):
 
 
 @app.route("/api/shipping_zone/<int:zid>", methods=["DELETE"])
-@api_login_required
+@api_owner_required
 def api_delete_shipping_zone(zid):
     db = get_db()
     db.execute("DELETE FROM shipping_zones WHERE id = ?", (zid,))
@@ -986,7 +1395,7 @@ def api_delete_shipping_zone(zid):
 
 # ---- Brands ----
 @app.route("/api/brand", methods=["POST"])
-@api_login_required
+@api_catalog_required
 def api_create_brand():
     name = (request.get_json(force=True).get("name") or "").strip()
     if not name:
@@ -998,9 +1407,19 @@ def api_create_brand():
 
 
 @app.route("/api/brand/<int:bid>", methods=["DELETE"])
-@api_login_required
+@api_catalog_required
 def api_delete_brand(bid):
     db = get_db()
+    brand = db.execute("SELECT name FROM brands WHERE id = ?", (bid,)).fetchone()
+    if not brand:
+        return jsonify({"ok": False, "error": "marca não encontrada"}), 404
+    # Exclusão em cascata (apaga todos os modelos/sabores da marca junto) —
+    # exige repetir o nome exato como confirmação, porque um clique de
+    # "OK" no confirm() do navegador não protege nada contra uma chamada
+    # direta à API (sessão roubada, por exemplo).
+    confirm_name = (request.get_json(silent=True) or {}).get("confirm_name", "").strip()
+    if confirm_name != brand["name"]:
+        return jsonify({"ok": False, "error": "digite o nome exato da marca para confirmar a exclusão"}), 400
     db.execute("DELETE FROM brands WHERE id = ?", (bid,))
     db.commit()
     return jsonify({"ok": True})
@@ -1008,7 +1427,7 @@ def api_delete_brand(bid):
 
 # ---- Models ----
 @app.route("/api/model", methods=["POST"])
-@api_login_required
+@api_catalog_required
 def api_create_model():
     d = request.get_json(force=True)
     brand_id = d.get("brand_id")
@@ -1026,7 +1445,7 @@ def api_create_model():
 
 
 @app.route("/api/model/<int:mid>", methods=["POST"])
-@api_login_required
+@api_catalog_required
 def api_update_model(mid):
     d = request.get_json(force=True)
     db = get_db()
@@ -1045,7 +1464,7 @@ def api_update_model(mid):
 
 
 @app.route("/api/model/<int:mid>", methods=["DELETE"])
-@api_login_required
+@api_catalog_required
 def api_delete_model(mid):
     db = get_db()
     db.execute("DELETE FROM vape_models WHERE id = ?", (mid,))
@@ -1055,7 +1474,7 @@ def api_delete_model(mid):
 
 # ---- Products (Flavors) ----
 @app.route("/api/product", methods=["POST"])
-@api_login_required
+@api_catalog_required
 def api_create_product():
     d = request.get_json(force=True)
     model_id = d.get("model_id")
@@ -1072,7 +1491,7 @@ def api_create_product():
 
 
 @app.route("/api/product/<int:pid>", methods=["POST"])
-@api_login_required
+@api_catalog_required
 def api_update_product(pid):
     d = request.get_json(force=True)
     db = get_db()
@@ -1096,7 +1515,7 @@ def api_update_product(pid):
 
 
 @app.route("/api/product/<int:pid>", methods=["DELETE"])
-@api_login_required
+@api_catalog_required
 def api_delete_product(pid):
     db = get_db()
     db.execute("DELETE FROM products WHERE id = ?", (pid,))
@@ -1127,7 +1546,7 @@ def process_product_image(file_storage, size=PRODUCT_IMAGE_SIZE):
 
 
 @app.route("/api/upload_image", methods=["POST"])
-@api_login_required
+@api_catalog_required
 def api_upload_image():
     if "file" not in request.files:
         return jsonify({"ok": False, "error": "sem arquivo"}), 400

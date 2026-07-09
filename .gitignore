@@ -5,5 +5,5 @@ venv/
 static/uploads/*
 !static/uploads/.gitkeep
 *.sock
-server.log
+*.log
 .pytest_cache/

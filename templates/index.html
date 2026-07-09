@@ -53,20 +53,14 @@
   <title>{{ config.store_name or 'Royal' }} — Premium Vapes</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon-64.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_v }}">
-  <style>:root{
-    --primary-yellow: {{ config.theme_primary_color or '#FFD60A' }};
-    --text-on-primary: {{ config.theme_text_on_primary_color or '#000000' }};
-    --bg: {{ config.theme_bg_color or '#0d0d1a' }};
-    --card-bg: {{ config.theme_card_bg_color or '#1a1a2e' }};
-    --text: {{ config.theme_text_color or '#ffffff' }};
-  }</style>
+  <style>:root{ --primary-yellow: {{ config.theme_primary_color or '#FFD60A' }}; }</style>
 </head>
 <body class="{{ 'editor-mode' if editor else '' }}">
 
   <!-- ============ AGE GATE ============ -->
   <div class="age-gate" id="ageGate" role="dialog" aria-modal="true" aria-labelledby="ageGateTitle">
     <div class="age-gate-card">
-      <img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="age-gate-logo">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="age-gate-logo">
 
       <div class="age-gate-question" id="ageGateQuestion">
         <span class="age-gate-badge">🔞 Proibido para menores</span>
@@ -74,7 +68,7 @@
         <p class="age-gate-desc">Esta loja vende produtos que contém nicotina. Destinados exclusivamente a maiores de 18 anos. Ao entrar, você confirma ter idade legal para acessar este conteúdo.</p>
         <div class="age-gate-actions">
           <button type="button" class="age-gate-yes" id="ageGateYes">SIM, TENHO 18 ANOS OU MAIS</button>
-          <button type="button" class="age-gate-no" id="ageGateNo">NÃO</button>
+        <button type="button" class="age-gate-no" id="ageGateNo">NÃO</button>
         </div>
       </div>
 
@@ -90,7 +84,7 @@
   <!-- Header -->
   <header class="site-header">
     <div class="container header-inner">
-      <a href="/" class="logo"><img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="logo-img"></a>
+      <a href="/" class="logo"><img src="{{ url_for('static', filename='logo.png') }}" alt="Royal" class="logo-img"></a>
     </div>
   </header>
 
@@ -236,7 +230,7 @@
 
   <footer class="site-footer">
     <div class="container">
-      <div class="logo footer-logo"><img src="{{ config.logo_footer_url or config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}"></div>
+      <div class="logo footer-logo"><img src="{{ url_for('static', filename='logo.png') }}" alt="Royal"></div>
       <p>© 2026 Royal Vapes. Produto destinado exclusivamente a maiores de 18 anos.</p>
     </div>
   </footer>
@@ -328,12 +322,6 @@
           <span id="checkoutDiscountValue">-R$ 0,00</span>
         </div>
 
-        <div class="checkout-shipping-row" id="checkoutShippingRow" style="display:none;">
-          <span>Frete <span id="checkoutShippingZone"></span></span>
-          <span id="checkoutShippingValue">R$ 0,00</span>
-        </div>
-        <div class="geo-status" id="checkoutShippingNote"></div>
-
         <div class="checkout-summary-total">
           <span>Total</span>
           <span id="checkoutTotal">R$ 0,00</span>
@@ -353,7 +341,7 @@
           <span class="field-error" id="errPhone">Informe um telefone válido.</span>
         </label>
 
-        <label class="field" id="addressField">
+        <label class="field">
           <span class="field-label">Endereço de entrega *</span>
 
           <div class="geo-card">
@@ -368,11 +356,6 @@
 
           <textarea id="custAddress" name="custAddress" rows="3" placeholder="Condominio, rua, número, bairro, ponto de referência" autocomplete="street-address"></textarea>
           <span class="field-error" id="errAddress">Informe o endereço de entrega.</span>
-        </label>
-
-        <label class="pickup-field">
-          <input type="checkbox" id="custPickup">
-          <span class="pickup-text">🏪 Vou retirar o pedido no local <em>(sem frete)</em></span>
         </label>
 
         <label class="field">

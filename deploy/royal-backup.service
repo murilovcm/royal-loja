@@ -1,0 +1,8 @@
+[Unit]
+Description=Backup diario do banco e uploads da Royal
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+ExecStart=/bin/bash /var/www/royal/deploy/royal-backup.sh

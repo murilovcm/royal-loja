@@ -29,7 +29,8 @@
       filter: drop-shadow(0 0 22px rgba(255,214,10,.25)); }
     .login-card h1 { font-size: 1.2rem; font-weight: 800; margin-bottom: 4px; }
     .login-card p.hint { color: var(--text-dim); font-size: .85rem; margin-bottom: 26px; }
-    .login-card input[type=password] {
+    .login-card input[type=password],
+    .login-card input[type=text] {
       width: 100%;
       padding: 14px 16px;
       background: var(--bg-2);
@@ -38,11 +39,11 @@
       color: var(--text);
       font-size: 16px;
       text-align: center;
-      letter-spacing: 3px;
       outline: none;
       transition: border .2s, box-shadow .2s;
       margin-bottom: 14px;
     }
+    .login-card input[type=password] { letter-spacing: 3px; }
     .login-card input:focus { border-color: var(--primary-yellow); box-shadow: 0 0 0 3px rgba(255,214,10,.12); }
     .login-card button {
       width: 100%;
@@ -74,10 +75,11 @@
     <div class="login-card">
       <img src="{{ url_for('static', filename='logo.png') }}" alt="Royal">
       <h1>Painel Administrativo</h1>
-      <p class="hint">Digite a senha para acessar</p>
+      <p class="hint">Digite seu usuário e senha para acessar</p>
       {% if error %}<div class="login-error">{{ error }}</div>{% endif %}
       <form method="POST">
-        <input type="password" name="password" placeholder="••••••" autofocus autocomplete="current-password">
+        <input type="text" name="username" placeholder="Usuário" autofocus autocomplete="username">
+        <input type="password" name="password" placeholder="••••••" autocomplete="current-password">
         <button type="submit">Entrar</button>
       </form>
       <a href="/" class="login-back">← Voltar para a loja</a>

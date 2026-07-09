@@ -5,6 +5,8 @@ testes de API deste projeto, que não tem infra de banco isolado para
 testes). Por isso, todo teste que cria uma zona limpa depois de si mesmo
 (try/finally) — nunca mexe nas zonas semeadas (Zona 1..5, Bolsão 1..4).
 """
+import sqlite3
+
 import pytest
 
 import app as app_module
@@ -19,8 +21,17 @@ def client():
 
 @pytest.fixture
 def admin_client(client):
+    """Loga como o dono da loja (zonas de frete são owner-only). init_db()
+    sempre garante que existe pelo menos uma conta com role='owner'."""
+    token = "test-csrf-token"
+    db = sqlite3.connect(app_module.DB_PATH)
+    db.row_factory = sqlite3.Row
+    owner = db.execute("SELECT id FROM users WHERE role = 'owner' LIMIT 1").fetchone()
+    db.close()
     with client.session_transaction() as sess:
-        sess["is_admin"] = True
+        sess["user_id"] = owner["id"]
+        sess["csrf_token"] = token
+    client.environ_base["HTTP_X_ADMIN_TOKEN"] = token
     return client
 
 
