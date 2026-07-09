@@ -764,15 +764,12 @@ header.site-header {
   transition: transform .32s cubic-bezier(.22,1,.36,1),
               opacity .26s ease-out,
               visibility 0s linear .32s;
-  /* O painel é ele mesmo a área que rola (em vez de só a lista de itens no
-     meio, com cabeçalho/rodapé fixos por flex) — cabeçalho e rodapé grudam
-     com position:sticky. Isso é o padrão que o Safari/iOS lida melhor ao
-     focar um campo com o teclado aberto: sem isso, o navegador às vezes
-     rola a tela toda (não só a listinha), fazendo o painel parecer
-     "espremido"/cortado enquanto o cliente digita. */
+  /* Mesmo layout à prova de teclado do .checkout-panel: coluna flex de altura
+     = área visível (--app-vvh) que NÃO rola. Cabeçalho fixo, lista de itens
+     (.cart-items) como único scroller e rodapé fixo — o botão de fechar
+     pedido/finalizar nunca some atrás do teclado. */
   display: flex; flex-direction: column;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   box-shadow: -20px 0 60px rgba(0,0,0,.6);
 }
 .cart-sidebar.open {
@@ -785,7 +782,7 @@ header.site-header {
               visibility 0s linear 0s;
 }
 .cart-header {
-  position: sticky; top: 0; z-index: 2;
+  flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between;
   padding: 22px; border-bottom: 1px solid var(--border);
   background: var(--bg-2);
@@ -793,7 +790,12 @@ header.site-header {
 .cart-header h3 { font-size: 1.2rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .cart-header .close-cart { width: 36px; height: 36px; border-radius: 10px; background: var(--surface); color: var(--text); display: grid; place-items: center; border: 1px solid var(--border); transition: .2s; }
 .cart-header .close-cart:hover { color: var(--primary-yellow); }
-.cart-items { flex: 1; padding: 16px 22px; }
+.cart-items {
+  flex: 1; min-height: 0;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 16px 22px;
+}
 .cart-empty { text-align: center; color: var(--text-dim); padding: 60px 0; }
 .cart-empty .big { font-size: 3rem; margin-bottom: 10px; }
 .cart-item {
@@ -827,7 +829,7 @@ header.site-header {
 .ci-qty button { width: 26px; height: 26px; border-radius: 50%; background: none; color: var(--text); transition: .16s; }
 .ci-qty button:hover { color: var(--primary-yellow); }
 .ci-qty span { min-width: 24px; text-align: center; font-weight: 700; font-size: .85rem; }
-.cart-foot { position: sticky; bottom: 0; z-index: 2; padding: 22px; border-top: 1px solid var(--border); background: var(--surface); }
+.cart-foot { flex-shrink: 0; padding: 22px; border-top: 1px solid var(--border); background: var(--surface); }
 .cart-total { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .cart-total .lbl { color: var(--text-dim); }
 .cart-total .val { font-size: 1.6rem; font-weight: 800; color: var(--primary-yellow); }
@@ -894,14 +896,14 @@ header.site-header {
   transition: transform .32s cubic-bezier(.22,1,.36,1),
               opacity .26s ease-out,
               visibility 0s linear .32s;
-  /* O painel é ele mesmo a área que rola (cabeçalho e rodapé grudam com
-     position:sticky) em vez de só o formulário no meio, com cabeçalho/
-     rodapé fixos por flex — ver mesmo comentário em .cart-sidebar acima:
-     é o padrão que o Safari/iOS respeita melhor ao focar um campo com o
-     teclado aberto, sem depender de recalcular altura via JS. */
+  /* Layout à prova de teclado: o painel tem altura = área visível (--app-vvh)
+     e NÃO rola. É uma coluna flex de 3 partes: cabeçalho fixo, corpo (único
+     que rola, .checkout-body) e rodapé fixo com o botão de finalizar. Assim o
+     botão fica SEMPRE visível acima do teclado e só a lista de campos rola no
+     meio — sem o painel inteiro rolar/pular por baixo do teclado (o que no
+     iOS parecia zoom e escondia os campos restantes). */
   display: flex; flex-direction: column;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   box-shadow: -20px 0 60px rgba(0,0,0,.6);
 }
 .checkout-panel.open {
@@ -914,7 +916,7 @@ header.site-header {
               visibility 0s linear 0s;
 }
 .checkout-header {
-  position: sticky; top: 0; z-index: 2;
+  flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between;
   padding: 22px; border-bottom: 1px solid var(--border);
   background: var(--bg-2);
@@ -922,7 +924,13 @@ header.site-header {
 .checkout-header h3 { font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .close-checkout { width: 36px; height: 36px; border-radius: 10px; background: var(--surface); color: var(--text); display: grid; place-items: center; border: 1px solid var(--border); transition: .2s; }
 .close-checkout:hover { color: var(--primary-yellow); }
-.checkout-body { flex: 1; padding: 20px 22px; }
+.checkout-body {
+  flex: 1; min-height: 0; /* min-height:0 deixa o flex encolher e ativar o scroll interno */
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; /* rolar até o fim do corpo não "vaza" pra página atrás */
+  scroll-padding-top: 12px; scroll-padding-bottom: 12px; /* campo focado não cola na borda */
+  padding: 20px 22px;
+}
 .checkout-summary { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
 .checkout-summary h4 { font-size: .82rem; color: var(--text-dim); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
 .checkout-item {
@@ -942,7 +950,7 @@ header.site-header {
 .checkout-summary-total span:last-child { font-size: 1.25rem; color: var(--primary-yellow); }
 
 .checkout-form { display: flex; flex-direction: column; gap: 16px; }
-.field { display: flex; flex-direction: column; gap: 6px; }
+.field { display: flex; flex-direction: column; gap: 6px; scroll-margin: 16px 0; /* folga ao ser rolado pra vista quando o teclado abre */ }
 .field-label { font-size: .82rem; font-weight: 600; color: var(--text-dim); }
 .field input, .field select, .field textarea {
   width: 100%;
@@ -1083,7 +1091,7 @@ header.site-header {
 .checkout-shipping-row span:first-child span { color: var(--text-dim); font-weight: 600; }
 #checkoutShippingNote.geo-status { margin-top: 12px; margin-bottom: 4px; }
 
-.checkout-foot { position: sticky; bottom: 0; z-index: 2; padding: 20px 22px; border-top: 1px solid var(--border); background: var(--surface); }
+.checkout-foot { flex-shrink: 0; padding: 20px 22px; border-top: 1px solid var(--border); background: var(--surface); }
 
 /* ---------- Footer ---------- */
 footer.site-footer {

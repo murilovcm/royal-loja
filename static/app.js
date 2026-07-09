@@ -47,10 +47,23 @@
   // focus/blur de qualquer campo, imediatamente e de novo depois que a
   // animação do teclado termina (~350ms).
   document.addEventListener("focusin", (e) => {
-    if (e.target.closest(".cart-sidebar, .checkout-panel")) {
+    const field = e.target.closest(".cart-sidebar, .checkout-panel");
+    if (field) {
       setAppVvh();
       setTimeout(setAppVvh, 350);
       setTimeout(setAppVvh, 700);
+      // Depois que o teclado assenta e o painel encolheu (--app-vvh já
+      // atualizado), traz o campo focado pro meio do corpo rolável. Assim o
+      // cliente vê os campos de cima e de baixo — mantém a "visão geral" em
+      // vez de o campo ficar colado no teclado. "center" só afeta o scroller
+      // interno (.checkout-body/.cart-items), o body está travado.
+      const control = e.target.closest("input, select, textarea");
+      if (control && control.scrollIntoView) {
+        setTimeout(() => {
+          try { control.scrollIntoView({ block: "center", behavior: "smooth" }); }
+          catch (_) { control.scrollIntoView(); }
+        }, 380);
+      }
     }
   });
   document.addEventListener("focusout", (e) => {
