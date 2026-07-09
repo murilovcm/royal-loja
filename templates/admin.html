@@ -108,6 +108,67 @@
     .zone-table .zone-input:focus { outline:none; border-color:var(--primary-yellow); }
     .zone-table .zone-input::placeholder { color:var(--text-dim); font-style:italic; }
     .zone-table td { vertical-align:middle; }
+
+    /* ---- Identidade Visual ---- */
+    .identity-grid { display:grid; grid-template-columns: 1fr 1fr; gap:22px; }
+    @media (max-width: 900px) { .identity-grid { grid-template-columns: 1fr; } }
+    .logo-upload-row { display:flex; gap:16px; flex-wrap:wrap; margin-top:14px; }
+    .logo-upload-box {
+      flex:1; min-width:200px; background:var(--bg-2); border:1.5px dashed var(--border);
+      border-radius:14px; padding:16px; text-align:center; cursor:pointer; transition:.2s;
+    }
+    .logo-upload-box:hover { border-color:var(--purple-soft); }
+    .logo-upload-box .lu-label { font-size:.8rem; font-weight:700; color:var(--text-dim); margin-bottom:10px; }
+    .logo-upload-box .lu-preview {
+      height:70px; display:flex; align-items:center; justify-content:center; margin-bottom:10px;
+      background:repeating-conic-gradient(#2a2a35 0% 25%, #22222b 0% 50%) 50%/16px 16px;
+      border-radius:10px; overflow:hidden;
+    }
+    .logo-upload-box .lu-preview img { max-height:100%; max-width:100%; object-fit:contain; }
+    .logo-upload-box .lu-hint { font-size:.72rem; color:var(--text-dim); }
+    .logo-upload-input { display:none; }
+
+    .color-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+    .color-row:last-of-type { border-bottom:none; }
+    .color-row .cr-label { flex:1; min-width:150px; font-size:.85rem; font-weight:600; }
+    .color-row .cr-label small { display:block; font-weight:500; color:var(--text-dim); font-size:.72rem; margin-top:2px; }
+    .color-row input[type=color] {
+      width:42px; height:36px; border:1px solid var(--border); border-radius:8px; background:none;
+      padding:0; cursor:pointer;
+    }
+    .color-row input[type=text] {
+      width:100px; background:var(--bg-2); border:1px solid var(--border); border-radius:8px;
+      padding:8px 10px; color:var(--text); font-size:.85rem; font-family:inherit; text-transform:uppercase;
+    }
+    .color-row input[type=text]:focus { outline:none; border-color:var(--primary-yellow); }
+
+    .identity-preview {
+      background:var(--preview-bg, #0d0d1a); border:1px solid var(--border); border-radius:16px;
+      padding:22px; display:flex; flex-direction:column; align-items:center; gap:16px; transition:background .15s;
+      position:sticky; top:20px;
+    }
+    .identity-preview .ip-logo { max-height:44px; max-width:160px; object-fit:contain; }
+    .identity-preview .ip-card {
+      width:100%; max-width:220px; background:var(--preview-card, #1a1a2e); border-radius:14px; padding:14px;
+      transition:background .15s;
+    }
+    .identity-preview .ip-img {
+      width:100%; aspect-ratio:1/1; border-radius:10px; margin-bottom:10px;
+      background:linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
+      display:flex; align-items:center; justify-content:center; font-size:2rem;
+    }
+    .identity-preview .ip-badge {
+      display:inline-block; font-size:.68rem; font-weight:700; color:var(--yellow-soft);
+      background:rgba(255,214,10,.08); border:1px solid rgba(255,214,10,.18); border-radius:999px;
+      padding:3px 10px; margin-bottom:6px;
+    }
+    .identity-preview .ip-name { font-weight:800; font-size:.95rem; color:var(--preview-text, #fff); margin-bottom:4px; transition:color .15s; }
+    .identity-preview .ip-price { font-weight:800; font-size:1.1rem; color:var(--preview-text, #fff); margin-bottom:12px; transition:color .15s; }
+    .identity-preview .ip-btn {
+      width:100%; padding:12px; border-radius:12px; border:none; font-weight:800; font-size:.85rem;
+      background:var(--preview-primary, #FFD60A); color:var(--preview-on-primary, #000); transition:.15s;
+    }
+    .identity-save-row { display:flex; justify-content:flex-end; margin-top:20px; }
   </style>
 </head>
 <body>
@@ -125,6 +186,7 @@
       <button class="tab-btn active" data-tab="catalog" type="button">📦 Catálogo</button>
       <button class="tab-btn" data-tab="coupons" type="button">🏷️ Cupons</button>
       <button class="tab-btn" data-tab="shipping" type="button">🗺️ Frete</button>
+      <button class="tab-btn" data-tab="identity" type="button">🎨 Identidade Visual</button>
     </div>
 
     <div class="admin-tab-panel active" data-tab-panel="catalog">
@@ -316,6 +378,90 @@
           <button class="mini-btn primary" id="addZoneBtn">+ Nova Zona</button>
         </div>
         <div class="sections-tip">💡 Preço em branco só é permitido em zona especial — fica marcado como "frete a combinar" no checkout até você definir um valor.</div>
+      </div>
+    </div>
+
+    <div class="admin-tab-panel" data-tab-panel="identity">
+      <div class="identity-grid">
+        <div>
+          <div class="sections-block">
+            <div class="sections-head">
+              🖼️ Logos <span class="sections-sub">Logo principal (navbar) e logo secundário (rodapé) da loja</span>
+            </div>
+            <div class="logo-upload-row">
+              <div class="logo-upload-box" id="logoBoxMain" onclick="document.getElementById('logoInputMain').click()">
+                <div class="lu-label">Logo principal (navbar)</div>
+                <div class="lu-preview" id="logoPreviewMain">
+                  <img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="">
+                </div>
+                <div class="lu-hint">Clique para trocar · PNG ou SVG</div>
+                <input type="file" accept=".png,.svg,image/png,image/svg+xml" class="logo-upload-input" id="logoInputMain" onchange="handleLogoInput('main', this)" onclick="event.stopPropagation()">
+              </div>
+              <div class="logo-upload-box" id="logoBoxFooter" onclick="document.getElementById('logoInputFooter').click()">
+                <div class="lu-label">Logo secundário (rodapé)</div>
+                <div class="lu-preview" id="logoPreviewFooter">
+                  <img src="{{ config.logo_footer_url or config.logo_main_url or url_for('static', filename='logo.png') }}" alt="">
+                </div>
+                <div class="lu-hint">Clique para trocar · PNG ou SVG</div>
+                <input type="file" accept=".png,.svg,image/png,image/svg+xml" class="logo-upload-input" id="logoInputFooter" onchange="handleLogoInput('footer', this)" onclick="event.stopPropagation()">
+              </div>
+            </div>
+          </div>
+
+          <div class="sections-block">
+            <div class="sections-head">
+              🎨 Cores Primárias <span class="sections-sub">Cores usadas em botões, fundo e textos da loja</span>
+            </div>
+
+            <div class="color-row">
+              <div class="cr-label">Cor primária<small>Botões, destaques, badges</small></div>
+              <input type="color" id="colorPrimary" value="{{ config.theme_primary_color or '#FFD60A' }}">
+              <input type="text" id="colorPrimaryHex" value="{{ config.theme_primary_color or '#FFD60A' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Texto sobre primária<small>Texto dentro de botões amarelos</small></div>
+              <input type="color" id="colorOnPrimary" value="{{ config.theme_text_on_primary_color or '#000000' }}">
+              <input type="text" id="colorOnPrimaryHex" value="{{ config.theme_text_on_primary_color or '#000000' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Fundo principal<small>Fundo geral da loja</small></div>
+              <input type="color" id="colorBg" value="{{ config.theme_bg_color or '#0d0d1a' }}">
+              <input type="text" id="colorBgHex" value="{{ config.theme_bg_color or '#0d0d1a' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Fundo dos cards<small>Cards de produto</small></div>
+              <input type="color" id="colorCard" value="{{ config.theme_card_bg_color or '#1a1a2e' }}">
+              <input type="text" id="colorCardHex" value="{{ config.theme_card_bg_color or '#1a1a2e' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Texto principal<small>Texto geral da loja</small></div>
+              <input type="color" id="colorText" value="{{ config.theme_text_color or '#ffffff' }}">
+              <input type="text" id="colorTextHex" value="{{ config.theme_text_color or '#ffffff' }}" maxlength="7">
+            </div>
+
+            <div class="identity-save-row">
+              <button class="mini-btn primary" id="saveIdentityBtn" onclick="saveIdentity()">Salvar Identidade Visual</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="sections-block">
+            <div class="sections-head">
+              👁️ Preview ao vivo <span class="sections-sub">Atualiza em tempo real, antes mesmo de salvar</span>
+            </div>
+            <div class="identity-preview" id="identityPreview">
+              <img class="ip-logo" id="ipLogo" src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="">
+              <div class="ip-card">
+                <div class="ip-img">📦</div>
+                <span class="ip-badge">⚡ 25.000 puffs</span>
+                <div class="ip-name">Vape Modelo Exemplo</div>
+                <div class="ip-price">R$ 89,90</div>
+                <button class="ip-btn" type="button">Ver Catálogo</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -565,6 +711,91 @@
       });
       if (res.ok) { toast("Zona criada ✓"); location.reload(); }
       else toast(res.error || "Erro ao criar zona");
+    }
+
+    // ---- Identidade Visual ----
+    const pendingLogoFiles = { main: null, footer: null };
+
+    function syncColorPair(colorId, hexId) {
+      const colorEl = document.getElementById(colorId);
+      const hexEl = document.getElementById(hexId);
+      colorEl.addEventListener('input', () => { hexEl.value = colorEl.value; updateIdentityPreview(); });
+      hexEl.addEventListener('input', () => {
+        let v = hexEl.value.trim();
+        if (v && !v.startsWith('#')) v = '#' + v;
+        if (/^#[0-9a-fA-F]{6}$/.test(v)) { colorEl.value = v; updateIdentityPreview(); }
+      });
+    }
+    ['colorPrimary', 'colorOnPrimary', 'colorBg', 'colorCard', 'colorText'].forEach((id) => syncColorPair(id, id + 'Hex'));
+
+    function updateIdentityPreview() {
+      const preview = document.getElementById('identityPreview');
+      preview.style.setProperty('--preview-bg', document.getElementById('colorBg').value);
+      preview.style.setProperty('--preview-card', document.getElementById('colorCard').value);
+      preview.style.setProperty('--preview-primary', document.getElementById('colorPrimary').value);
+      preview.style.setProperty('--preview-on-primary', document.getElementById('colorOnPrimary').value);
+      preview.style.setProperty('--preview-text', document.getElementById('colorText').value);
+    }
+    updateIdentityPreview();
+
+    function handleLogoInput(slot, el) {
+      const file = el.files[0];
+      if (!file) return;
+      const okType = file.type === 'image/png' || file.type === 'image/svg+xml' || /\.(png|svg)$/i.test(file.name);
+      if (!okType) { toast("Selecione um arquivo PNG ou SVG"); el.value = ''; return; }
+      pendingLogoFiles[slot] = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const box = document.getElementById(slot === 'main' ? 'logoPreviewMain' : 'logoPreviewFooter');
+        box.querySelector('img').src = e.target.result;
+        if (slot === 'main') document.getElementById('ipLogo').src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+      toast("Preview atualizado — clique em Salvar para confirmar");
+    }
+
+    async function uploadPendingLogo(slot) {
+      const file = pendingLogoFiles[slot];
+      if (!file) return true;
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('slot', slot);
+      try {
+        const r = await fetch('/api/upload_logo', { method: 'POST', body: fd });
+        const data = await r.json();
+        if (data.ok) { pendingLogoFiles[slot] = null; return true; }
+        toast(data.error || "Erro ao enviar logo");
+        return false;
+      } catch (e) {
+        toast("Erro ao enviar logo");
+        return false;
+      }
+    }
+
+    async function saveIdentity() {
+      const btn = document.getElementById('saveIdentityBtn');
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = "Salvando...";
+      try {
+        const okMain = await uploadPendingLogo('main');
+        const okFooter = await uploadPendingLogo('footer');
+        const colors = {
+          theme_primary_color: document.getElementById('colorPrimary').value,
+          theme_text_on_primary_color: document.getElementById('colorOnPrimary').value,
+          theme_bg_color: document.getElementById('colorBg').value,
+          theme_card_bg_color: document.getElementById('colorCard').value,
+          theme_text_color: document.getElementById('colorText').value,
+        };
+        const res = await api('/api/update_theme_colors', 'POST', colors);
+        if (okMain && okFooter && res.ok) toast("Identidade visual salva com sucesso ✓");
+        else toast("Algumas alterações não foram salvas");
+      } catch (e) {
+        toast("Erro ao salvar identidade visual");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
     }
   </script>
 </body>

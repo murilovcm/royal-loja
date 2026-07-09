@@ -26,6 +26,12 @@ DB_PATH = os.path.join(DATA_DIR, "royal.db")
 UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 ALLOWED_EXT = {"png", "jpg", "jpeg", "gif", "webp"}
 
+# Logos (navbar/footer) aceitam PNG e SVG e não passam pelo recorte quadrado
+# usado nas fotos de produto — preservam a proporção original.
+LOGO_ALLOWED_EXT = {"png", "svg"}
+LOGO_SLOTS = {"main": "logo_main_url", "footer": "logo_footer_url"}
+LOGO_MAX_DIM = 600
+
 # Todas as fotos de produto são padronizadas para este tamanho (quadrado)
 # ao serem enviadas pelo painel admin, garantindo o mesmo enquadramento
 # em qualquer card ou modal do site.
@@ -187,6 +193,12 @@ def init_db():
     # Config padrão
     defaults = {
         "theme_primary_color": "#FFD60A",
+        "theme_text_on_primary_color": "#000000",
+        "theme_bg_color": "#0d0d1a",
+        "theme_card_bg_color": "#1a1a2e",
+        "theme_text_color": "#ffffff",
+        "logo_main_url": "",
+        "logo_footer_url": "",
         "hero_title": "Sabor que reina. Qualidade Royal.",
         "hero_subtitle": "Os melhores pods descartáveis com a curadoria mais premium do Brasil.",
         "store_name": "Royal",
@@ -584,6 +596,81 @@ def api_update_config():
     )
     db.commit()
     return jsonify({"ok": True})
+
+
+# ---- Identidade Visual (logos + cores do tema) ----
+THEME_COLOR_KEYS = {
+    "theme_primary_color",
+    "theme_text_on_primary_color",
+    "theme_bg_color",
+    "theme_card_bg_color",
+    "theme_text_color",
+}
+
+
+@app.route("/api/update_theme_colors", methods=["POST"])
+@api_login_required
+def api_update_theme_colors():
+    data = request.get_json(force=True) or {}
+    db = get_db()
+    for key in THEME_COLOR_KEYS:
+        if key in data:
+            db.execute(
+                "INSERT INTO site_config (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, data[key]),
+            )
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/upload_logo", methods=["POST"])
+@api_login_required
+def api_upload_logo():
+    slot = request.form.get("slot")
+    if slot not in LOGO_SLOTS:
+        return jsonify({"ok": False, "error": "slot inválido"}), 400
+    if "file" not in request.files:
+        return jsonify({"ok": False, "error": "sem arquivo"}), 400
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"ok": False, "error": "nome vazio"}), 400
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in LOGO_ALLOWED_EXT:
+        return jsonify({"ok": False, "error": "envie um arquivo PNG ou SVG"}), 400
+
+    fname = f"logo-{uuid.uuid4().hex}.{ext}"
+    path = os.path.join(app.config["UPLOAD_DIR"], secure_filename(fname))
+
+    if ext == "svg":
+        raw = file.read()
+        if b"<svg" not in raw.lower():
+            return jsonify({"ok": False, "error": "arquivo SVG inválido"}), 400
+        with open(path, "wb") as fp:
+            fp.write(raw)
+    else:
+        try:
+            img = Image.open(file.stream)
+            img.load()
+        except Exception:
+            return jsonify({"ok": False, "error": "não foi possível processar a imagem"}), 400
+        has_alpha = img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info)
+        img = img.convert("RGBA") if has_alpha else img.convert("RGB")
+        w, h = img.size
+        if max(w, h) > LOGO_MAX_DIM:
+            ratio = LOGO_MAX_DIM / max(w, h)
+            img = img.resize((max(1, round(w * ratio)), max(1, round(h * ratio))), Image.LANCZOS)
+        img.save(path, "PNG", optimize=True)
+
+    image_url = url_for("uploaded_file", filename=fname)
+    db = get_db()
+    db.execute(
+        "INSERT INTO site_config (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (LOGO_SLOTS[slot], image_url),
+    )
+    db.commit()
+    return jsonify({"ok": True, "image_url": image_url})
 
 
 # ---- Blocos promocionais (ex: Atacado) ----

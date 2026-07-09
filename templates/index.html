@@ -53,14 +53,20 @@
   <title>{{ config.store_name or 'Royal' }} — Premium Vapes</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon-64.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_v }}">
-  <style>:root{ --primary-yellow: {{ config.theme_primary_color or '#FFD60A' }}; }</style>
+  <style>:root{
+    --primary-yellow: {{ config.theme_primary_color or '#FFD60A' }};
+    --text-on-primary: {{ config.theme_text_on_primary_color or '#000000' }};
+    --bg: {{ config.theme_bg_color or '#0d0d1a' }};
+    --card-bg: {{ config.theme_card_bg_color or '#1a1a2e' }};
+    --text: {{ config.theme_text_color or '#ffffff' }};
+  }</style>
 </head>
 <body class="{{ 'editor-mode' if editor else '' }}">
 
   <!-- ============ AGE GATE ============ -->
   <div class="age-gate" id="ageGate" role="dialog" aria-modal="true" aria-labelledby="ageGateTitle">
     <div class="age-gate-card">
-      <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="age-gate-logo">
+      <img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="age-gate-logo">
 
       <div class="age-gate-question" id="ageGateQuestion">
         <span class="age-gate-badge">🔞 Proibido para menores</span>
@@ -84,7 +90,7 @@
   <!-- Header -->
   <header class="site-header">
     <div class="container header-inner">
-      <a href="/" class="logo"><img src="{{ url_for('static', filename='logo.png') }}" alt="Royal" class="logo-img"></a>
+      <a href="/" class="logo"><img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="logo-img"></a>
     </div>
   </header>
 
@@ -230,7 +236,7 @@
 
   <footer class="site-footer">
     <div class="container">
-      <div class="logo footer-logo"><img src="{{ url_for('static', filename='logo.png') }}" alt="Royal"></div>
+      <div class="logo footer-logo"><img src="{{ config.logo_footer_url or config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}"></div>
       <p>© 2026 Royal Vapes. Produto destinado exclusivamente a maiores de 18 anos.</p>
     </div>
   </footer>
