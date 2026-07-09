@@ -752,8 +752,8 @@ header.site-header {
               visibility 0s linear 0s;
 }
 .cart-sidebar {
-  position: fixed; top: 0; right: 0; z-index: 120;
-  height: 100dvh; height: var(--app-vvh, 100dvh); /* encolhe com o teclado no mobile, ver setAppVvh() em app.js */
+  position: fixed; top: 0; top: var(--app-vv-top, 0px); right: 0; z-index: 120;
+  height: 100dvh; height: var(--app-vvh, 100dvh); /* acompanha o viewport visual no mobile, ver setAppVvh() em app.js */
   width: 420px; max-width: 90vw;
   background: var(--bg-2);
   border-left: 1px solid var(--border);
@@ -872,8 +872,8 @@ header.site-header {
               visibility 0s linear 0s;
 }
 .checkout-panel {
-  position: fixed; top: 0; right: 0; z-index: 140;
-  height: 100dvh; height: var(--app-vvh, 100dvh); /* encolhe com o teclado no mobile, ver setAppVvh() em app.js — sem isso o botão "Finalizar Pedido" fica atrás do teclado */
+  position: fixed; top: 0; top: var(--app-vv-top, 0px); right: 0; z-index: 140;
+  height: 100dvh; height: var(--app-vvh, 100dvh); /* acompanha o viewport visual no mobile, ver setAppVvh() em app.js — sem isso o botão "Finalizar Pedido" fica atrás do teclado */
   width: 460px; max-width: 92vw;
   background: var(--bg-2);
   border-left: 1px solid var(--border);

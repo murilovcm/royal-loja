@@ -21,10 +21,16 @@
   // cliente não consegue mais confirmar o pedido. window.visualViewport
   // reflete a área realmente visível (já descontando o teclado), então
   // recalculamos essa variável nele para o painel encolher junto.
+  // Além da altura, o iOS pode "panorâmicar" o viewport visual (offsetTop)
+  // pra tentar mostrar o campo focado, sem o viewport de layout (onde o
+  // position:fixed se ancora) se mexer — sem repassar esse deslocamento,
+  // o painel fica ancorado no topo errado e some por trás do teclado.
   function setAppVvh() {
     const vv = window.visualViewport;
     const h = vv ? vv.height : window.innerHeight;
+    const top = vv ? vv.offsetTop : 0;
     document.documentElement.style.setProperty("--app-vvh", h + "px");
+    document.documentElement.style.setProperty("--app-vv-top", top + "px");
   }
   setAppVvh();
   if (window.visualViewport) {
@@ -32,6 +38,42 @@
     window.visualViewport.addEventListener("scroll", setAppVvh);
   } else {
     window.addEventListener("resize", setAppVvh);
+  }
+
+  // ---------------------------------------------------------------
+  // Trava de rolagem do body (carrinho/checkout abertos)
+  // ---------------------------------------------------------------
+  // overflow:hidden sozinho não impede o Safari/iOS de rolar a página POR
+  // BAIXO do painel fixo quando um campo de texto ganha foco — o navegador
+  // tenta "subir" a página pra revelar o campo mesmo com overflow:hidden,
+  // e é exatamente isso que faz o carrinho/checkout parecer esmagado ao
+  // digitar. Travar o body em position:fixed (em vez de só overflow)
+  // impede essa rolagem nativa por completo. Contador em vez de booleano
+  // porque abrir o checkout fecha o carrinho primeiro (destrava e trava
+  // de novo em sequência).
+  let lockedScrollY = 0;
+  let lockCount = 0;
+  function lockBodyScroll() {
+    if (lockCount === 0) {
+      lockedScrollY = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${lockedScrollY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.overflow = "hidden";
+    }
+    lockCount++;
+  }
+  function unlockBodyScroll() {
+    lockCount = Math.max(0, lockCount - 1);
+    if (lockCount === 0) {
+      document.body.style.position = "";
+      document.body.style.top = "";
+      document.body.style.left = "";
+      document.body.style.right = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, lockedScrollY);
+    }
   }
 
   // ---------------------------------------------------------------
@@ -300,8 +342,8 @@
   const cartSidebar = byId("cartSidebar");
   const cartOverlay = byId("cartOverlay");
 
-  function openCart() { cartSidebar.classList.add("open"); cartOverlay.classList.add("open"); document.body.style.overflow = "hidden"; }
-  function closeCart() { cartSidebar.classList.remove("open"); cartOverlay.classList.remove("open"); document.body.style.overflow = ""; }
+  function openCart() { cartSidebar.classList.add("open"); cartOverlay.classList.add("open"); lockBodyScroll(); }
+  function closeCart() { cartSidebar.classList.remove("open"); cartOverlay.classList.remove("open"); unlockBodyScroll(); }
 
   byId("cartClose").addEventListener("click", closeCart);
   cartOverlay.addEventListener("click", closeCart);
@@ -519,12 +561,12 @@
     closeCart();
     checkoutPanel.classList.add("open");
     checkoutOverlay.classList.add("open");
-    document.body.style.overflow = "hidden";
+    lockBodyScroll();
   }
   function closeCheckout() {
     checkoutPanel.classList.remove("open");
     checkoutOverlay.classList.remove("open");
-    document.body.style.overflow = "";
+    unlockBodyScroll();
   }
 
   byId("whatsappBtn").addEventListener("click", openCheckout);
