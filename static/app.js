@@ -39,6 +39,26 @@
   } else {
     window.addEventListener("resize", setAppVvh);
   }
+  // Reforço: em algumas versões de iOS o evento "resize"/"scroll" do
+  // visualViewport não dispara a tempo (ou não dispara) quando o teclado
+  // abre/fecha ao focar um campo dentro do carrinho/checkout — sem esse
+  // reforço, --app-vvh/--app-vv-top ficam com o valor de antes do teclado
+  // abrir, e o painel fixo é desenhado fora do lugar. Recalcula de novo no
+  // focus/blur de qualquer campo, imediatamente e de novo depois que a
+  // animação do teclado termina (~350ms).
+  document.addEventListener("focusin", (e) => {
+    if (e.target.closest(".cart-sidebar, .checkout-panel")) {
+      setAppVvh();
+      setTimeout(setAppVvh, 350);
+      setTimeout(setAppVvh, 700);
+    }
+  });
+  document.addEventListener("focusout", (e) => {
+    if (e.target.closest(".cart-sidebar, .checkout-panel")) {
+      setTimeout(setAppVvh, 350);
+      setTimeout(setAppVvh, 700);
+    }
+  });
 
   // ---------------------------------------------------------------
   // Trava de rolagem do body (carrinho/checkout abertos)
