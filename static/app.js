@@ -11,6 +11,30 @@
   const brl = (n) => "R$ " + n.toFixed(2).replace(".", ",");
 
   // ---------------------------------------------------------------
+  // Altura real da tela (--app-vvh)
+  // ---------------------------------------------------------------
+  // Carrinho e checkout ocupam a tela cheia no mobile (position: fixed +
+  // altura via esta variável). Usar só 100dvh não basta: no iOS/Android,
+  // quando o teclado abre para digitar endereço/telefone, o viewport de
+  // *layout* não encolhe, então um painel com altura fixa em 100% empurra
+  // o botão "Finalizar Pedido" pra baixo da tela, atrás do teclado — o
+  // cliente não consegue mais confirmar o pedido. window.visualViewport
+  // reflete a área realmente visível (já descontando o teclado), então
+  // recalculamos essa variável nele para o painel encolher junto.
+  function setAppVvh() {
+    const vv = window.visualViewport;
+    const h = vv ? vv.height : window.innerHeight;
+    document.documentElement.style.setProperty("--app-vvh", h + "px");
+  }
+  setAppVvh();
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", setAppVvh);
+    window.visualViewport.addEventListener("scroll", setAppVvh);
+  } else {
+    window.addEventListener("resize", setAppVvh);
+  }
+
+  // ---------------------------------------------------------------
   // AGE GATE
   // ---------------------------------------------------------------
   (function () {
