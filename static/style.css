@@ -596,39 +596,46 @@ header.site-header {
   display: flex; align-items: center; gap: 4px;
 }
 .model-card .card-img {
-  aspect-ratio: 1/1;
+  aspect-ratio: 4/5;
   border-radius: var(--radius);
   background: #1a1a2e;
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   overflow: hidden;
   position: relative;
 }
-.model-card .card-img img { width: 100%; height: 100%; object-fit: cover; }
+.model-card .card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .model-card .card-img .ph { color: var(--border); font-size: 3rem; font-weight: 800; }
-.model-card .brand-lbl { font-size: .7rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--purple-soft); font-weight: 700; }
-.model-card h3 { font-size: 1.15rem; font-weight: 800; margin: 3px 0 8px; letter-spacing: -.3px; }
+.model-card .brand-lbl { font-size: .85rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--purple-soft); font-weight: 700; }
+.model-card h3 { font-size: 1.25rem; font-weight: 800; margin: 2px 0 6px; letter-spacing: -.3px; }
 .model-card .puffs {
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: .78rem; color: var(--yellow-soft);
+  font-size: .82rem; color: var(--yellow-soft);
   background: rgba(255,214,10,.08);
   border: 1px solid rgba(255,214,10,.18);
-  padding: 4px 10px; border-radius: 999px;
+  padding: 6px 14px; border-radius: 999px;
   width: fit-content;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
-.flavor-dots { display: flex; align-items: center; gap: 7px; margin-bottom: 14px; flex-wrap: wrap; }
-.flavor-dots .dot-item { display: inline-flex; align-items: center; gap: 5px; font-size: .74rem; color: var(--text-dim); }
+.flavor-dots { display: flex; align-items: center; gap: 7px; margin-bottom: 12px; flex-wrap: wrap; }
+.flavor-dots .dot-item { display: inline-flex; align-items: center; gap: 5px; font-size: .81rem; color: var(--text-dim); }
 .flavor-dots .dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255,255,255,.05); }
-.flavor-dots .more { font-size: .72rem; color: var(--purple-soft); font-weight: 600; }
-.card-foot { margin-top: auto; display: flex; align-items: end; justify-content: space-between; }
+.flavor-dots .more { font-size: .78rem; color: var(--purple-soft); font-weight: 600; }
+.card-foot {
+  margin-top: auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: rgba(0,0,0,.24);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 8px 8px 8px 14px;
+}
 .card-foot .from { font-size: .68rem; color: var(--text-dim); }
-.card-foot .price { font-size: 1.25rem; font-weight: 800; color: var(--primary-yellow); }
+.card-foot .price { font-size: 1.5rem; font-weight: 800; color: var(--primary-yellow); line-height: 1.1; }
 .card-foot .arrow {
-  width: 38px; height: 38px; border-radius: 12px;
-  background: var(--surface); border: 1px solid var(--border);
+  width: 38px; height: 38px; min-width: 38px; border-radius: 12px; font-size: 1.2rem;
+  background: var(--surface); border: 1px solid var(--border); flex-shrink: 0;
   display: grid; place-items: center; color: var(--text-dim);
   transition: .2s;
 }
@@ -1452,22 +1459,23 @@ body.editor-mode .model-card { cursor: default; }
   /* --- Card compacto e refinado --- */
   .model-card { padding: 10px; border-radius: 15px; }
   .model-card .best-tag { top: 9px; left: 9px; font-size: .58rem; padding: 3px 8px; }
-  .model-card .card-img { aspect-ratio: 4/3; margin-bottom: 10px; border-radius: 15px; }
+  .model-card .card-img { aspect-ratio: 4/5; margin-bottom: 10px; border-radius: 15px; }
   .model-card .card-img .ph { font-size: 2.2rem; }
-  .model-card .brand-lbl { font-size: .62rem; letter-spacing: 1px; }
-  .model-card h3 { font-size: .98rem; margin: 2px 0 6px; }
-  .model-card .puffs { font-size: .66rem; padding: 3px 8px; gap: 4px; margin-bottom: 9px; }
+  .model-card .brand-lbl { font-size: .8rem; letter-spacing: 1px; }
+  .model-card h3 { font-size: 1.15rem; margin: 2px 0 6px; }
+  .model-card .puffs { font-size: .8rem; padding: 5px 12px; gap: 4px; margin-bottom: 9px; }
 
   /* Sabores: mostrar 1 nome + contador pra não quebrar o card */
   .flavor-dots { gap: 6px; margin-bottom: 11px; }
-  .flavor-dots .dot-item { font-size: .66rem; }
+  .flavor-dots .dot-item { font-size: .78rem; }
   .flavor-dots .dot-item:nth-child(2) { display: none; }
   .flavor-dots .dot { width: 8px; height: 8px; }
-  .flavor-dots .more { font-size: .66rem; }
+  .flavor-dots .more { font-size: .76rem; }
 
+  .card-foot { padding: 7px 7px 7px 11px; border-radius: 12px; gap: 8px; }
   .card-foot .from { font-size: .6rem; }
-  .card-foot .price { font-size: 1.05rem; }
-  .card-foot .arrow { width: 32px; height: 32px; border-radius: 10px; }
+  .card-foot .price { font-size: 1.4rem; }
+  .card-foot .arrow { width: 36px; height: 36px; min-width: 36px; border-radius: 10px; }
 
   /* --- Modal ocupa a tela como uma folha vinda de baixo --- */
   .modal-overlay { padding: 0; align-items: flex-end; }
@@ -1551,8 +1559,10 @@ body.editor-mode .model-card { cursor: default; }
 @media (max-width: 360px) {
   .grid { gap: 9px; }
   .model-card { padding: 9px; }
-  .model-card h3 { font-size: .9rem; }
-  .card-foot .price { font-size: .98rem; }
+  .model-card h3 { font-size: 1.05rem; }
+  .card-foot .price { font-size: 1.25rem; }
+  .card-foot { padding: 6px 6px 6px 10px; }
+  .card-foot .arrow { width: 34px; height: 34px; min-width: 34px; }
   .hero h1 { font-size: 1.6rem; }
 }
 
