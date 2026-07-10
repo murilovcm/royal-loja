@@ -628,12 +628,21 @@ header.site-header {
 }
 .flavor-dots {
   display: flex; align-items: center; justify-content: center;
-  gap: 6px; margin-bottom: 12px; flex-wrap: nowrap;
-  max-width: 100%; overflow: hidden;
+  gap: 7px; margin-bottom: 14px; flex-wrap: wrap;
 }
-.flavor-dots .dot-item { display: inline-flex; align-items: center; gap: 5px; font-size: .8rem; color: var(--text-dim); white-space: nowrap; }
-.flavor-dots .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,.05); }
-.flavor-dots .more { font-size: .77rem; color: var(--purple-soft); font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.flavor-dots .dot-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .82rem; color: #d6d3dd; font-weight: 500;
+  background: rgba(255,255,255,.045);
+  border: 1px solid var(--border);
+  padding: 5px 11px; border-radius: 999px;
+  white-space: nowrap;
+}
+.flavor-dots .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,.06); }
+.flavor-dots .more {
+  font-size: .8rem; color: var(--purple-soft); font-weight: 600;
+  white-space: nowrap; align-self: center;
+}
 .card-foot {
   margin-top: auto;
   padding-top: 13px;
@@ -1486,11 +1495,11 @@ body.editor-mode .model-card { cursor: default; }
   .model-card h3 { font-size: 1.15rem; margin: 2px 0 6px; }
   .model-card .puffs { font-size: .8rem; padding: 5px 12px; gap: 4px; margin-bottom: 9px; }
 
-  /* Sabores: 2 nomes + contador, centralizados e compactos */
-  .flavor-dots { gap: 5px; margin-bottom: 11px; }
-  .flavor-dots .dot-item { font-size: .72rem; }
-  .flavor-dots .dot { width: 8px; height: 8px; }
-  .flavor-dots .more { font-size: .7rem; }
+  /* Sabores: chips legíveis, 2 nomes + contador, quebra em linha se precisar */
+  .flavor-dots { gap: 6px; margin-bottom: 12px; }
+  .flavor-dots .dot-item { font-size: .78rem; padding: 4px 10px; gap: 5px; }
+  .flavor-dots .dot { width: 7px; height: 7px; }
+  .flavor-dots .more { font-size: .76rem; }
 
   .card-foot { padding-top: 12px; gap: 12px; }
   .card-foot .from { font-size: .56rem; }
