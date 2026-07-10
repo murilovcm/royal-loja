@@ -943,7 +943,15 @@ header.site-header {
   scroll-padding-top: 12px; scroll-padding-bottom: 12px; /* campo focado não cola na borda */
   padding: 20px 22px;
 }
-.checkout-summary { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.checkout-summary {
+  margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border);
+  /* max-height + overflow permitem animar o recolhimento quando o teclado abre
+     no mobile (.checkout-panel.kb, ver abaixo e app.js). 1000px > qualquer
+     resumo real, então NÃO corta o conteúdo no estado normal. */
+  max-height: 1000px; overflow: hidden;
+  transition: max-height .28s ease, opacity .22s ease,
+              margin .28s ease, padding .28s ease, border-color .28s ease;
+}
 .checkout-summary h4 { font-size: .82rem; color: var(--text-dim); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
 .checkout-item {
   display: flex; align-items: center; gap: 10px;
@@ -1486,6 +1494,19 @@ body.editor-mode .model-card { cursor: default; }
   .checkout-header { padding: 18px 18px calc(18px + env(safe-area-inset-top)); }
   .checkout-body { padding: 16px 18px; }
   .checkout-foot { padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); }
+  /* Teclado aberto (app.js adiciona .kb ao focar um campo): recolhe o resumo
+     do pedido pra devolver o espaço vertical aos campos acima do botão fixo.
+     Sem isso, no iPhone o cabeçalho + resumo comem quase toda a área visível
+     e os últimos campos ficam espremidos/cortados contra o botão verde.
+     Reaparece quando o campo perde o foco e o teclado fecha. */
+  .checkout-panel.kb .checkout-summary {
+    max-height: 0;
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom-color: transparent;
+    opacity: 0;
+    pointer-events: none;
+  }
   .cart-fab { bottom: 18px; right: 18px; width: 54px; height: 54px; font-size: 1.35rem; }
 
   .editor-bar { flex-wrap: wrap; justify-content: center; bottom: 10px; width: 92%; gap: 10px; }
