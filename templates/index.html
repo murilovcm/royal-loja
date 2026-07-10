@@ -17,9 +17,10 @@
   </div>
   <span class="brand-lbl">{{ m.brand_name }}</span>
   <h3>{{ m.name }}</h3>
-  {% if m.flavors %}
+  {% set instock = m.flavors | selectattr('is_in_stock') | list %}
+  {% if instock %}
   <div class="flavor-dots">
-    <span class="flavor-badge"><span class="dot" style="background: {{ m.flavors[0].color or palette[0] }}"></span><span class="fn">{{ m.flavors[0].name }}</span>{% set extra = m.flavors|length - 1 %}{% if extra > 0 %}<span class="more">+{{ extra }} sabor{{ 'es' if extra > 1 }}</span>{% endif %}</span>
+    <span class="flavor-badge"><span class="dot" style="background: {{ instock[0].color or palette[0] }}"></span><span class="fn">{{ instock[0].name }}</span>{% set extra = instock|length - 1 %}{% if extra > 0 %}<span class="more">+{{ extra }} sabor{{ 'es' if extra > 1 }}</span>{% endif %}</span>
   </div>
   {% endif %}
   <div class="card-foot">
