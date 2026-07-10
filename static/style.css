@@ -555,7 +555,7 @@ header.site-header {
 /* ---------- Grid & Cards ---------- */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 20px;
 }
 .model-card {
@@ -591,26 +591,29 @@ header.site-header {
 }
 /* :active depois do hover na cascata para "vencer" o lift quando os dois se aplicam ao mesmo tempo (clique) */
 .model-card:active { transform: scale(.97); }
+/* Faixa fixa do topo: badge de puffs (esq.) + selo TOP (dir.) — fora da foto */
+.model-card .card-top {
+  width: 100%;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 32px; margin-bottom: 12px;
+}
 .model-card .best-tag {
-  position: absolute; top: 10px; right: 10px; z-index: 3;
   background: var(--primary-yellow);
   color: var(--text-on-primary);
-  font-size: .64rem; font-weight: 800;
-  padding: 4px 10px;
+  font-size: .66rem; font-weight: 800;
+  padding: 5px 11px;
   border-radius: 999px;
   letter-spacing: .5px;
-  display: flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; gap: 4px;
+  white-space: nowrap; flex-shrink: 0;
 }
 .model-card .puff-badge {
-  position: absolute; top: 10px; left: 10px; z-index: 3;
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: .72rem; font-weight: 700; color: var(--yellow-soft);
-  background: rgba(10,10,12,.68);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(255,214,10,.28);
-  padding: 5px 11px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .8rem; font-weight: 700; color: var(--yellow-soft);
+  background: rgba(255,214,10,.09);
+  border: 1px solid rgba(255,214,10,.24);
+  padding: 6px 13px; border-radius: 999px;
   letter-spacing: .2px; white-space: nowrap;
-  box-shadow: 0 2px 10px rgba(0,0,0,.3);
 }
 .model-card .card-img {
   aspect-ratio: 4/5;
@@ -639,15 +642,18 @@ header.site-header {
 }
 .flavor-dots { display: flex; justify-content: center; margin: 0 0 14px; max-width: 100%; }
 .flavor-badge {
-  display: inline-flex; align-items: center; gap: 7px; max-width: 100%;
+  display: inline-block; max-width: 100%; text-align: center;
   font-size: .8rem; font-weight: 500; color: var(--text-dim);
   background: rgba(255,255,255,.045);
   border: 1px solid var(--border);
-  padding: 6px 13px; border-radius: 999px;
+  padding: 6px 14px; border-radius: 14px; line-height: 1.4;
 }
-.flavor-badge .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,.06); }
-.flavor-badge .fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.flavor-badge .more { color: var(--purple-soft); font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.flavor-badge .dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  vertical-align: middle; margin-right: 6px; box-shadow: 0 0 0 2px rgba(255,255,255,.06);
+}
+.flavor-badge .fn { vertical-align: middle; }
+.flavor-badge .more { color: var(--purple-soft); font-weight: 600; margin-left: 6px; white-space: nowrap; vertical-align: middle; }
 .card-foot {
   margin-top: auto;
   padding-top: 13px;
@@ -1493,16 +1499,17 @@ body.editor-mode .model-card { cursor: default; }
 
   /* --- Card compacto e refinado --- */
   .model-card { padding: 10px; border-radius: 15px; }
-  .model-card .best-tag { top: 8px; right: 8px; font-size: .58rem; padding: 3px 8px; }
-  .model-card .puff-badge { top: 8px; left: 8px; font-size: .68rem; padding: 4px 9px; }
+  .model-card .card-top { min-height: 28px; margin-bottom: 10px; gap: 6px; }
+  .model-card .best-tag { font-size: .58rem; padding: 4px 9px; }
+  .model-card .puff-badge { font-size: .74rem; padding: 5px 11px; }
   .model-card .card-img { aspect-ratio: 4/5; margin-bottom: 10px; border-radius: 15px; }
   .model-card .card-img .ph { font-size: 2.2rem; }
   .model-card .brand-lbl { font-size: .8rem; letter-spacing: 1px; }
   .model-card h3 { font-size: 1.15rem; margin: 2px 0 8px; }
 
-  /* Sabores: badge único (1 sabor + contador), padrão consistente com o puffs */
+  /* Sabores: badge com quebra de texto (nome completo) */
   .flavor-dots { margin: 0 0 13px; }
-  .flavor-badge { font-size: .78rem; padding: 5px 12px; gap: 6px; }
+  .flavor-badge { font-size: .78rem; padding: 5px 12px; }
 
   .card-foot { padding-top: 12px; gap: 12px; }
   .card-foot .from { font-size: .56rem; }

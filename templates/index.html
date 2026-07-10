@@ -7,21 +7,19 @@
          data-best="{{ m.is_best_seller }}"
          data-name="{{ m.name | lower }}"
          data-brandname="{{ m.brand_name | lower }}">
+  <div class="card-top">
+    <span class="puff-badge">⚡ {{ m.puff_count }}</span>
+    {% if m.is_best_seller %}<span class="best-tag">★ TOP</span>{% endif %}
+  </div>
   <div class="card-img">
     {% if m.image_url %}<img src="{{ m.image_url }}" alt="{{ m.name }}">
     {% else %}<span class="ph">{{ m.name[0] }}</span>{% endif %}
-    <span class="puff-badge">⚡ {{ m.puff_count }}</span>
-    {% if m.is_best_seller %}<span class="best-tag">★ TOP</span>{% endif %}
   </div>
   <span class="brand-lbl">{{ m.brand_name }}</span>
   <h3>{{ m.name }}</h3>
   {% if m.flavors %}
   <div class="flavor-dots">
-    <span class="flavor-badge">
-      <span class="dot" style="background: {{ palette[0] }}"></span>
-      <span class="fn">{{ m.flavors[0].name }}</span>
-      {% set extra = m.flavors|length - 1 %}{% if extra > 0 %}<span class="more">+{{ extra }} sabor{{ 'es' if extra > 1 }}</span>{% endif %}
-    </span>
+    <span class="flavor-badge"><span class="dot" style="background: {{ palette[0] }}"></span><span class="fn">{{ m.flavors[0].name }}</span>{% set extra = m.flavors|length - 1 %}{% if extra > 0 %}<span class="more">+{{ extra }} sabor{{ 'es' if extra > 1 }}</span>{% endif %}</span>
   </div>
   {% endif %}
   <div class="card-foot">
