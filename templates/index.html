@@ -319,27 +319,6 @@
       <button class="close-checkout" id="checkoutClose">✕</button>
     </div>
     <div class="checkout-body" id="checkoutBody">
-      <div class="checkout-summary">
-        <h4>Resumo do pedido</h4>
-        <div class="checkout-items" id="checkoutItems"></div>
-
-        <div class="checkout-discount-row" id="checkoutDiscountRow" style="display:none;">
-          <span>Desconto <span id="checkoutDiscountCode"></span></span>
-          <span id="checkoutDiscountValue">-R$ 0,00</span>
-        </div>
-
-        <div class="checkout-shipping-row" id="checkoutShippingRow" style="display:none;">
-          <span>Frete <span id="checkoutShippingZone"></span></span>
-          <span id="checkoutShippingValue">R$ 0,00</span>
-        </div>
-        <div class="geo-status" id="checkoutShippingNote"></div>
-
-        <div class="checkout-summary-total">
-          <span>Total</span>
-          <span id="checkoutTotal">R$ 0,00</span>
-        </div>
-      </div>
-
       <form id="checkoutForm" class="checkout-form" novalidate>
         <label class="field">
           <span class="field-label">Nome completo *</span>
@@ -392,6 +371,29 @@
           <textarea id="custNotes" name="custNotes" rows="2" placeholder="Troco para quanto, ponto de referência, etc. (opcional)"></textarea>
         </label>
       </form>
+
+      <!-- Resumo do pedido no FIM do formulário: o cliente vê o frete/total já
+           preenchido e confirma ciente do valor, logo acima do botão. -->
+      <div class="checkout-summary">
+        <h4>Resumo do pedido</h4>
+        <div class="checkout-items" id="checkoutItems"></div>
+
+        <div class="checkout-discount-row" id="checkoutDiscountRow" style="display:none;">
+          <span>Desconto <span id="checkoutDiscountCode"></span></span>
+          <span id="checkoutDiscountValue">-R$ 0,00</span>
+        </div>
+
+        <div class="checkout-shipping-row" id="checkoutShippingRow" style="display:none;">
+          <span>Frete <span id="checkoutShippingZone"></span></span>
+          <span id="checkoutShippingValue">R$ 0,00</span>
+        </div>
+        <div class="geo-status" id="checkoutShippingNote"></div>
+
+        <div class="checkout-summary-total">
+          <span>Total</span>
+          <span id="checkoutTotal">R$ 0,00</span>
+        </div>
+      </div>
     </div>
     <div class="checkout-foot">
       <button class="whatsapp-btn" id="checkoutConfirmBtn">

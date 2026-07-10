@@ -65,10 +65,6 @@
       setAppVvh();
       setTimeout(setAppVvh, 350);
       setTimeout(setAppVvh, 700);
-      // Teclado aberto no checkout: marca o painel com .kb pra o CSS recolher o
-      // resumo do pedido e sobrar espaço aos campos acima do botão (mobile).
-      const coPanel = e.target.closest(".checkout-panel");
-      if (coPanel) coPanel.classList.add("kb");
       // Depois que o teclado assenta e o painel encolheu (--app-vvh já
       // atualizado), traz o campo focado pro meio do corpo rolável. Assim o
       // cliente vê os campos de cima e de baixo — mantém a "visão geral" em
@@ -92,15 +88,6 @@
     if (e.target.closest(".cart-sidebar, .checkout-panel")) {
       setTimeout(setAppVvh, 350);
       setTimeout(setAppVvh, 700);
-      // Se o foco saiu de vez do checkout (teclado fechando), reexibe o resumo.
-      // Ao pular de um campo pro outro, activeElement continua dentro do painel,
-      // então mantém .kb — evita o resumo piscar entre campos.
-      const coPanel = e.target.closest(".checkout-panel");
-      if (coPanel) {
-        setTimeout(() => {
-          if (!coPanel.contains(document.activeElement)) coPanel.classList.remove("kb");
-        }, 80);
-      }
     }
   });
 
@@ -630,7 +617,6 @@
   }
   function closeCheckout() {
     checkoutPanel.classList.remove("open");
-    checkoutPanel.classList.remove("kb"); // limpa o estado de teclado/resumo recolhido
     checkoutOverlay.classList.remove("open");
     unlockBodyScroll();
   }
