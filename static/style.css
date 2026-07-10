@@ -628,20 +628,17 @@ header.site-header {
 }
 .flavor-dots {
   display: flex; align-items: center; justify-content: center;
-  gap: 8px; margin: 2px 0 16px; flex-wrap: wrap;
+  gap: 8px; margin: 0 0 14px; flex-wrap: nowrap; max-width: 100%;
 }
 .flavor-dots .dot-item {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: .84rem; color: #e2dfe8; font-weight: 500;
-  background: rgba(255,255,255,.05);
-  border: 1px solid rgba(255,255,255,.09);
-  padding: 6px 13px; border-radius: 999px;
-  max-width: 100%;
+  display: inline-flex; align-items: center; gap: 7px; min-width: 0;
+  font-size: .8rem; color: var(--text-dim); font-weight: 500;
 }
+.flavor-dots .dot-item .fn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .flavor-dots .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,.06); }
 .flavor-dots .more {
   font-size: .8rem; color: var(--purple-soft); font-weight: 600;
-  white-space: nowrap; align-self: center;
+  white-space: nowrap; flex-shrink: 0;
 }
 .card-foot {
   margin-top: auto;
@@ -1495,9 +1492,9 @@ body.editor-mode .model-card { cursor: default; }
   .model-card h3 { font-size: 1.15rem; margin: 2px 0 6px; }
   .model-card .puffs { font-size: .8rem; padding: 5px 12px; gap: 4px; margin-bottom: 9px; }
 
-  /* Sabores: chips legíveis, 2 nomes + contador, quebram em linha (centralizados) */
-  .flavor-dots { gap: 7px; margin: 2px 0 14px; }
-  .flavor-dots .dot-item { font-size: .8rem; padding: 6px 12px; gap: 6px; }
+  /* Sabores: 1 sabor de referência + contador, uma linha limpa e centralizada */
+  .flavor-dots { gap: 7px; margin: 0 0 13px; }
+  .flavor-dots .dot-item { font-size: .8rem; gap: 6px; }
   .flavor-dots .dot { width: 8px; height: 8px; }
   .flavor-dots .more { font-size: .8rem; }
 

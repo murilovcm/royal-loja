@@ -16,10 +16,10 @@
   <h3>{{ m.name }}</h3>
   <span class="puffs">⚡ {{ m.puff_count }}</span>
   <div class="flavor-dots">
-    {% for f in m.flavors[:2] %}
-      <span class="dot-item"><span class="dot" style="background: {{ palette[loop.index0 % palette|length] }}"></span>{{ f.name }}</span>
+    {% for f in m.flavors[:1] %}
+      <span class="dot-item"><span class="dot" style="background: {{ palette[loop.index0 % palette|length] }}"></span><span class="fn">{{ f.name }}</span></span>
     {% endfor %}
-    {% if m.flavors | length > 2 %}{% set extra = m.flavors|length - 2 %}<span class="more">+{{ extra }} sabor{{ 's' if extra > 1 }}</span>{% endif %}
+    {% set extra = m.flavors|length - 1 %}{% if extra > 0 %}<span class="more">+{{ extra }} sabor{{ 's' if extra > 1 }}</span>{% endif %}
   </div>
   <div class="card-foot">
     <div>
