@@ -412,6 +412,7 @@ def init_db():
             name        TEXT NOT NULL,
             price       REAL DEFAULT 0,
             is_in_stock INTEGER DEFAULT 1,
+            color       TEXT,                -- cor do ponto (•) do sabor no card; NULL = usa a paleta padrão
             FOREIGN KEY (model_id) REFERENCES vape_models(id) ON DELETE CASCADE
         );
 
@@ -472,6 +473,13 @@ def init_db():
     audit_cols = {row["name"] for row in db.execute("PRAGMA table_info(audit_log)").fetchall()}
     if "username" not in audit_cols:
         db.execute("ALTER TABLE audit_log ADD COLUMN username TEXT")
+        db.commit()
+
+    # Migração: products ganhou a coluna color (cor do ponto do sabor no card)
+    # para bancos que já existiam antes dessa feature.
+    prod_cols = {row["name"] for row in db.execute("PRAGMA table_info(products)").fetchall()}
+    if "color" not in prod_cols:
+        db.execute("ALTER TABLE products ADD COLUMN color TEXT")
         db.commit()
 
     # Semeia a conta "dono" (acesso completo) só na primeiríssima vez que a
@@ -1491,6 +1499,16 @@ def api_delete_model(mid):
 
 
 # ---- Products (Flavors) ----
+_HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+
+
+def clean_hex_color(value):
+    """Só aceita cor hex (#rgb ou #rrggbb); qualquer outra coisa vira None.
+    Evita injeção de CSS já que a cor é usada em style="background: ..."."""
+    v = (value or "").strip()
+    return v if _HEX_COLOR_RE.match(v) else None
+
+
 @app.route("/api/product", methods=["POST"])
 @api_catalog_required
 def api_create_product():
@@ -1501,8 +1519,8 @@ def api_create_product():
         return jsonify({"ok": False, "error": "dados incompletos"}), 400
     db = get_db()
     cur = db.execute(
-        "INSERT INTO products (model_id, name, price, is_in_stock) VALUES (?,?,?,1)",
-        (model_id, name, float(d.get("price") or 0)),
+        "INSERT INTO products (model_id, name, price, is_in_stock, color) VALUES (?,?,?,1,?)",
+        (model_id, name, float(d.get("price") or 0), clean_hex_color(d.get("color"))),
     )
     db.commit()
     return jsonify({"ok": True, "id": cur.lastrowid})
@@ -1524,6 +1542,9 @@ def api_update_product(pid):
     if "is_in_stock" in d:
         fields.append("is_in_stock = ?")
         vals.append(1 if d["is_in_stock"] else 0)
+    if "color" in d:
+        fields.append("color = ?")
+        vals.append(clean_hex_color(d["color"]))
     if not fields:
         return jsonify({"ok": False}), 400
     vals.append(pid)

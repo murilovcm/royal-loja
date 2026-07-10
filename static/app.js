@@ -303,7 +303,7 @@
     } else {
       fg.innerHTML = inStock.map((f, i) =>
         `<button class="flavor-pill" data-fid="${f.id}" data-price="${f.price}" data-name="${f.name}">
-           <span class="dot" style="background:${PALETTE[i % PALETTE.length]}"></span>${f.name}
+           <span class="dot" style="background:${f.color || PALETTE[i % PALETTE.length]}"></span>${f.name}
          </button>`).join("");
     }
     updateModalTotal();

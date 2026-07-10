@@ -62,6 +62,9 @@
     .flavors-box { padding:0 20px 16px 52px; display:none; }
     .flavors-box.open { display:block; }
     .flavor-line { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+    .flavor-color { width:36px; height:34px; padding:2px; border:1px solid var(--border); border-radius:8px; background:var(--bg-2); cursor:pointer; flex-shrink:0; }
+    .flavor-color::-webkit-color-swatch-wrapper { padding:0; }
+    .flavor-color::-webkit-color-swatch { border:none; border-radius:5px; }
     .flavor-line input[type=text] { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); font-size:.85rem; width:160px; }
     .flavor-line input[type=number] { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); font-size:.85rem; width:100px; }
     .flavor-line input:focus { outline:none; border-color:var(--primary-yellow); }
@@ -262,6 +265,7 @@
             <div class="flavors-box" id="flavors-{{ m.id }}">
               {% for f in item.flavors %}
               <div class="flavor-line" data-fid="{{ f.id }}">
+                <input type="color" class="flavor-color" value="{{ f.color or '#a855f7' }}" onchange="updateProduct({{ f.id }}, 'color', this.value, this)" title="Cor do • do sabor">
                 <input type="text" value="{{ f.name }}" onchange="updateProduct({{ f.id }}, 'name', this.value, this)">
                 <input type="number" step="0.01" value="{{ '%.2f'|format(f.price) }}" onchange="updateProduct({{ f.id }}, 'price', this.value, this)">
                 <span class="stock-toggle" onclick="toggleStock({{ f.id }}, this)">
@@ -273,6 +277,7 @@
               </div>
               {% endfor %}
               <div class="add-inline">
+                <input type="color" class="flavor-color" id="fcolor-{{ m.id }}" value="#a855f7" title="Cor do • do sabor">
                 <input type="text" placeholder="Nome do sabor" id="fname-{{ m.id }}">
                 <input type="number" step="0.01" placeholder="Preço" id="fprice-{{ m.id }}" style="width:100px">
                 <button class="mini-btn primary" onclick="addProduct({{ m.id }})">+ Sabor</button>
@@ -703,8 +708,9 @@
     async function addProduct(mid) {
       const name = document.getElementById('fname-'+mid).value.trim();
       const price = document.getElementById('fprice-'+mid).value || 0;
+      const color = document.getElementById('fcolor-'+mid).value;
       if (!name) { toast("Digite o nome do sabor"); return; }
-      await api('/api/product','POST',{model_id:mid, name, price});
+      await api('/api/product','POST',{model_id:mid, name, price, color});
       location.reload();
     }
 

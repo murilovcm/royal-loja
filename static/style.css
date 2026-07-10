@@ -594,9 +594,11 @@ header.site-header {
 /* Faixa fixa do topo: badge de puffs (esq.) + selo TOP (dir.) — fora da foto */
 .model-card .card-top {
   width: 100%;
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 32px; margin-bottom: 12px;
 }
+/* Com selo TOP: puffs à esquerda, TOP à direita. Sem TOP: puffs centralizado. */
+.model-card .card-top:has(.best-tag) { justify-content: space-between; }
 .model-card .best-tag {
   background: var(--primary-yellow);
   color: var(--text-on-primary);
