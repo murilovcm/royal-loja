@@ -535,8 +535,8 @@
               <span class="switch {{ 'on' if u.is_active }}"></span>
               <span>Ativo</span>
             </span>
-            <button class="mini-btn" onclick="resetEmployeePassword({{ u.id }}, {{ u.username | tojson }})">Trocar senha</button>
-            <button class="del-btn" onclick="deleteEmployee({{ u.id }}, {{ u.username | tojson }})" title="Excluir funcionário">🗑</button>
+            <button class="mini-btn" onclick="resetEmployeePassword({{ u.id }}, {{ u.username | tojson | forceescape }})">Trocar senha</button>
+            <button class="del-btn" onclick="deleteEmployee({{ u.id }}, {{ u.username | tojson | forceescape }})" title="Excluir funcionário">🗑</button>
           </div>
           {% else %}
           <p style="color:var(--text-dim); padding:12px 0;">Nenhum funcionário cadastrado ainda.</p>
