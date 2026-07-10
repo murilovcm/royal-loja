@@ -622,6 +622,7 @@
   function openCheckout() {
     if (cart.length === 0) return;
     renderCheckoutSummary();
+    updateCheckoutBtnState(); // começa desabilitado se os campos estiverem vazios
     closeCart();
     checkoutPanel.classList.add("open");
     checkoutOverlay.classList.add("open");
@@ -666,6 +667,7 @@
   }
   byId("custPhone").addEventListener("input", (e) => {
     e.target.value = maskPhoneBR(e.target.value);
+    updateCheckoutBtnState();
   });
 
   // ---- Geolocation ----
@@ -682,6 +684,7 @@
     addressField.style.display = isPickup() ? "none" : "";
     if (isPickup()) setFieldError(byId("custAddress"), byId("errAddress"), false);
     updateTotals();
+    updateCheckoutBtnState();
   });
 
   function setGeoStatus(text, level) {
@@ -769,6 +772,19 @@
     if (errEl) errEl.classList.toggle("show", hasError);
     return hasError;
   }
+
+  // Habilita "Confirmar e Enviar no WhatsApp" só quando os campos obrigatórios
+  // de contato estão preenchidos — mesmo padrão do modal de produto ("Selecione
+  // um sabor" + botão desabilitado). Telefone usa o mesmo limite da validação
+  // (>=10 dígitos). Pagamento continua validado no clique (mostra erro no campo).
+  function updateCheckoutBtnState() {
+    const nameOk = byId("custName").value.trim().length > 0;
+    const phoneOk = byId("custPhone").value.replace(/\D/g, "").length >= 10;
+    const addressOk = isPickup() || byId("custAddress").value.trim().length > 0;
+    byId("checkoutConfirmBtn").disabled = !(nameOk && phoneOk && addressOk);
+  }
+  byId("custName").addEventListener("input", updateCheckoutBtnState);
+  byId("custAddress").addEventListener("input", updateCheckoutBtnState);
 
   byId("checkoutConfirmBtn").addEventListener("click", () => {
     if (cart.length === 0) return;
