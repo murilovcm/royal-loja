@@ -234,7 +234,19 @@ header.site-header {
   z-index: 30;
   background: rgba(10,10,12,.82);
   backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
+}
+/* Em telas touch, o header fixo com backdrop-filter re-borra o conteúdo
+   atrás a cada frame de scroll — principal fonte de travamento no mobile.
+   Trocamos por um fundo quase sólido (mesmo look premium, sem o custo por
+   frame). O efeito vidro fica só no desktop, onde não pesa. */
+@media (hover: none), (pointer: coarse) {
+  header.site-header {
+    background: rgba(9,9,11,.96);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 .header-inner {
   display: flex;

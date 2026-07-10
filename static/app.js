@@ -25,19 +25,32 @@
   // pra tentar mostrar o campo focado, sem o viewport de layout (onde o
   // position:fixed se ancora) se mexer — sem repassar esse deslocamento,
   // o painel fica ancorado no topo errado e some por trás do teclado.
+  let lastVvh = -1, lastVvTop = -1;
   function setAppVvh() {
     const vv = window.visualViewport;
-    const h = vv ? vv.height : window.innerHeight;
-    const top = vv ? vv.offsetTop : 0;
+    const h = Math.round(vv ? vv.height : window.innerHeight);
+    const top = Math.round(vv ? vv.offsetTop : 0);
+    // Só escreve nas CSS vars se algo mudou de fato: escrever força recálculo
+    // de layout, e o evento "scroll" do visualViewport dispara a cada frame
+    // enquanto o cliente rola/digita — sem esse guard, era um dos travamentos.
+    if (h === lastVvh && top === lastVvTop) return;
+    lastVvh = h; lastVvTop = top;
     document.documentElement.style.setProperty("--app-vvh", h + "px");
     document.documentElement.style.setProperty("--app-vv-top", top + "px");
   }
+  // Throttle por requestAnimationFrame: no máximo um recálculo por frame,
+  // em vez de um por evento (o visualViewport emite vários por frame).
+  let vvRaf = 0;
+  function scheduleVvh() {
+    if (vvRaf) return;
+    vvRaf = requestAnimationFrame(() => { vvRaf = 0; setAppVvh(); });
+  }
   setAppVvh();
   if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", setAppVvh);
-    window.visualViewport.addEventListener("scroll", setAppVvh);
+    window.visualViewport.addEventListener("resize", scheduleVvh, { passive: true });
+    window.visualViewport.addEventListener("scroll", scheduleVvh, { passive: true });
   } else {
-    window.addEventListener("resize", setAppVvh);
+    window.addEventListener("resize", scheduleVvh, { passive: true });
   }
   // Reforço: em algumas versões de iOS o evento "resize"/"scroll" do
   // visualViewport não dispara a tempo (ou não dispara) quando o teclado
@@ -59,10 +72,16 @@
       // interno (.checkout-body/.cart-items), o body está travado.
       const control = e.target.closest("input, select, textarea");
       if (control && control.scrollIntoView) {
-        setTimeout(() => {
-          try { control.scrollIntoView({ block: "center", behavior: "smooth" }); }
+        // Instantâneo (behavior:"auto"), não suave: o campo salta pro lugar na
+        // hora que o teclado assenta — dá sensação de rapidez em vez do scroll
+        // animado arrastado. Uma passada extra cedo (120ms) posiciona logo,
+        // e a de 360ms corrige após a altura final do painel estabilizar.
+        const bring = () => {
+          try { control.scrollIntoView({ block: "center", behavior: "auto" }); }
           catch (_) { control.scrollIntoView(); }
-        }, 380);
+        };
+        setTimeout(bring, 120);
+        setTimeout(bring, 360);
       }
     }
   });
