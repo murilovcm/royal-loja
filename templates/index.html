@@ -24,7 +24,7 @@
   <div class="card-foot">
     <div>
       <span class="from">a partir de</span><br>
-      <span class="price">R$ {{ '%.2f' | format(m.min_price) | replace('.', ',') }}</span>
+      <span class="price"><span class="cur">R$</span>{{ '%.2f' | format(m.min_price) | replace('.', ',') }}</span>
     </div>
     <span class="arrow">→</span>
   </div>

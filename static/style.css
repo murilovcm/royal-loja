@@ -581,7 +581,11 @@ header.site-header {
     border-color: rgba(168,85,247,.45);
     box-shadow: 0 14px 30px rgba(124,58,237,.16), 0 0 0 1px rgba(168,85,247,.2);
   }
-  .model-card:hover .arrow { background: var(--primary-yellow); color: var(--text-on-primary); border-color: transparent; }
+  .model-card:hover .arrow {
+    background: var(--primary-yellow); color: var(--text-on-primary); border-color: transparent;
+    transform: translateX(3px);
+    box-shadow: 0 6px 18px rgba(255,214,10,.38);
+  }
 }
 /* :active depois do hover na cascata para "vencer" o lift quando os dois se aplicam ao mesmo tempo (clique) */
 .model-card:active { transform: scale(.97); }
@@ -625,19 +629,29 @@ header.site-header {
 .flavor-dots .more { font-size: .78rem; color: var(--purple-soft); font-weight: 600; }
 .card-foot {
   margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,.07);
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  background: rgba(0,0,0,.24);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 8px 8px 8px 14px;
 }
-.card-foot .from { font-size: .68rem; color: var(--text-dim); }
-.card-foot .price { font-size: 1.5rem; font-weight: 800; color: var(--primary-yellow); line-height: 1.1; }
+.card-foot .from {
+  font-size: .6rem; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--text-dim); font-weight: 600;
+}
+.card-foot .price {
+  font-size: 1.55rem; font-weight: 800; color: var(--primary-yellow);
+  line-height: 1.05; letter-spacing: -.4px;
+}
+.card-foot .price .cur {
+  font-size: .62em; font-weight: 700; color: var(--yellow-soft);
+  opacity: .8; margin-right: 3px; vertical-align: 1px;
+}
 .card-foot .arrow {
-  width: 38px; height: 38px; min-width: 38px; border-radius: 12px; font-size: 1.2rem;
-  background: var(--surface); border: 1px solid var(--border); flex-shrink: 0;
-  display: grid; place-items: center; color: var(--text-dim);
-  transition: .2s;
+  width: 44px; height: 44px; min-width: 44px; border-radius: 50%; font-size: 1.15rem;
+  background: rgba(255,214,10,.08);
+  border: 1px solid rgba(255,214,10,.22);
+  color: var(--primary-yellow); flex-shrink: 0;
+  display: grid; place-items: center;
+  transition: transform .22s cubic-bezier(.2,.8,.3,1), background .2s ease-out, box-shadow .25s ease-out, color .2s, border-color .2s;
 }
 
 .empty-msg { text-align: center; color: var(--text-dim); padding: 50px 0; grid-column: 1/-1; }
@@ -1472,10 +1486,10 @@ body.editor-mode .model-card { cursor: default; }
   .flavor-dots .dot { width: 8px; height: 8px; }
   .flavor-dots .more { font-size: .76rem; }
 
-  .card-foot { padding: 7px 7px 7px 11px; border-radius: 12px; gap: 8px; }
-  .card-foot .from { font-size: .6rem; }
+  .card-foot { padding-top: 12px; gap: 8px; }
+  .card-foot .from { font-size: .56rem; }
   .card-foot .price { font-size: 1.4rem; }
-  .card-foot .arrow { width: 36px; height: 36px; min-width: 36px; border-radius: 10px; }
+  .card-foot .arrow { width: 42px; height: 42px; min-width: 42px; border-radius: 50%; font-size: 1.05rem; }
 
   /* --- Modal ocupa a tela como uma folha vinda de baixo --- */
   .modal-overlay { padding: 0; align-items: flex-end; }
@@ -1561,8 +1575,8 @@ body.editor-mode .model-card { cursor: default; }
   .model-card { padding: 9px; }
   .model-card h3 { font-size: 1.05rem; }
   .card-foot .price { font-size: 1.25rem; }
-  .card-foot { padding: 6px 6px 6px 10px; }
-  .card-foot .arrow { width: 34px; height: 34px; min-width: 34px; }
+  .card-foot { padding-top: 10px; }
+  .card-foot .arrow { width: 38px; height: 38px; min-width: 38px; }
   .hero h1 { font-size: 1.6rem; }
 }
 
