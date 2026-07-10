@@ -592,7 +592,7 @@ header.site-header {
 /* :active depois do hover na cascata para "vencer" o lift quando os dois se aplicam ao mesmo tempo (clique) */
 .model-card:active { transform: scale(.97); }
 .model-card .best-tag {
-  position: absolute; top: 12px; left: 12px; z-index: 3;
+  position: absolute; top: 10px; right: 10px; z-index: 3;
   background: var(--primary-yellow);
   color: var(--text-on-primary);
   font-size: .64rem; font-weight: 800;
@@ -600,6 +600,17 @@ header.site-header {
   border-radius: 999px;
   letter-spacing: .5px;
   display: flex; align-items: center; gap: 4px;
+}
+.model-card .puff-badge {
+  position: absolute; top: 10px; left: 10px; z-index: 3;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: .72rem; font-weight: 700; color: var(--yellow-soft);
+  background: rgba(10,10,12,.68);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,214,10,.28);
+  padding: 5px 11px; border-radius: 999px;
+  letter-spacing: .2px; white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0,0,0,.3);
 }
 .model-card .card-img {
   aspect-ratio: 4/5;
@@ -626,20 +637,17 @@ header.site-header {
   width: fit-content;
   margin-bottom: 10px;
 }
-.flavor-dots {
-  display: flex; align-items: center; justify-content: center;
-  gap: 4px 8px; margin: 0 0 14px; flex-wrap: wrap; max-width: 100%;
+.flavor-dots { display: flex; justify-content: center; margin: 0 0 14px; max-width: 100%; }
+.flavor-badge {
+  display: inline-flex; align-items: center; gap: 7px; max-width: 100%;
+  font-size: .8rem; font-weight: 500; color: var(--text-dim);
+  background: rgba(255,255,255,.045);
+  border: 1px solid var(--border);
+  padding: 6px 13px; border-radius: 999px;
 }
-.flavor-dots .dot-item {
-  display: inline-flex; align-items: center; gap: 7px;
-  font-size: .8rem; color: var(--text-dim); font-weight: 500;
-}
-.flavor-dots .dot-item .fn { white-space: nowrap; }
-.flavor-dots .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,.06); }
-.flavor-dots .more {
-  font-size: .8rem; color: var(--purple-soft); font-weight: 600;
-  white-space: nowrap; flex-shrink: 0;
-}
+.flavor-badge .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,.06); }
+.flavor-badge .fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flavor-badge .more { color: var(--purple-soft); font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 .card-foot {
   margin-top: auto;
   padding-top: 13px;
@@ -1485,18 +1493,16 @@ body.editor-mode .model-card { cursor: default; }
 
   /* --- Card compacto e refinado --- */
   .model-card { padding: 10px; border-radius: 15px; }
-  .model-card .best-tag { top: 9px; left: 9px; font-size: .58rem; padding: 3px 8px; }
+  .model-card .best-tag { top: 8px; right: 8px; font-size: .58rem; padding: 3px 8px; }
+  .model-card .puff-badge { top: 8px; left: 8px; font-size: .68rem; padding: 4px 9px; }
   .model-card .card-img { aspect-ratio: 4/5; margin-bottom: 10px; border-radius: 15px; }
   .model-card .card-img .ph { font-size: 2.2rem; }
   .model-card .brand-lbl { font-size: .8rem; letter-spacing: 1px; }
-  .model-card h3 { font-size: 1.15rem; margin: 2px 0 6px; }
-  .model-card .puffs { font-size: .8rem; padding: 5px 12px; gap: 4px; margin-bottom: 9px; }
+  .model-card h3 { font-size: 1.15rem; margin: 2px 0 8px; }
 
-  /* Sabores: 1 sabor de referência + contador, centralizado, quebra p/ 2ª linha se precisar */
-  .flavor-dots { gap: 4px 7px; margin: 0 0 13px; }
-  .flavor-dots .dot-item { font-size: .8rem; gap: 6px; }
-  .flavor-dots .dot { width: 8px; height: 8px; }
-  .flavor-dots .more { font-size: .8rem; }
+  /* Sabores: badge único (1 sabor + contador), padrão consistente com o puffs */
+  .flavor-dots { margin: 0 0 13px; }
+  .flavor-badge { font-size: .78rem; padding: 5px 12px; gap: 6px; }
 
   .card-foot { padding-top: 12px; gap: 12px; }
   .card-foot .from { font-size: .56rem; }
