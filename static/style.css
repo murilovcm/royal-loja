@@ -628,13 +628,13 @@ header.site-header {
 }
 .flavor-dots {
   display: flex; align-items: center; justify-content: center;
-  gap: 8px; margin: 0 0 14px; flex-wrap: nowrap; max-width: 100%;
+  gap: 4px 8px; margin: 0 0 14px; flex-wrap: wrap; max-width: 100%;
 }
 .flavor-dots .dot-item {
-  display: inline-flex; align-items: center; gap: 7px; min-width: 0;
+  display: inline-flex; align-items: center; gap: 7px;
   font-size: .8rem; color: var(--text-dim); font-weight: 500;
 }
-.flavor-dots .dot-item .fn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flavor-dots .dot-item .fn { white-space: nowrap; }
 .flavor-dots .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,.06); }
 .flavor-dots .more {
   font-size: .8rem; color: var(--purple-soft); font-weight: 600;
@@ -1492,8 +1492,8 @@ body.editor-mode .model-card { cursor: default; }
   .model-card h3 { font-size: 1.15rem; margin: 2px 0 6px; }
   .model-card .puffs { font-size: .8rem; padding: 5px 12px; gap: 4px; margin-bottom: 9px; }
 
-  /* Sabores: 1 sabor de referência + contador, uma linha limpa e centralizada */
-  .flavor-dots { gap: 7px; margin: 0 0 13px; }
+  /* Sabores: 1 sabor de referência + contador, centralizado, quebra p/ 2ª linha se precisar */
+  .flavor-dots { gap: 4px 7px; margin: 0 0 13px; }
   .flavor-dots .dot-item { font-size: .8rem; gap: 6px; }
   .flavor-dots .dot { width: 8px; height: 8px; }
   .flavor-dots .more { font-size: .8rem; }
