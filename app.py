@@ -17,7 +17,7 @@ from flask import (
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageChops
 
 from shipping import calculate_shipping, SPECIAL_ZONES, CONCENTRIC_ZONES
 
@@ -1032,6 +1032,23 @@ def api_update_theme_colors():
     return jsonify({"ok": True})
 
 
+def _autocrop_logo(img, pad_ratio=0.04):
+    """Recorta as bordas vazias (transparentes ou de cor uniforme) do logo e
+    devolve o desenho com uma pequena margem proporcional. Sem isso, um logo
+    com muito espaço em volta fica minúsculo quando renderizado com altura
+    fixa (navbar/rodapé). Recebe a imagem já em modo RGBA ou RGB."""
+    if img.mode == "RGBA":
+        bbox = img.getchannel("A").getbbox()
+    else:
+        bg = Image.new(img.mode, img.size, img.getpixel((0, 0)))
+        bbox = ImageChops.difference(img, bg).getbbox()
+    if bbox:
+        img = img.crop(bbox)
+    pad = max(1, round(max(img.size) * pad_ratio))
+    fill = (0, 0, 0, 0) if img.mode == "RGBA" else (255, 255, 255)
+    return ImageOps.expand(img, border=pad, fill=fill)
+
+
 @app.route("/api/upload_logo", methods=["POST"])
 @api_owner_required
 def api_upload_logo():
@@ -1065,6 +1082,7 @@ def api_upload_logo():
             return jsonify({"ok": False, "error": "não foi possível processar a imagem"}), 400
         has_alpha = img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info)
         img = img.convert("RGBA") if has_alpha else img.convert("RGB")
+        img = _autocrop_logo(img)
         w, h = img.size
         if max(w, h) > LOGO_MAX_DIM:
             ratio = LOGO_MAX_DIM / max(w, h)
