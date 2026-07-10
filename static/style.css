@@ -724,7 +724,7 @@ header.site-header {
   box-shadow: var(--glow);
 }
 .modal-foot { margin-top: auto; }
-.qty-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.qty-row { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; margin-bottom: 18px; }
 .qty-ctrl { display: flex; align-items: center; gap: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px; }
 .qty-ctrl button {
   width: 34px; height: 34px; border-radius: 50%;
@@ -1365,7 +1365,10 @@ body.editor-mode .model-card { cursor: default; }
 
 @media (max-width: 860px) {
   .modal { grid-template-columns: 1fr; max-height: 92vh; }
-  .modal-img { height: 260px; max-height: 260px; }
+  /* No mobile a imagem vira topo do card e o min-height:300px da base a deixava
+     ocupando ~metade da tela. Cap em 38vh + min-height:0 pra a foto real caber
+     sem empurrar sabor/quantidade/preço pra baixo. */
+  .modal-img { height: 38vh; min-height: 0; max-height: 38vh; }
 }
 
 /* -------- Tablets / celulares grandes -------- */
@@ -1475,7 +1478,7 @@ body.editor-mode .model-card { cursor: default; }
     transform: translateY(100%);
   }
   .modal-overlay.open .modal { transform: none; }
-  .modal-img { height: 200px; max-height: 200px; }
+  /* herda height:38vh do @media 860px; aqui só ajusta o respiro da foto */
   .modal-img img { padding: 20px; }
   .modal-body { padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); }
   .modal-body h2 { font-size: 1.5rem; }
@@ -1551,6 +1554,19 @@ body.editor-mode .model-card { cursor: default; }
   .model-card h3 { font-size: .9rem; }
   .card-foot .price { font-size: .98rem; }
   .hero h1 { font-size: 1.6rem; }
+}
+
+/* -------- Telas de pouca altura: menos rolagem até "Mais Vendidos" -------- */
+/* Fica no fim de propósito: por altura vence as regras por largura em conflito.
+   Encolhe os respiros verticais do herói e o bloco de benefícios pra o primeiro
+   produto aparecer mais cedo em phones curtos / paisagem. */
+@media (max-height: 700px) {
+  .hero { padding-top: 28px; padding-bottom: 20px; }
+  .hero-logo-wrap { margin-bottom: 14px; }
+  .hero-chips { margin-bottom: 16px; }
+  .hero-subtitle { margin-bottom: 18px; }
+  .hero-cta { margin-bottom: 22px; }
+  .hero-feature { padding: 12px 8px; }
 }
 
 /* Rolagem suave e sem "trava" em iOS para áreas roláveis */
