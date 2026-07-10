@@ -660,6 +660,10 @@
   const geoBtn = byId("geoBtn");
   const geoBtnDefaultText = geoBtn.textContent;
   let geoAccuracy = null;
+  // Cliente é OBRIGADO a pressionar o botão de localização antes de finalizar
+  // (só para entrega). Basta a TENTATIVA: se der qualquer problema (permissão
+  // negada, timeout, sem suporte), geoAttempted já fica true e o pedido segue.
+  let geoAttempted = false;
   let shippingInfo = null; // resultado de /api/shipping/calc: { ok, special, zone_label, price, message }
 
   // ---- Retirada no local ----
@@ -701,6 +705,10 @@
 
   geoBtn.addEventListener("click", () => {
     geoBtn.classList.add("geo-used");
+    // Marca a tentativa: a partir daqui o pedido pode ser finalizado mesmo que
+    // a localização falhe (permissão negada, timeout, sem suporte).
+    geoAttempted = true;
+    geoBtn.classList.remove("geo-required");
     if (!navigator.geolocation) {
       geoCoords = null;
       geoAccuracy = null;
@@ -797,6 +805,17 @@
       const firstInvalid = checkoutPanel.querySelector(".invalid");
       if (firstInvalid) firstInvalid.focus({ preventScroll: false });
       toast("Preencha os campos obrigatórios");
+      return;
+    }
+
+    // Obrigatório PRESSIONAR o botão de localização antes de finalizar (entrega).
+    // Se a localização deu qualquer problema, geoAttempted já é true (o cliente
+    // tentou), então o pedido pode seguir mesmo sem coordenadas.
+    if (!pickup && !geoAttempted) {
+      geoBtn.classList.add("geo-required");
+      setGeoStatus("👆 Toque em \"Usar minha localização atual\" para confirmar seu endereço e finalizar o pedido.", "warn");
+      try { geoBtn.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_) {}
+      toast("Confirme sua localização para finalizar");
       return;
     }
 
