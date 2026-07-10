@@ -567,6 +567,8 @@ header.site-header {
   padding: 16px;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   cursor: pointer;
   position: relative;
   overflow: hidden;
@@ -601,6 +603,7 @@ header.site-header {
 }
 .model-card .card-img {
   aspect-ratio: 4/5;
+  width: 100%;
   border-radius: var(--radius);
   background: #1a1a2e;
   display: flex;
@@ -623,23 +626,27 @@ header.site-header {
   width: fit-content;
   margin-bottom: 10px;
 }
-.flavor-dots { display: flex; align-items: center; gap: 7px; margin-bottom: 12px; flex-wrap: wrap; }
-.flavor-dots .dot-item { display: inline-flex; align-items: center; gap: 5px; font-size: .81rem; color: var(--text-dim); }
-.flavor-dots .dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255,255,255,.05); }
-.flavor-dots .more { font-size: .78rem; color: var(--purple-soft); font-weight: 600; }
+.flavor-dots {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; margin-bottom: 12px; flex-wrap: nowrap;
+  max-width: 100%; overflow: hidden;
+}
+.flavor-dots .dot-item { display: inline-flex; align-items: center; gap: 5px; font-size: .8rem; color: var(--text-dim); white-space: nowrap; }
+.flavor-dots .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,.05); }
+.flavor-dots .more { font-size: .77rem; color: var(--purple-soft); font-weight: 600; white-space: nowrap; flex-shrink: 0; }
 .card-foot {
   margin-top: auto;
-  padding-top: 14px;
-  border-top: 1px solid rgba(255,255,255,.07);
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding-top: 13px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  display: flex; align-items: center; justify-content: center; gap: 14px;
 }
 .card-foot .from {
-  font-size: .6rem; text-transform: uppercase; letter-spacing: 1px;
+  font-size: .58rem; text-transform: uppercase; letter-spacing: 1.2px;
   color: var(--text-dim); font-weight: 600;
 }
 .card-foot .price {
-  font-size: 1.55rem; font-weight: 800; color: var(--primary-yellow);
-  line-height: 1.05; letter-spacing: -.4px;
+  font-size: 1.6rem; font-weight: 800; color: var(--primary-yellow);
+  line-height: 1.15; letter-spacing: -.5px;
 }
 .card-foot .price .cur {
   font-size: .62em; font-weight: 700; color: var(--yellow-soft);
@@ -1479,16 +1486,15 @@ body.editor-mode .model-card { cursor: default; }
   .model-card h3 { font-size: 1.15rem; margin: 2px 0 6px; }
   .model-card .puffs { font-size: .8rem; padding: 5px 12px; gap: 4px; margin-bottom: 9px; }
 
-  /* Sabores: mostrar 1 nome + contador pra não quebrar o card */
-  .flavor-dots { gap: 6px; margin-bottom: 11px; }
-  .flavor-dots .dot-item { font-size: .78rem; }
-  .flavor-dots .dot-item:nth-child(2) { display: none; }
+  /* Sabores: 2 nomes + contador, centralizados e compactos */
+  .flavor-dots { gap: 5px; margin-bottom: 11px; }
+  .flavor-dots .dot-item { font-size: .72rem; }
   .flavor-dots .dot { width: 8px; height: 8px; }
-  .flavor-dots .more { font-size: .76rem; }
+  .flavor-dots .more { font-size: .7rem; }
 
-  .card-foot { padding-top: 12px; gap: 8px; }
+  .card-foot { padding-top: 12px; gap: 12px; }
   .card-foot .from { font-size: .56rem; }
-  .card-foot .price { font-size: 1.4rem; }
+  .card-foot .price { font-size: 1.45rem; }
   .card-foot .arrow { width: 42px; height: 42px; min-width: 42px; border-radius: 50%; font-size: 1.05rem; }
 
   /* --- Modal ocupa a tela como uma folha vinda de baixo --- */
