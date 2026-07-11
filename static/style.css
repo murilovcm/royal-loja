@@ -447,6 +447,23 @@ header.site-header {
 }
 .btn-whatsapp:hover { background: rgba(37,211,102,.1); box-shadow: 0 0 24px rgba(37,211,102,.25); }
 .btn-whatsapp-icon { display: none; width: 18px; height: 18px; flex-shrink: 0; }
+/* Botão social do Instagram: círculo com borda em gradiente da marca. */
+.btn-instagram {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(120deg, #feda75, #fa7e1e, #d62976, #962fbf, #4f5bd5) border-box;
+}
+.btn-instagram:hover { box-shadow: 0 0 24px rgba(214,41,118,.3); }
+.btn-instagram-icon { width: 24px; height: 24px; flex-shrink: 0; }
 .btn-ghost {
   background: var(--surface);
   color: var(--text);
@@ -1451,6 +1468,7 @@ body.editor-mode .model-card { cursor: default; }
   }
   .hero-cta .btn-whatsapp .btn-whatsapp-text { display: none; }
   .btn-whatsapp-icon { display: block; width: 24px; height: 24px; }
+  .hero-cta .btn-instagram { width: 58px; height: 58px; padding: 0; }
   .hero-features { grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .hero-feature { padding: 16px 8px; }
   .hero-feature-icon { width: 40px; height: 40px; margin-bottom: 8px; }
@@ -1488,6 +1506,8 @@ body.editor-mode .model-card { cursor: default; }
   .btn-primary.hero-btn-main { padding: 16px 32px; }
   .hero-cta .btn-whatsapp { width: 52px; height: 52px; padding: 0; }
   .btn-whatsapp-icon { width: 20px; height: 20px; }
+  .hero-cta .btn-instagram { width: 52px; height: 52px; padding: 0; }
+  .btn-instagram-icon { width: 22px; height: 22px; }
   .hero-features { gap: 6px; }
   .hero-feature { padding: 12px 6px; }
   .hero-feature-icon { width: 34px; height: 34px; margin-bottom: 6px; }
