@@ -17,7 +17,13 @@
 
     .brand-block { background:var(--surface); border:1px solid var(--border); border-radius:16px; margin-bottom:18px; overflow:hidden; }
     .brand-head { display:flex; align-items:center; gap:12px; padding:16px 20px; background:var(--surface-2); }
-    .brand-head .b-name { font-size:1.15rem; font-weight:800; flex:1; }
+    .brand-head .b-name {
+      font-size:1.15rem; font-weight:800; flex:1; min-width:0;
+      background:none; border:1px solid transparent; border-radius:8px;
+      color:var(--text); font-family:inherit; padding:5px 8px; transition:.2s;
+    }
+    .brand-head .b-name:hover { border-color:var(--border); }
+    .brand-head .b-name:focus { outline:none; border-color:var(--primary-yellow); background:var(--bg-2); }
     .brand-head .b-icon { font-size:1.3rem; }
 
     .model-row { border-top:1px solid var(--border); }
@@ -258,9 +264,9 @@
         <div class="brand-block" data-bid="{{ node.brand.id }}">
           <div class="brand-head">
             <span class="b-icon">🏷️</span>
-            <span class="b-name">{{ node.brand.name }}</span>
+            <input type="text" class="b-name" value="{{ node.brand.name }}" data-prev="{{ node.brand.name }}" onchange="updateBrand({{ node.brand.id }}, this)" title="Clique para renomear a marca">
             <button class="mini-btn" onclick="toggleAddModelForm({{ node.brand.id }}, true)">+ Modelo</button>
-            <button class="del-btn" onclick="delBrand({{ node.brand.id }}, {{ node.brand.name | tojson }})" title="Excluir marca">🗑</button>
+            <button class="del-btn" onclick="delBrand({{ node.brand.id }})" title="Excluir marca">🗑</button>
           </div>
           <div class="add-inline" id="addModelForm-{{ node.brand.id }}" style="display:none; padding:12px 20px; border-top:1px solid var(--border);">
             <input type="text" id="mname-{{ node.brand.id }}" placeholder="Nome do modelo (ex: BC25000)" onkeydown="if(event.key==='Enter') submitAddModel({{ node.brand.id }})">
@@ -691,7 +697,24 @@
       location.reload();
     }
 
-    async function delBrand(id, name) {
+    async function updateBrand(id, el) {
+      const name = el.value.trim();
+      if (!name) {
+        toast("O nome da marca não pode ficar vazio");
+        el.value = el.dataset.prev;   // restaura o valor anterior
+        return;
+      }
+      const res = await api('/api/brand/'+id, 'POST', { name });
+      if (res.ok) { el.value = res.name; el.dataset.prev = res.name; toast("Marca renomeada ✓"); }
+      else { toast(res.error || "Erro ao renomear marca"); el.value = el.dataset.prev; }
+    }
+
+    function brandName(id) {
+      const el = document.querySelector('.brand-block[data-bid="'+id+'"] .b-name');
+      return el ? el.value.trim() : '';
+    }
+    async function delBrand(id) {
+      const name = brandName(id);
       const typed = prompt('Para excluir a marca "' + name + '" e TODOS os modelos/sabores dela, digite o nome exato da marca:');
       if (typed === null) return;
       if (typed.trim() !== name) { toast("Nome não confere — exclusão cancelada"); return; }

@@ -1491,6 +1491,21 @@ def api_create_brand():
     return jsonify({"ok": True, "id": cur.lastrowid, "name": name})
 
 
+@app.route("/api/brand/<int:bid>", methods=["POST"])
+@api_catalog_required
+def api_update_brand(bid):
+    name = (request.get_json(force=True).get("name") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "nome vazio"}), 400
+    db = get_db()
+    brand = db.execute("SELECT id FROM brands WHERE id = ?", (bid,)).fetchone()
+    if not brand:
+        return jsonify({"ok": False, "error": "marca não encontrada"}), 404
+    db.execute("UPDATE brands SET name = ? WHERE id = ?", (name, bid))
+    db.commit()
+    return jsonify({"ok": True, "name": name})
+
+
 @app.route("/api/brand/<int:bid>", methods=["DELETE"])
 @api_catalog_required
 def api_delete_brand(bid):
