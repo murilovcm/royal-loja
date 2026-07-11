@@ -1096,6 +1096,8 @@ header.site-header {
   50%      { box-shadow: 0 0 0 13px rgba(255,214,10,0), 0 4px 30px rgba(255,214,10,.6); }
 }
 .geo-status { display: none; font-size: .8rem; margin-top: 10px; line-height: 1.4; }
+/* Respiro entre o botão de localização e o campo de endereço abaixo. */
+#custAddress { margin-top: 14px; }
 .geo-status.show { display: block; }
 .geo-status.ok { color: var(--green); }
 .geo-status.warn { color: var(--yellow-soft); }
