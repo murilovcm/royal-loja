@@ -813,7 +813,7 @@
     // tentou), então o pedido pode seguir mesmo sem coordenadas.
     if (!pickup && !geoAttempted) {
       geoBtn.classList.add("geo-required");
-      setGeoStatus("👆 Toque em \"Usar minha localização atual\" para confirmar seu endereço e finalizar o pedido.", "warn");
+      setGeoStatus("👆 Toque em \"Usar minha localização atual\" e permita o acesso à localização para confirmar seu endereço e finalizar o pedido.", "warn");
       try { geoBtn.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_) {}
       toast("Confirme sua localização para finalizar");
       return;
