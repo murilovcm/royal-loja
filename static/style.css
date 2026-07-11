@@ -847,7 +847,7 @@ header.site-header {
   transition: .2s;
 }
 .modal-close:hover { background: var(--primary-yellow); color: var(--text-on-primary); }
-.modal-body { padding: 32px; overflow-y: auto; display: flex; flex-direction: column; }
+.modal-body { padding: 32px; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
 .modal-body .brand-lbl { font-size: .72rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--purple-soft); font-weight: 700; }
 .modal-body h2 { font-size: 1.9rem; font-weight: 800; letter-spacing: -.5px; margin: 4px 0 12px; }
 .modal-body .puffs {
@@ -871,7 +871,24 @@ header.site-header {
   color: var(--text-on-primary); border-color: transparent;
   box-shadow: var(--glow);
 }
-.modal-foot { margin-top: auto; }
+.modal-foot {
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: var(--surface);
+  padding-top: 8px;
+}
+/* Com muitos sabores a lista rola dentro do modal; o rodapé fica fixo pra o
+   botão de prosseguir nunca sumir. Este fade suaviza os sabores que rolam atrás. */
+.modal-foot::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: -24px;
+  height: 24px;
+  background: linear-gradient(to top, var(--surface), transparent);
+  pointer-events: none;
+}
 .qty-row { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; margin-bottom: 18px; }
 .qty-ctrl { display: flex; align-items: center; gap: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px; }
 .qty-ctrl button {
