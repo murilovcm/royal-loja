@@ -1074,7 +1074,7 @@ header.site-header {
   color: var(--text-on-primary); font-weight: 800; font-size: .92rem;
   box-shadow: 0 4px 18px rgba(255,214,10,.2);
   transition: transform .18s cubic-bezier(.22,1,.36,1), box-shadow .2s;
-  animation: geoPulse 2.4s ease-in-out infinite;
+  animation: geoPulse 1.5s ease-in-out infinite;
 }
 .geo-btn:hover { box-shadow: 0 0 30px rgba(255,214,10,.45); transform: translateY(-2px); }
 .geo-btn:active { transform: scale(.97); }
@@ -1092,8 +1092,8 @@ header.site-header {
 }
 
 @keyframes geoPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255,214,10,.3), 0 4px 18px rgba(255,214,10,.2); }
-  50%      { box-shadow: 0 0 0 7px rgba(255,214,10,0), 0 4px 26px rgba(255,214,10,.4); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,214,10,.45), 0 4px 18px rgba(255,214,10,.2); }
+  50%      { box-shadow: 0 0 0 10px rgba(255,214,10,0), 0 4px 28px rgba(255,214,10,.5); }
 }
 .geo-status { display: none; font-size: .8rem; margin-top: 10px; line-height: 1.4; }
 .geo-status.show { display: block; }
