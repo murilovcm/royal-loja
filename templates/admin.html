@@ -190,6 +190,34 @@
     .emp-name { font-weight:700; min-width:140px; }
     .emp-perm { display:inline-flex; align-items:center; gap:6px; font-size:.78rem; cursor:pointer; user-select:none; }
     .emp-perm.off-label { color:var(--text-dim); }
+    /* Pop-up de promoção */
+    .promo-admin { display:grid; grid-template-columns:1fr 320px; gap:24px; align-items:start; margin-top:14px; }
+    @media (max-width:900px){ .promo-admin{ grid-template-columns:1fr; } }
+    .pp-switch { display:flex; align-items:center; gap:10px; font-weight:700; font-size:.9rem; cursor:pointer; user-select:none; margin-bottom:18px; }
+    .pp-field { margin-bottom:14px; display:flex; flex-direction:column; gap:6px; }
+    .pp-field > label { font-size:.78rem; font-weight:700; color:var(--text-dim); }
+    .pp-field input[type=text], .pp-field textarea, .pp-field select {
+      background:var(--bg-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px;
+      color:var(--text); font-size:.88rem; font-family:inherit; width:100%;
+    }
+    .pp-field input[type=text]:focus, .pp-field textarea:focus, .pp-field select:focus { outline:none; border-color:var(--primary-yellow); }
+    .pp-field textarea { resize:vertical; }
+    .pp-hint { font-size:.72rem; color:var(--text-dim); }
+    .pp-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width:520px){ .pp-row{ grid-template-columns:1fr; } }
+    .promo-admin-preview { position:sticky; top:20px; }
+    .pp-preview-label { font-size:.78rem; color:var(--text-dim); font-weight:700; margin-bottom:10px; }
+    .pp-card { background:linear-gradient(165deg,var(--surface-2),var(--surface) 72%); border:1px solid var(--border); border-radius:18px; padding:26px 22px 20px; text-align:center; box-shadow:0 20px 40px rgba(0,0,0,.4); }
+    .pp-p-badge { display:inline-block; font-size:.6rem; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; padding:5px 12px; border-radius:999px; color:var(--primary-yellow); background:rgba(255,214,10,.12); border:1px solid rgba(255,214,10,.32); margin-bottom:12px; }
+    .pp-p-badge:empty { display:none; }
+    .pp-p-title { font-size:1.15rem; font-weight:800; line-height:1.2; color:var(--text); margin-bottom:8px; }
+    .pp-p-msg { font-size:.82rem; line-height:1.5; color:var(--text-dim); margin-bottom:16px; }
+    .pp-p-msg:empty { display:none; }
+    .pp-p-coupon { display:flex; max-width:230px; margin:0 auto 16px; border:1px dashed rgba(255,214,10,.45); border-radius:10px; overflow:hidden; background:rgba(255,214,10,.06); }
+    .pp-p-coupon.hide { display:none; }
+    .pp-p-coupon > span:first-child { flex:1; display:flex; align-items:center; justify-content:center; font-weight:800; letter-spacing:1px; font-size:.9rem; color:var(--primary-yellow); padding:9px; }
+    .pp-p-copy { flex-shrink:0; padding:9px 14px; background:var(--primary-yellow); color:var(--text-on-primary); font-weight:700; font-size:.72rem; display:flex; align-items:center; }
+    .pp-p-cta { display:flex; align-items:center; justify-content:center; min-height:44px; border-radius:999px; background:var(--primary-yellow); color:var(--text-on-primary); font-weight:700; font-size:.88rem; }
   </style>
 </head>
 <body>
@@ -342,6 +370,71 @@
           <button class="mini-btn primary" id="addCouponBtn">+ Novo Cupom</button>
         </div>
         {% endif %}
+      </div>
+
+      <div class="{{ 'readonly-lock' if not can_coupons }} sections-block">
+        <div class="sections-head">
+          🎁 Pop-up de Promoção <span class="sections-sub">Um aviso premium que aparece no site para divulgar uma promoção ou cupom</span>
+        </div>
+
+        <div class="promo-admin">
+          <div class="promo-admin-form">
+            <label class="pp-switch">
+              <span class="switch {{ 'on' if config.promo_popup_enabled == '1' }}" id="ppEnabledSwitch" onclick="togglePromoEnabled(this)"></span>
+              <span>Mostrar pop-up no site</span>
+            </label>
+
+            <div class="pp-field">
+              <label for="ppBadge">Selo (etiqueta)</label>
+              <input type="text" id="ppBadge" maxlength="40" value="{{ config.promo_popup_badge or '' }}" placeholder="Ex: OFERTA ESPECIAL" oninput="renderPromoPreview()">
+            </div>
+            <div class="pp-field">
+              <label for="ppTitle">Título</label>
+              <input type="text" id="ppTitle" maxlength="120" value="{{ config.promo_popup_title or '' }}" placeholder="Ex: Ganhe 10% na primeira compra" oninput="renderPromoPreview()">
+            </div>
+            <div class="pp-field">
+              <label for="ppMsg">Mensagem</label>
+              <textarea id="ppMsg" maxlength="220" rows="2" placeholder="Ex: Use o cupom abaixo no checkout e aproveite." oninput="renderPromoPreview()">{{ config.promo_popup_message or '' }}</textarea>
+            </div>
+            <div class="pp-field">
+              <label for="ppCoupon">Cupom (opcional)</label>
+              <select id="ppCoupon" onchange="renderPromoPreview()">
+                <option value="">— Sem cupom —</option>
+                {% for c in coupons %}
+                <option value="{{ c.code }}" {{ 'selected' if config.promo_popup_coupon == c.code }}>{{ c.code }}{{ ' (inativo)' if c.active != 1 }}</option>
+                {% endfor %}
+              </select>
+              <small class="pp-hint">Crie o cupom na seção acima para ele aparecer aqui.</small>
+            </div>
+            <div class="pp-row">
+              <div class="pp-field">
+                <label for="ppCtaLabel">Texto do botão</label>
+                <input type="text" id="ppCtaLabel" maxlength="40" value="{{ config.promo_popup_cta_label or '' }}" placeholder="Ver catálogo" oninput="renderPromoPreview()">
+              </div>
+              <div class="pp-field">
+                <label for="ppCtaLink">Link do botão</label>
+                <input type="text" id="ppCtaLink" maxlength="200" value="{{ config.promo_popup_cta_link or '#catalogo' }}" placeholder="#catalogo">
+              </div>
+            </div>
+
+            {% if can_coupons %}
+            <div class="identity-save-row">
+              <button class="mini-btn primary" id="savePromoBtn" onclick="savePromoPopup()">Salvar pop-up</button>
+            </div>
+            {% endif %}
+          </div>
+
+          <div class="promo-admin-preview">
+            <div class="pp-preview-label">👁️ Preview</div>
+            <div class="pp-card">
+              <span class="pp-p-badge" id="ppPreviewBadge"></span>
+              <div class="pp-p-title" id="ppPreviewTitle"></div>
+              <div class="pp-p-msg" id="ppPreviewMsg"></div>
+              <div class="pp-p-coupon" id="ppPreviewCoupon"><span id="ppPreviewCode"></span><span class="pp-p-copy">Copiar</span></div>
+              <div class="pp-p-cta" id="ppPreviewCta"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -756,6 +849,41 @@
       await api('/api/coupon/'+id, 'DELETE');
       location.reload();
     }
+
+    // ---- Pop-up de promoção ----
+    function togglePromoEnabled(el) {
+      el.classList.toggle('on');
+    }
+    function renderPromoPreview() {
+      const val = (id) => (document.getElementById(id).value || '').trim();
+      document.getElementById('ppPreviewBadge').textContent = val('ppBadge');
+      document.getElementById('ppPreviewTitle').textContent = val('ppTitle') || 'Título da promoção';
+      document.getElementById('ppPreviewMsg').textContent = val('ppMsg');
+      const coupon = document.getElementById('ppCoupon').value;
+      const cp = document.getElementById('ppPreviewCoupon');
+      if (coupon) { document.getElementById('ppPreviewCode').textContent = coupon; cp.classList.remove('hide'); }
+      else { cp.classList.add('hide'); }
+      document.getElementById('ppPreviewCta').textContent = val('ppCtaLabel') || 'Ver catálogo';
+    }
+    async function savePromoPopup() {
+      const btn = document.getElementById('savePromoBtn');
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Salvando...';
+      try {
+        const payload = {
+          promo_popup_enabled: document.getElementById('ppEnabledSwitch').classList.contains('on') ? 1 : 0,
+          promo_popup_badge: document.getElementById('ppBadge').value,
+          promo_popup_title: document.getElementById('ppTitle').value,
+          promo_popup_message: document.getElementById('ppMsg').value,
+          promo_popup_coupon: document.getElementById('ppCoupon').value,
+          promo_popup_cta_label: document.getElementById('ppCtaLabel').value,
+          promo_popup_cta_link: document.getElementById('ppCtaLink').value,
+        };
+        const res = await api('/api/promo_popup', 'POST', payload);
+        toast(res.ok ? 'Pop-up salvo ✓' : (res.error || 'Erro ao salvar'));
+      } catch (e) { toast('Erro ao salvar pop-up'); }
+      finally { btn.disabled = false; btn.textContent = orig; }
+    }
+    if (document.getElementById('ppPreviewTitle')) renderPromoPreview();
 
     // ---- Zonas de frete ----
     function flagZoneRow(el) {

@@ -166,6 +166,88 @@
   })();
 
   // ---------------------------------------------------------------
+  // PROMO POP-UP — sutil, dispensável, aparece uma vez por versão de conteúdo.
+  // Só entra em cena depois que o age gate foi liberado.
+  // ---------------------------------------------------------------
+  (function () {
+    const pop = byId("promoPop");
+    if (!pop || (CFG && CFG.editor)) return;
+
+    const SEEN_KEY = "royal_promo_seen";
+    const COOLDOWN_MS = 12 * 60 * 60 * 1000; // não repetir a mesma promo por 12h
+    const DELAY_MS = 1300;
+
+    // Assinatura do conteúdo: se o painel mudar título/cupom/mensagem, o pop-up
+    // volta a aparecer mesmo pra quem já tinha visto a promo anterior.
+    const sig = (() => {
+      const t = (byId("promoPopTitle") ? byId("promoPopTitle").textContent : "") + "|" +
+                (byId("promoPopCode") ? byId("promoPopCode").textContent : "") + "|" +
+                (pop.querySelector(".promo-pop-msg") ? pop.querySelector(".promo-pop-msg").textContent : "");
+      let h = 0;
+      for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0;
+      return String(h);
+    })();
+
+    function alreadySeen() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(SEEN_KEY) || "null");
+        return !!(raw && raw.sig === sig && (Date.now() - raw.ts) < COOLDOWN_MS);
+      } catch (e) { return false; }
+    }
+    function markSeen() {
+      try { localStorage.setItem(SEEN_KEY, JSON.stringify({ sig: sig, ts: Date.now() })); } catch (e) {}
+    }
+
+    let shown = false, closed = false;
+    function open() {
+      if (shown || closed || alreadySeen()) return;
+      shown = true;
+      pop.hidden = false;
+      requestAnimationFrame(() => pop.classList.add("show"));
+      markSeen();
+    }
+    function close() {
+      if (closed) return;
+      closed = true;
+      pop.classList.remove("show");
+      setTimeout(() => { pop.hidden = true; }, 340);
+    }
+
+    pop.querySelectorAll("[data-promo-close]").forEach((el) => el.addEventListener("click", close));
+    const cta = pop.querySelector("[data-promo-cta]");
+    if (cta) cta.addEventListener("click", close);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && shown && !closed) close(); });
+
+    const copyBtn = byId("promoPopCopy");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", () => {
+        const codeEl = byId("promoPopCode");
+        const code = codeEl ? codeEl.textContent.trim() : "";
+        const done = () => {
+          const orig = copyBtn.dataset.label || copyBtn.textContent;
+          copyBtn.dataset.label = orig;
+          copyBtn.textContent = "Copiado ✓";
+          copyBtn.classList.add("copied");
+          setTimeout(() => { copyBtn.textContent = orig; copyBtn.classList.remove("copied"); }, 1600);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code).then(done).catch(done);
+        } else {
+          done();
+        }
+      });
+    }
+
+    // Espera o age gate liberar antes de mostrar (não competir com o modal 18+).
+    if (document.documentElement.classList.contains("age-ok")) {
+      setTimeout(open, DELAY_MS);
+    } else {
+      const yes = byId("ageGateYes");
+      if (yes) yes.addEventListener("click", () => setTimeout(open, DELAY_MS + 300), { once: true });
+    }
+  })();
+
+  // ---------------------------------------------------------------
   // STORE STATUS (aberta/fechada) — todos os dias, 10h às 23h (Brasília)
   // ---------------------------------------------------------------
   (function () {

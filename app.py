@@ -508,6 +508,14 @@ def init_db():
         "hero_subtitle": "Os melhores pods descartáveis com a curadoria mais premium do Brasil.",
         "store_name": "Royal",
         "store_city": "São Luís",
+        # Pop-up de promoção do site (gerenciado na aba Cupons do painel).
+        "promo_popup_enabled": "0",
+        "promo_popup_badge": "OFERTA ESPECIAL",
+        "promo_popup_title": "Ganhe um desconto no seu pedido",
+        "promo_popup_message": "Use o cupom abaixo no checkout e aproveite.",
+        "promo_popup_coupon": "",
+        "promo_popup_cta_label": "Ver catálogo",
+        "promo_popup_cta_link": "#catalogo",
     }
     for k, v in defaults.items():
         db.execute(
@@ -997,6 +1005,56 @@ def api_delete_user(uid):
 # ---------------------------------------------------------------------------
 # API
 # ---------------------------------------------------------------------------
+# Campos do pop-up de promoção. É gerenciado por quem pode mexer em cupons
+# (mesma permissão), já que é a "cara" promocional do site.
+PROMO_POPUP_TEXT_KEYS = {
+    "promo_popup_badge",
+    "promo_popup_title",
+    "promo_popup_message",
+    "promo_popup_coupon",
+    "promo_popup_cta_label",
+    "promo_popup_cta_link",
+}
+
+
+def _sanitize_promo_link(raw):
+    """Só permite âncora interna, caminho interno ou http(s) — evita href com
+    javascript:/data: vindo de um funcionário. Fallback seguro: #catalogo."""
+    link = (raw or "").strip()
+    if link.startswith(("#", "/", "http://", "https://")):
+        return link[:300]
+    return "#catalogo"
+
+
+@app.route("/api/promo_popup", methods=["POST"])
+@api_coupons_required
+def api_promo_popup():
+    d = request.get_json(force=True) or {}
+    db = get_db()
+    updates = {}
+    if "promo_popup_enabled" in d:
+        updates["promo_popup_enabled"] = "1" if d["promo_popup_enabled"] in (True, 1, "1", "true", "on") else "0"
+    for key in PROMO_POPUP_TEXT_KEYS:
+        if key not in d:
+            continue
+        if key == "promo_popup_cta_link":
+            updates[key] = _sanitize_promo_link(d[key])
+        elif key == "promo_popup_coupon":
+            updates[key] = str(d[key] or "").strip().upper()[:30]
+        else:
+            updates[key] = str(d[key] or "").strip()[:300]
+    if not updates:
+        return jsonify({"ok": False, "error": "nada para salvar"}), 400
+    for key, val in updates.items():
+        db.execute(
+            "INSERT INTO site_config (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, val),
+        )
+    db.commit()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/update_config", methods=["POST"])
 @api_owner_required
 def api_update_config():

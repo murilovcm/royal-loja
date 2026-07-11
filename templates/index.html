@@ -439,6 +439,26 @@
   </div>
   {% endif %}
 
+  {% if config.promo_popup_enabled == '1' and not editor %}
+  <!-- Pop-up de promoção (sutil, dispensável; controlado no painel) -->
+  <div class="promo-pop" id="promoPop" role="dialog" aria-modal="false" aria-labelledby="promoPopTitle" hidden>
+    <div class="promo-pop-backdrop" data-promo-close></div>
+    <div class="promo-pop-card" role="document">
+      <button class="promo-pop-close" type="button" data-promo-close aria-label="Fechar">✕</button>
+      {% if config.promo_popup_badge %}<span class="promo-pop-badge">{{ config.promo_popup_badge }}</span>{% endif %}
+      <h3 class="promo-pop-title" id="promoPopTitle">{{ config.promo_popup_title }}</h3>
+      {% if config.promo_popup_message %}<p class="promo-pop-msg">{{ config.promo_popup_message }}</p>{% endif %}
+      {% if config.promo_popup_coupon %}
+      <div class="promo-pop-coupon">
+        <span class="promo-pop-coupon-code" id="promoPopCode">{{ config.promo_popup_coupon }}</span>
+        <button class="promo-pop-copy" id="promoPopCopy" type="button">Copiar</button>
+      </div>
+      {% endif %}
+      <a class="promo-pop-cta" href="{{ config.promo_popup_cta_link or '#catalogo' }}" data-promo-cta>{{ config.promo_popup_cta_label or 'Ver catálogo' }}</a>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Data injected for JS -->
   <script id="catalogData" type="application/json">{{ catalog | tojson }}</script>
   <script>
