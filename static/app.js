@@ -975,8 +975,13 @@
       return;
     }
 
-    const STAGGER_MS = 60;
-    const MAX_STAGGER_STEPS = 5; // além disso, mesmo atraso (evita cascata longa demais)
+    const STAGGER_MS = 55;
+    const MAX_STAGGER_STEPS = 4; // além disso, mesmo atraso (evita cascata longa demais)
+
+    const reveal = (el, delay) => {
+      if (delay) setTimeout(() => el.classList.add("reveal-visible"), delay);
+      else el.classList.add("reveal-visible");
+    };
 
     const observer = new IntersectionObserver(
       (entries, obs) => {
@@ -984,16 +989,28 @@
         entries.forEach((entry) => {
           if (!entry.isIntersecting) return;
           const el = entry.target;
-          const delay = Math.min(batchIndex, MAX_STAGGER_STEPS) * STAGGER_MS;
           obs.unobserve(el);
-          setTimeout(() => el.classList.add("reveal-visible"), delay);
+          reveal(el, Math.min(batchIndex, MAX_STAGGER_STEPS) * STAGGER_MS);
           batchIndex++;
         });
       },
-      { threshold: 0.15, rootMargin: "0px 0px -10% 0px" }
+      // limiar baixo + margem inferior: o elemento começa a surgir assim que
+      // entra pela base da tela, em vez de "pipocar" já visível.
+      { threshold: 0.08, rootMargin: "0px 0px -8% 0px" }
     );
 
     targets.forEach((el) => observer.observe(el));
+
+    // Rede de segurança (acessibilidade): se algo não for observado/revelado em
+    // até 3s, garante que nada fique invisível.
+    setTimeout(() => {
+      targets.forEach((el) => {
+        if (!el.classList.contains("reveal-visible")) {
+          const r = el.getBoundingClientRect();
+          if (r.top < window.innerHeight) el.classList.add("reveal-visible");
+        }
+      });
+    }, 3000);
   })();
 
   // ---------------------------------------------------------------
