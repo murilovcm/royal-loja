@@ -810,7 +810,7 @@ header.site-header {
   border-radius: 22px;
   width: 100%;
   max-width: 920px;
-  max-height: 90vh;
+  max-height: 92vh;
   overflow: hidden;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -850,7 +850,9 @@ header.site-header {
   transition: .2s;
 }
 .modal-close:hover { background: var(--primary-yellow); color: var(--text-on-primary); }
-.modal-body { padding: 32px; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
+/* padding-bottom fica no .modal-foot (sticky) pra o fundo dele cobrir a base,
+   senão os sabores vazam por baixo do botão na faixa da safe-area do iPhone. */
+.modal-body { padding: 32px 32px 0; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
 .modal-body .brand-lbl { font-size: .72rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--purple-soft); font-weight: 700; }
 .modal-body h2 { font-size: 1.9rem; font-weight: 800; letter-spacing: -.5px; margin: 4px 0 12px; }
 .modal-body .puffs {
@@ -881,6 +883,7 @@ header.site-header {
   z-index: 2;
   background: var(--surface);
   padding-top: 8px;
+  padding-bottom: 32px;
 }
 /* Com muitos sabores a lista rola dentro do modal; o rodapé fica fixo pra o
    botão de prosseguir nunca sumir. Este fade suaviza os sabores que rolam atrás. */
@@ -1535,11 +1538,11 @@ body.editor-mode .model-card { cursor: default; }
 
 
 @media (max-width: 860px) {
-  .modal { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); max-height: 92vh; }
+  .modal { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); max-height: 94vh; }
   /* No mobile a imagem vira topo do card e o min-height:300px da base a deixava
-     ocupando ~metade da tela. Cap em 38vh + min-height:0 pra a foto real caber
-     sem empurrar sabor/quantidade/preço pra baixo. */
-  .modal-img { height: 38vh; min-height: 0; max-height: 38vh; }
+     ocupando ~metade da tela. Cap menor + min-height:0 pra a foto caber e sobrar
+     mais espaço pra lista de sabores (mais itens visíveis sem rolar). */
+  .modal-img { height: 30vh; min-height: 0; max-height: 30vh; }
 }
 
 /* -------- Tablets / celulares grandes -------- */
@@ -1622,13 +1625,16 @@ body.editor-mode .model-card { cursor: default; }
   .modal {
     border-radius: 22px 22px 0 0;
     max-width: 100%;
-    max-height: 94vh;
+    /* Folha quase cheia pra caber mais sabores, mas travada logo abaixo do
+       notch (safe-area-inset-top) pra o botão X nunca ficar escondido. */
+    max-height: calc(100vh - env(safe-area-inset-top) - 8px);
     transform: translateY(100%);
   }
   .modal-overlay.open .modal { transform: none; }
-  /* herda height:38vh do @media 860px; aqui só ajusta o respiro da foto */
+  /* herda height:30vh do @media 860px; aqui só ajusta o respiro da foto */
   .modal-img img { padding: 20px; }
-  .modal-body { padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); }
+  .modal-body { padding: 22px 20px 0; }
+  .modal-foot { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
   .modal-body h2 { font-size: 1.5rem; }
   .modal-body .puffs { margin-bottom: 18px; }
   .flavor-grid { gap: 8px; margin-bottom: 20px; }
