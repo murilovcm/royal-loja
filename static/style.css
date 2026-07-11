@@ -33,14 +33,7 @@
   --border-subtle: rgba(255,255,255,.06);
   --text-muted:    rgba(255,255,255,.60);
   --danger:        #FF6B6B;
-  --status-open:   #22C55E;
   --status-closed: #EF4444;
-  /* Accent derivado da cor de marca (--primary-yellow, editável no painel).
-     Light/dark via color-mix p/ recalcular ao vivo quando o lojista troca a
-     cor — usados só dentro de @supports color-mix, com fallback sólido. */
-  --accent:       var(--primary-yellow);
-  --accent-light: color-mix(in srgb, var(--primary-yellow) 58%, #ffffff);
-  --accent-dark:  color-mix(in srgb, var(--primary-yellow) 80%, #000000);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -372,23 +365,6 @@ header.site-header {
   overflow: hidden;
 }
 .hero * { box-sizing: border-box; max-width: 100%; }
-/* Blob dourado difuso ATRÁS do CTA — dá o que o backdrop-filter do botão
-   desfoca (fundo liso = vidro invisível). Cor derivada da marca via color-mix. */
-.hero::before {
-  content: "";
-  position: absolute;
-  bottom: 30%; left: 50%;
-  transform: translateX(-50%);
-  width: 320px; height: 320px;
-  filter: blur(60px);
-  pointer-events: none;
-  z-index: 0;
-}
-@supports (color: color-mix(in srgb, red, blue)) {
-  .hero::before {
-    background: radial-gradient(circle, color-mix(in srgb, var(--primary-yellow) 22%, transparent), transparent 70%);
-  }
-}
 .hero > * { position: relative; z-index: 1; }
 
 .hero-chips {
@@ -439,49 +415,16 @@ header.site-header {
   max-width: 100%;
   margin: 0 auto 16px;
 }
-/* Keyword highlight: a cidade vira uma pill de DOURADO SÓLIDO (o contraste é o
-   que destaca) com uma camada de vidro por cima — arestas polidas (insets) +
-   halo difuso + sheen lento. Cor derivada de --primary-yellow (editável). */
+/* Keyword highlight: a cidade vira uma pill de dourado sólido — único uso do
+   dourado no headline. Cor vem de --primary-yellow (editável no painel). */
 .hero h1 .cidade {
-  position: relative;
   display: inline-block;
-  overflow: hidden;
-  padding: 2px 16px;
-  border-radius: var(--radius-pill);
+  background: var(--primary-yellow);
   color: var(--text-on-primary);
+  border-radius: var(--radius-pill);
+  padding: 2px 14px;
   line-height: 1.15;
   white-space: nowrap;
-  /* Fallback sólido (navegadores sem color-mix ficam com o dourado chapado). */
-  background: var(--primary-yellow);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), inset 0 -1px 0 rgba(0,0,0,.25);
-}
-@supports (color: color-mix(in srgb, red, blue)) {
-  .hero h1 .cidade {
-    background:
-      linear-gradient(180deg, rgba(255,255,255,.35) 0%, rgba(255,255,255,0) 45%),
-      linear-gradient(160deg, var(--accent-light) 0%, var(--accent) 40%, var(--accent-dark) 100%);
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,.6),                                   /* aresta polida = vidro */
-      inset 0 -1px 0 rgba(0,0,0,.25),                                       /* base */
-      0 0 40px -8px color-mix(in srgb, var(--primary-yellow) 45%, transparent); /* halo difuso */
-  }
-}
-/* Sheen sutil a cada 6s — lento de propósito (loop rápido vira cassino). */
-.hero h1 .cidade::after {
-  content: "";
-  position: absolute; inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,.5) 50%, transparent 60%);
-  transform: translateX(-100%);
-  animation: sheen 6s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes sheen {
-  0%, 85% { transform: translateX(-100%); }
-  100%    { transform: translateX(100%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero h1 .cidade::after { animation: none; }
 }
 .hero-subhead {
   font-size: 15px;
@@ -528,9 +471,7 @@ header.site-header {
   .store-status.open .store-status-dot { animation: none; }
 }
 
-/* z-index:auto (não isola): assim o CTA lá dentro tem .hero como backdrop-root
-   e o backdrop-filter enxerga o blob dourado. O CTA sobe via seu próprio z-index. */
-.hero-cta { display: flex; justify-content: center; margin: 0; position: relative; z-index: auto; }
+.hero-cta { display: flex; justify-content: center; margin: 0; }
 .btn {
   padding: 14px 30px;
   border-radius: 999px;
@@ -540,12 +481,9 @@ header.site-header {
 }
 .btn:hover { transform: translateY(-2px); }
 .btn:active { transform: scale(.96); }
-/* CTA "Ver Catálogo" — GLASS real: fundo semitranslúcido desfocado sobre o blob
-   dourado (.hero::before), borda-luz e halo suave. Sem sombra dura. O dourado
-   percebido vem do blob atrás + texto creme + borda-luz (não de fundo chapado). */
+/* CTA "Ver Catálogo" — dourado de marca sólido e dominante, com um halo suave
+   (não sombra dura) derivado da cor de marca. Ícone de catálogo à esquerda. */
 .btn-primary.hero-btn-main {
-  position: relative;
-  z-index: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -556,82 +494,23 @@ header.site-header {
   padding: 0 24px;
   border: none;
   border-radius: var(--radius-pill);
-  color: #FFF3C4;
+  background: var(--primary-yellow);
+  color: var(--text-on-primary);
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 0;
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.02) 100%),
-    rgba(255,255,255,.03);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.25),
-    inset 0 -1px 0 rgba(0,0,0,.20),
-    0 8px 32px -12px rgba(0,0,0,.5);
-  transition: transform .25s cubic-bezier(.16,1,.3,1), box-shadow .25s ease, background .25s ease;
+  box-shadow: 0 8px 28px -12px rgba(0,0,0,.5);
+  transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .25s ease, filter .2s ease;
 }
-/* Borda-luz: clara no topo, escura embaixo — simula luz batendo na aresta. */
-.btn-primary.hero-btn-main::before {
-  content: "";
-  position: absolute; inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,.12) 40%, rgba(0,0,0,.3));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  pointer-events: none;
-}
-.btn-primary.hero-btn-main:active {
-  transform: scale(.98);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 4px 16px -8px rgba(0,0,0,.4);
-}
-.hero-cta-icon { width: 20px; height: 20px; flex-shrink: 0; }
-
-/* Realce dourado (halo + tint + meio da borda-luz) — só onde color-mix existe,
-   derivado da cor de marca, então acompanha o color picker ao vivo. */
+.btn-primary.hero-btn-main:hover { filter: brightness(.96); }
+.btn-primary.hero-btn-main:active { transform: scale(.98); }
+/* Halo dourado suave derivado da marca (acompanha o color picker ao vivo). */
 @supports (color: color-mix(in srgb, red, blue)) {
   .btn-primary.hero-btn-main {
-    background:
-      linear-gradient(180deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.02) 100%),
-      color-mix(in srgb, var(--primary-yellow) 8%, transparent);
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,.25),
-      inset 0 -1px 0 rgba(0,0,0,.20),
-      0 8px 32px -12px color-mix(in srgb, var(--primary-yellow) 35%, transparent);
-  }
-  .btn-primary.hero-btn-main::before {
-    background: linear-gradient(180deg, rgba(255,255,255,.5),
-      color-mix(in srgb, var(--primary-yellow) 15%, transparent) 40%, rgba(0,0,0,.3));
-  }
-  .btn-primary.hero-btn-main:active {
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.15),
-      0 4px 16px -8px color-mix(in srgb, var(--primary-yellow) 30%, transparent);
+    box-shadow: 0 8px 28px -12px color-mix(in srgb, var(--primary-yellow) 45%, transparent);
   }
 }
-/* Fallback: sem backdrop-filter (Android médio pode travar o scroll no blur) →
-   cai para o dourado de marca sólido (mais visível que um vidro sem desfoque). */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .btn-primary.hero-btn-main {
-    background: var(--primary-yellow);
-    color: var(--text-on-primary);
-  }
-}
-
-/* --- ALTERNATIVA SÓLIDA, pronta para trocar (ver nota no resumo) -------------
-   Se o CTA glass custar cliques por ser sutil demais, aplique estas regras no
-   lugar do glass acima (mesmo shape/tamanho, dourado de marca dominante):
-
-.btn-primary.hero-btn-main {
-  color: var(--text-on-primary);
-  background: var(--primary-yellow);
-  -webkit-backdrop-filter: none; backdrop-filter: none;
-  box-shadow: 0 8px 28px -12px color-mix(in srgb, var(--primary-yellow) 45%, transparent);
-}
-.btn-primary.hero-btn-main::before { display: none; }
---------------------------------------------------------------------------- */
+.hero-cta-icon { width: 20px; height: 20px; flex-shrink: 0; }
 
 /* Ações sociais secundárias: ícones circulares discretos, abaixo do CTA. */
 .hero-social { display: flex; justify-content: center; gap: 12px; margin-top: 14px; }
