@@ -20,6 +20,7 @@
   --green-soft: #6be3a4;
   --radius: 18px;
   --radius-sm: 12px;
+  --radius-pill: 9999px;
   --shadow: 0 20px 50px rgba(0,0,0,.55);
   --glow: 0 0 24px rgba(255,214,10,.25);
   /* Identidade dourada da hero (refinamento visual) */
@@ -32,6 +33,7 @@
   --border-subtle: rgba(255,255,255,.06);
   --text-muted:    rgba(255,255,255,.60);
   --danger:        #FF6B6B;
+  --status-closed: #EF4444;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -355,7 +357,7 @@ header.site-header {
 .hero {
   padding-top: 70px;
   padding-bottom: 64px;
-  padding-inline: max(20px, env(safe-area-inset-left)) max(20px, env(safe-area-inset-right));
+  padding-inline: max(24px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right));
   box-sizing: border-box;
   width: 100%;
   text-align: center;
@@ -412,33 +414,47 @@ header.site-header {
 }
 
 .hero h1 {
-  font-size: clamp(2.2rem, 6vw, 4rem);
+  font-size: clamp(30px, 8vw, 40px);
   font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
   text-align: center;
+  text-transform: uppercase;
   text-wrap: balance;
+  color: var(--text);
   max-width: 100%;
-  margin: 0 auto 28px;
+  margin: 0 auto 16px;
 }
-.hero h1 .accent {
-  background: var(--gold-grad);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+/* Keyword highlight: o nome da cidade vira uma pill dourada sólida — único
+   uso do dourado no headline. Cor vem de --primary-yellow (painel Identidade
+   Visual), não hardcoded. */
+.hero h1 .cidade {
+  display: inline-block;
+  background: var(--primary-yellow);
+  color: var(--text-on-primary);
+  border-radius: var(--radius-pill);
+  padding: 2px 14px;
+  line-height: 1.15;
+  white-space: nowrap;
 }
-/* "SÃO LUÍS" nunca deve quebrar entre as duas palavras. */
-.hero h1 .cidade { white-space: nowrap; }
+.hero-subhead {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 340px;
+  margin: 0 auto 24px;
+}
 
+/* Badge de status: pill discreta acima do headline. Fundo glass constante;
+   apenas o dot muda de cor (verde aberto / vermelho fechado). */
 .store-status {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  background: var(--hero-surface);
-  border: 1px solid var(--border-subtle);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
   font-size: 13px;
   font-weight: 600;
   margin: 0 auto 20px;
@@ -448,35 +464,25 @@ header.site-header {
   background: var(--text-muted);
   flex-shrink: 0;
 }
-.store-status-text { color: var(--text-muted); }
-.store-status.open {
-  background: rgba(61,220,132,.10);
-  border-color: rgba(61,220,132,.25);
-}
+.store-status-text { color: var(--text); }
 .store-status.open .store-status-dot {
-  background: #3ddc84;
-  box-shadow: 0 0 0 3px rgba(61,220,132,.18);
+  background: #22C55E;
+  box-shadow: 0 0 0 3px rgba(34,197,94,.18);
   animation: store-status-pulse 2s ease-in-out infinite;
 }
-.store-status.open .store-status-text { color: #6be3a4; }
-.store-status.closed {
-  background: rgba(255,107,107,.10);
-  border-color: rgba(255,107,107,.25);
-}
 .store-status.closed .store-status-dot {
-  background: var(--danger);
-  box-shadow: 0 0 0 3px rgba(255,107,107,.16);
+  background: var(--status-closed);
+  box-shadow: 0 0 0 3px rgba(239,68,68,.16);
 }
-.store-status.closed .store-status-text { color: var(--danger); }
 @keyframes store-status-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(61,220,132,.18); }
-  50% { box-shadow: 0 0 0 6px rgba(61,220,132,.05); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
+  50% { box-shadow: 0 0 0 6px rgba(34,197,94,.05); }
 }
 @media (prefers-reduced-motion: reduce) {
   .store-status.open .store-status-dot { animation: none; }
 }
 
-.hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 56px; }
+.hero-cta { display: flex; justify-content: center; margin: 0; }
 .btn {
   padding: 14px 30px;
   border-radius: 999px;
@@ -486,43 +492,60 @@ header.site-header {
 }
 .btn:hover { transform: translateY(-2px); }
 .btn:active { transform: scale(.96); }
+/* CTA principal: pill dourada chapada (flat, sem sombra/gradiente), dominante,
+   com ícone de catálogo à esquerda. Dourado vem de --primary-yellow. */
 .btn-primary.hero-btn-main {
-  padding: 15px 42px;
-  min-height: 52px;
-  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 90%;
+  max-width: 420px;
+  min-height: 54px;
+  padding: 0 24px;
+  border-radius: var(--radius-pill);
+  background: var(--primary-yellow);
+  color: var(--text-on-primary);
   font-size: 16px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  background: var(--gold-grad);
-  color: var(--gold-ink);
-  box-shadow: 0 8px 24px rgba(201,162,39,.25);
+  letter-spacing: 0;
+  box-shadow: none;
 }
-.btn-primary.hero-btn-main:hover { box-shadow: 0 12px 30px rgba(201,162,39,.35); }
-.btn-primary.hero-btn-main:active { transform: translateY(1px); box-shadow: 0 4px 14px rgba(201,162,39,.20); }
-/* Botões sociais (WhatsApp / Instagram): quadrados glass neutros,
-   alinhados à altura do CTA (52px); realce dourado só no hover/toque. */
+.btn-primary.hero-btn-main:hover { filter: brightness(.94); box-shadow: none; }
+.btn-primary.hero-btn-main:active { transform: scale(.98); }
+.hero-cta-icon { width: 20px; height: 20px; flex-shrink: 0; }
+
+/* Ações sociais secundárias: ícones circulares discretos, abaixo do CTA. */
+.hero-social { display: flex; justify-content: center; gap: 12px; margin-top: 14px; }
 .btn-whatsapp, .btn-instagram {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 52px; height: 52px;
+  width: 48px; height: 48px;
   padding: 0;
-  border-radius: 14px;
-  background: var(--hero-surface);
-  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid rgba(255,255,255,.08);
   color: rgba(255,255,255,.85);
-  transition: transform .18s cubic-bezier(.22,1,.36,1), border-color .2s, color .2s, background .2s;
+  transition: transform .18s cubic-bezier(.22,1,.36,1), border-color .2s, color .2s;
 }
-.btn-whatsapp:hover, .btn-instagram:hover,
-.btn-whatsapp:active, .btn-instagram:active {
-  border-color: var(--gold-deep);
-  color: var(--gold-light);
-  background: rgba(201,162,39,.08);
+.btn-whatsapp:hover, .btn-instagram:hover {
+  border-color: var(--primary-yellow);
+  color: var(--primary-yellow);
 }
 .btn-whatsapp-text { display: none; }
-.btn-whatsapp-icon { display: block; width: 22px; height: 22px; flex-shrink: 0; }
-.btn-instagram-icon { width: 22px; height: 22px; flex-shrink: 0; }
+.btn-whatsapp-icon { display: block; width: 20px; height: 20px; flex-shrink: 0; }
+.btn-instagram-icon { width: 20px; height: 20px; flex-shrink: 0; }
+
+/* Trust note abaixo das ações. */
+.hero-trust {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 12px auto 0;
+}
 .btn-ghost {
   background: var(--surface);
   color: var(--text);
@@ -533,50 +556,51 @@ header.site-header {
 .hero-features {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+  gap: 10px;
   max-width: 920px;
-  margin: 0 auto;
+  margin: 28px auto 0;
   text-align: center;
 }
+/* Cards flat: superfície do tema, borda hairline, sem sombra. */
 .hero-feature {
-  background: var(--hero-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 14px;
   padding: 16px 10px;
   min-width: 0;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: transform .2s cubic-bezier(.22,1,.36,1), border-color .2s, box-shadow .2s;
+  transition: border-color .2s;
 }
-.hero-feature:hover { transform: translateY(-3px); border-color: var(--gold-deep); box-shadow: 0 14px 30px rgba(0,0,0,.3); }
+.hero-feature:hover { border-color: rgba(255,255,255,.12); }
 .hero-feature-icon {
-  width: 36px; height: 36px;
-  margin: 0 auto 10px;
+  margin: 0 auto 8px;
   display: grid; place-items: center;
-  border-radius: 50%;
-  background: rgba(201,162,39,.12);
-  color: var(--gold-light);
+  color: var(--text-muted);
 }
-.hero-feature-icon svg { width: 18px; height: 18px; }
-.hero-feature h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.01em; line-height: 1.3; color: rgba(255,255,255,.85); margin: 0; }
+.hero-feature-icon svg { width: 22px; height: 22px; }
+.hero-feature h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.01em; line-height: 1.3; color: var(--text-muted); margin: 0; }
 
-/* Entrada escalonada: chips -> logo -> título -> botões -> cards,
-   ligada ao mesmo reveal-visible que o IntersectionObserver já aplica em .hero */
-.hero-chips, .hero-logo-wrap, .hero h1, .store-status, .hero-cta, .hero-features {
+/* Entrada escalonada: chips -> badge -> título -> subhead -> CTA -> social ->
+   trust -> cards, ligada ao reveal-visible que o IntersectionObserver aplica. */
+.hero-chips, .hero-logo-wrap, .store-status, .hero h1, .hero-subhead,
+.hero-cta, .hero-social, .hero-trust, .hero-features {
   opacity: 0;
   transform: translateY(16px);
   transition: opacity .5s cubic-bezier(.16,1,.3,1), transform .5s cubic-bezier(.16,1,.3,1);
 }
 .hero.reveal-visible .hero-chips     { opacity: 1; transform: none; transition-delay: .05s; }
 .hero.reveal-visible .hero-logo-wrap { opacity: 1; transform: none; transition-delay: .12s; }
-.hero.reveal-visible .store-status   { opacity: 1; transform: none; transition-delay: .30s; }
+.hero.reveal-visible .store-status   { opacity: 1; transform: none; transition-delay: .12s; }
 .hero.reveal-visible h1              { opacity: 1; transform: none; transition-delay: .19s; }
-.hero.reveal-visible .hero-cta       { opacity: 1; transform: none; transition-delay: .33s; }
-.hero.reveal-visible .hero-features  { opacity: 1; transform: none; transition-delay: .40s; }
+.hero.reveal-visible .hero-subhead   { opacity: 1; transform: none; transition-delay: .24s; }
+.hero.reveal-visible .hero-cta       { opacity: 1; transform: none; transition-delay: .30s; }
+.hero.reveal-visible .hero-social    { opacity: 1; transform: none; transition-delay: .34s; }
+.hero.reveal-visible .hero-trust     { opacity: 1; transform: none; transition-delay: .38s; }
+.hero.reveal-visible .hero-features  { opacity: 1; transform: none; transition-delay: .42s; }
 
 /* ---------- Section titles ---------- */
 .section { padding: 40px 0; }
@@ -1354,7 +1378,8 @@ body.editor-mode .model-card { cursor: default; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero, .section:not([data-hidden]), .model-card,
-  .hero-chips, .hero-logo-wrap, .hero h1, .store-status, .hero-cta, .hero-features {
+  .hero-chips, .hero-logo-wrap, .store-status, .hero h1, .hero-subhead,
+  .hero-cta, .hero-social, .hero-trust, .hero-features {
     opacity: 1 !important;
     transform: none !important;
   }
@@ -1513,15 +1538,10 @@ body.editor-mode .model-card { cursor: default; }
 
   .hero { padding-block: 44px 34px; }
   .hero-logo { height: 76px; }
-  .hero-chips { gap: 8px; margin-bottom: 32px; }
+  .hero-chips { gap: 8px; margin-bottom: 20px; }
   .hero-chip { font-size: 13px; padding: 8px 14px; }
-  .hero-cta { margin-bottom: 44px; width: 100%; gap: 10px; }
-  .hero-cta .hero-btn-main { flex: 1 1 auto; min-width: 0; }
-  .hero-cta .btn-whatsapp, .hero-cta .btn-instagram { flex: 0 0 52px; }
-  .hero-features { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .hero-features { grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .hero-feature { padding: 16px 8px; }
-  .hero-feature-icon { width: 36px; height: 36px; margin-bottom: 10px; }
-  .hero-feature-icon svg { width: 18px; height: 18px; }
   .hero-feature h3 { font-size: 12px; }
 
   .section { padding: 30px 0; }
@@ -1544,19 +1564,13 @@ body.editor-mode .model-card { cursor: default; }
 
   /* --- Hero --- */
   .hero { padding-block: 34px 26px; }
-  .hero-chips { gap: 8px; margin-bottom: 32px; }
+  .hero-chips { gap: 8px; margin-bottom: 20px; }
   .hero-chip { font-size: 13px; padding: 10px 14px; }
   .hero-logo-wrap { margin-bottom: 18px; }
   .hero-logo { height: 64px; }
-  .hero h1 { font-size: 26px; line-height: 1.2; letter-spacing: -0.01em; margin-bottom: 28px; }
   .store-status { margin-bottom: 20px; }
-  .hero-cta { gap: 10px; margin-bottom: 34px; width: 100%; }
-  .hero-cta .hero-btn-main { flex: 1 1 auto; min-width: 0; padding: 15px 24px; }
-  .hero-cta .btn-whatsapp, .hero-cta .btn-instagram { flex: 0 0 52px; }
-  .hero-features { gap: 6px; }
+  .hero-features { gap: 10px; }
   .hero-feature { padding: 12px 6px; }
-  .hero-feature-icon { width: 36px; height: 36px; margin-bottom: 8px; }
-  .hero-feature-icon svg { width: 18px; height: 18px; }
   .hero-feature h3 { font-size: 12px; }
 
   /* --- Filtros: pistas de rolagem nas bordas --- */
@@ -1671,7 +1685,6 @@ body.editor-mode .model-card { cursor: default; }
   .card-foot .price { font-size: 1.25rem; }
   .card-foot { padding-top: 10px; }
   .card-foot .arrow { width: 38px; height: 38px; min-width: 38px; }
-  .hero h1 { font-size: 1.6rem; }
 }
 
 /* -------- Telas de pouca altura: menos rolagem até "Mais Vendidos" -------- */
@@ -1682,7 +1695,6 @@ body.editor-mode .model-card { cursor: default; }
   .hero { padding-top: 28px; padding-bottom: 20px; }
   .hero-logo-wrap { margin-bottom: 14px; }
   .hero-chips { margin-bottom: 16px; }
-  .hero-cta { margin-bottom: 22px; }
   .hero-feature { padding: 12px 8px; }
 }
 

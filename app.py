@@ -507,6 +507,7 @@ def init_db():
         "hero_title": "Sabor que reina. Qualidade Royal.",
         "hero_subtitle": "Os melhores pods descartáveis com a curadoria mais premium do Brasil.",
         "store_name": "Royal",
+        "store_city": "São Luís",
     }
     for k, v in defaults.items():
         db.execute(
