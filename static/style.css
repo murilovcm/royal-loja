@@ -22,6 +22,16 @@
   --radius-sm: 12px;
   --shadow: 0 20px 50px rgba(0,0,0,.55);
   --glow: 0 0 24px rgba(255,214,10,.25);
+  /* Identidade dourada da hero (refinamento visual) */
+  --gold-light: #F5D67B;
+  --gold-deep:  #C9A227;
+  --gold-grad:  linear-gradient(135deg, #F5D67B 0%, #C9A227 100%);
+  --gold-ink:   #1A1206;
+  /* Glass própria da hero — NÃO sobrescreve --surface (usada no site inteiro) */
+  --hero-surface:  rgba(255,255,255,.04);
+  --border-subtle: rgba(255,255,255,.06);
+  --text-muted:    rgba(255,255,255,.60);
+  --danger:        #FF6B6B;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -342,19 +352,38 @@ header.site-header {
 .cart-badge.show { transform: scale(1); }
 
 /* ---------- Hero ---------- */
-.hero { padding: 70px 0 64px; text-align: center; position: relative; }
+.hero { padding: 70px 0 64px; text-align: center; position: relative; overflow: hidden; }
+.hero::before {
+  content: "";
+  position: absolute;
+  top: -80px; left: 50%;
+  transform: translateX(-50%);
+  width: 320px; height: 320px;
+  background: radial-gradient(circle, rgba(201,162,39,.10) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.hero > * { position: relative; z-index: 1; }
 
 .hero-chips {
   display: flex; flex-wrap: wrap; justify-content: center;
-  gap: 8px; margin: 0 auto 30px; max-width: 760px;
+  gap: 10px; margin: 0 auto 28px; max-width: 760px;
 }
 .hero-chip {
-  font-size: .78rem; font-weight: 700; color: var(--text-dim);
-  background: var(--surface); border: 1px solid var(--border);
-  padding: 8px 16px; border-radius: 999px;
+  display: inline-flex; align-items: center;
+  min-height: 40px;
+  font-size: 13px; font-weight: 600; color: var(--text-muted);
+  background: var(--hero-surface); border: 1px solid var(--border-subtle);
+  padding: 10px 16px; border-radius: 999px;
   transition: border-color .2s, color .2s, background .2s;
 }
-.hero-chip:hover { border-color: var(--purple-soft); color: var(--text); background: var(--surface-2); }
+.hero-chip:hover { border-color: var(--gold-deep); color: var(--gold-light); background: rgba(201,162,39,.08); }
+.hero-chip.active {
+  background: rgba(201,162,39,.10);
+  border: 1px solid var(--gold-deep);
+  color: var(--gold-light);
+  font-weight: 600;
+}
 
 .hero-logo-wrap { display: flex; justify-content: center; margin-bottom: 24px; }
 .hero-logo {
@@ -372,44 +401,57 @@ header.site-header {
   margin: 0 auto 16px;
 }
 .hero h1 .accent {
-  color: #FFD60A;
+  background: var(--gold-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 .hero-subtitle {
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-size: 1.05rem;
+  line-height: 1.6;
   max-width: 560px;
-  margin: 0 auto 34px;
+  margin: 0 auto 24px;
 }
 
 .store-status {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 16px;
+  padding: 8px 16px;
   border-radius: 999px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  font-size: .78rem;
-  font-weight: 700;
-  margin: 0 auto 26px;
+  background: var(--hero-surface);
+  border: 1px solid var(--border-subtle);
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 auto 20px;
 }
 .store-status-dot {
   width: 8px; height: 8px; border-radius: 50%;
-  background: var(--text-dim);
+  background: var(--text-muted);
   flex-shrink: 0;
 }
-.store-status-text { color: var(--text-dim); }
+.store-status-text { color: var(--text-muted); }
+.store-status.open {
+  background: rgba(61,220,132,.10);
+  border-color: rgba(61,220,132,.25);
+}
 .store-status.open .store-status-dot {
   background: #3ddc84;
   box-shadow: 0 0 0 3px rgba(61,220,132,.18);
   animation: store-status-pulse 2s ease-in-out infinite;
 }
-.store-status.open .store-status-text { color: #3ddc84; }
-.store-status.closed .store-status-dot {
-  background: #ff5a5a;
-  box-shadow: 0 0 0 3px rgba(255,90,90,.16);
+.store-status.open .store-status-text { color: #6be3a4; }
+.store-status.closed {
+  background: rgba(255,107,107,.10);
+  border-color: rgba(255,107,107,.25);
 }
-.store-status.closed .store-status-text { color: #ff8a8a; }
+.store-status.closed .store-status-dot {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px rgba(255,107,107,.16);
+}
+.store-status.closed .store-status-text { color: var(--danger); }
 @keyframes store-status-pulse {
   0%, 100% { box-shadow: 0 0 0 3px rgba(61,220,132,.18); }
   50% { box-shadow: 0 0 0 6px rgba(61,220,132,.05); }
@@ -429,41 +471,42 @@ header.site-header {
 .btn:hover { transform: translateY(-2px); }
 .btn:active { transform: scale(.96); }
 .btn-primary.hero-btn-main {
-  padding: 18px 42px;
-  font-size: 1rem;
-  background: linear-gradient(120deg, var(--primary-yellow), var(--yellow-soft));
-  color: var(--text-on-primary);
-  box-shadow: var(--glow);
+  padding: 15px 42px;
+  min-height: 52px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--gold-grad);
+  color: var(--gold-ink);
+  box-shadow: 0 8px 24px rgba(201,162,39,.25);
 }
-.btn-primary.hero-btn-main:hover { box-shadow: 0 0 36px rgba(255,214,10,.5); }
-.btn-whatsapp {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: var(--surface);
-  border: 1.5px solid var(--green);
-  color: var(--green-soft);
-}
-.btn-whatsapp:hover { background: rgba(37,211,102,.1); box-shadow: 0 0 24px rgba(37,211,102,.25); }
-.btn-whatsapp-icon { display: none; width: 18px; height: 18px; flex-shrink: 0; }
-/* Botão social do Instagram: círculo com borda em gradiente da marca. */
-.btn-instagram {
+.btn-primary.hero-btn-main:hover { box-shadow: 0 12px 30px rgba(201,162,39,.35); }
+.btn-primary.hero-btn-main:active { transform: translateY(1px); box-shadow: 0 4px 14px rgba(201,162,39,.20); }
+/* Botões sociais (WhatsApp / Instagram): quadrados glass neutros,
+   alinhados à altura do CTA (52px); realce dourado só no hover/toque. */
+.btn-whatsapp, .btn-instagram {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 54px;
-  height: 54px;
+  width: 52px; height: 52px;
   padding: 0;
-  border-radius: 50%;
-  border: 1.5px solid transparent;
-  background:
-    linear-gradient(var(--surface), var(--surface)) padding-box,
-    linear-gradient(120deg, #feda75, #fa7e1e, #d62976, #962fbf, #4f5bd5) border-box;
+  border-radius: 14px;
+  background: var(--hero-surface);
+  border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.85);
+  transition: transform .18s cubic-bezier(.22,1,.36,1), border-color .2s, color .2s, background .2s;
 }
-.btn-instagram:hover { box-shadow: 0 0 24px rgba(214,41,118,.3); }
-.btn-instagram-icon { width: 24px; height: 24px; flex-shrink: 0; }
+.btn-whatsapp:hover, .btn-instagram:hover,
+.btn-whatsapp:active, .btn-instagram:active {
+  border-color: var(--gold-deep);
+  color: var(--gold-light);
+  background: rgba(201,162,39,.08);
+}
+.btn-whatsapp-text { display: none; }
+.btn-whatsapp-icon { display: block; width: 22px; height: 22px; flex-shrink: 0; }
+.btn-instagram-icon { width: 22px; height: 22px; flex-shrink: 0; }
 .btn-ghost {
   background: var(--surface);
   color: var(--text);
@@ -480,29 +523,30 @@ header.site-header {
   text-align: center;
 }
 .hero-feature {
-  background: linear-gradient(160deg, var(--surface-2), var(--surface) 60%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px 14px;
+  background: var(--hero-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 16px 10px;
   min-width: 0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   transition: transform .2s cubic-bezier(.22,1,.36,1), border-color .2s, box-shadow .2s;
 }
-.hero-feature:hover { transform: translateY(-3px); border-color: rgba(255,214,10,.3); box-shadow: 0 14px 30px rgba(0,0,0,.3); }
+.hero-feature:hover { transform: translateY(-3px); border-color: var(--gold-deep); box-shadow: 0 14px 30px rgba(0,0,0,.3); }
 .hero-feature-icon {
-  width: 52px; height: 52px;
-  margin: 0 auto 12px;
+  width: 36px; height: 36px;
+  margin: 0 auto 10px;
   display: grid; place-items: center;
   border-radius: 50%;
-  background: rgba(255,214,10,.08);
-  border: 1px solid rgba(255,214,10,.22);
-  color: var(--primary-yellow);
+  background: rgba(201,162,39,.12);
+  color: var(--gold-light);
 }
-.hero-feature-icon svg { width: 24px; height: 24px; }
-.hero-feature h3 { font-size: 1rem; font-weight: 800; line-height: 1.3; margin: 0; }
+.hero-feature-icon svg { width: 18px; height: 18px; }
+.hero-feature h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.01em; line-height: 1.3; color: rgba(255,255,255,.85); margin: 0; }
 
 /* Entrada escalonada: chips -> logo -> título -> subtítulo -> botões -> cards,
    ligada ao mesmo reveal-visible que o IntersectionObserver já aplica em .hero */
@@ -1459,21 +1503,11 @@ body.editor-mode .model-card { cursor: default; }
   .hero-subtitle { font-size: .98rem; margin-bottom: 28px; }
   .hero-cta { margin-bottom: 44px; padding-right: 4px; }
   .hero-cta .hero-btn-main { flex: 1; min-width: 140px; }
-  .hero-cta .btn-whatsapp {
-    flex: 0 0 auto;
-    width: 58px;
-    height: 58px;
-    padding: 0;
-    border-radius: 50%;
-  }
-  .hero-cta .btn-whatsapp .btn-whatsapp-text { display: none; }
-  .btn-whatsapp-icon { display: block; width: 24px; height: 24px; }
-  .hero-cta .btn-instagram { width: 58px; height: 58px; padding: 0; }
   .hero-features { grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .hero-feature { padding: 16px 8px; }
-  .hero-feature-icon { width: 40px; height: 40px; margin-bottom: 8px; }
+  .hero-feature-icon { width: 36px; height: 36px; margin-bottom: 10px; }
   .hero-feature-icon svg { width: 18px; height: 18px; }
-  .hero-feature h3 { font-size: .82rem; }
+  .hero-feature h3 { font-size: 12px; }
 
   .section { padding: 30px 0; }
   .section-head { margin-bottom: 18px; }
@@ -1495,24 +1529,20 @@ body.editor-mode .model-card { cursor: default; }
 
   /* --- Hero --- */
   .hero { padding: 34px 0 26px; }
-  .hero-chips { gap: 6px; margin-bottom: 20px; padding: 0 4px; }
-  .hero-chip { font-size: .68rem; padding: 6px 12px; }
+  .hero-chips { gap: 10px; margin-bottom: 28px; padding: 0 4px; }
+  .hero-chip { font-size: 13px; padding: 10px 14px; }
   .hero-logo-wrap { margin-bottom: 18px; }
   .hero-logo { height: 64px; }
-  .hero h1 { font-size: clamp(1.7rem, 8vw, 2.3rem); letter-spacing: -.5px; }
-  .hero-subtitle { font-size: .9rem; margin-bottom: 22px; padding: 0 6px; }
+  .hero h1 { font-size: 30px; line-height: 1.15; letter-spacing: -0.02em; }
+  .hero-subtitle { font-size: 14px; margin-bottom: 24px; padding: 0 6px; max-width: 30ch; }
+  .store-status { margin-bottom: 20px; }
   .hero-cta { gap: 10px; margin-bottom: 34px; padding-right: 6px; }
-  .hero-cta .btn { padding: 13px 18px; font-size: .9rem; }
-  .btn-primary.hero-btn-main { padding: 16px 32px; }
-  .hero-cta .btn-whatsapp { width: 52px; height: 52px; padding: 0; }
-  .btn-whatsapp-icon { width: 20px; height: 20px; }
-  .hero-cta .btn-instagram { width: 52px; height: 52px; padding: 0; }
-  .btn-instagram-icon { width: 22px; height: 22px; }
+  .hero-cta .hero-btn-main { padding: 15px 32px; }
   .hero-features { gap: 6px; }
   .hero-feature { padding: 12px 6px; }
-  .hero-feature-icon { width: 34px; height: 34px; margin-bottom: 6px; }
-  .hero-feature-icon svg { width: 16px; height: 16px; }
-  .hero-feature h3 { font-size: .7rem; }
+  .hero-feature-icon { width: 36px; height: 36px; margin-bottom: 8px; }
+  .hero-feature-icon svg { width: 18px; height: 18px; }
+  .hero-feature h3 { font-size: 12px; }
 
   /* --- Filtros: pistas de rolagem nas bordas --- */
   .filter-bar { gap: 8px; padding: 4px 12px 12px; margin: 0 -12px 20px; }
