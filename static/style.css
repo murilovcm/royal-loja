@@ -1092,8 +1092,8 @@ header.site-header {
 }
 
 @keyframes geoPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255,214,10,.6), 0 4px 18px rgba(255,214,10,.25); }
-  50%      { box-shadow: 0 0 0 13px rgba(255,214,10,0), 0 4px 30px rgba(255,214,10,.6); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,214,10,.55), 0 4px 18px rgba(255,214,10,.2); }
+  50%      { box-shadow: 0 0 0 8px rgba(255,214,10,0), 0 4px 24px rgba(255,214,10,.45); }
 }
 .geo-status { display: none; font-size: .8rem; margin-top: 10px; line-height: 1.4; }
 /* Respiro entre o botão de localização e o campo de endereço abaixo. */
