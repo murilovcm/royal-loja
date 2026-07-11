@@ -267,9 +267,11 @@
   <!-- ============ MODAL ============ -->
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal" id="modalBox">
+      <!-- X fora do .modal-body: dentro dele o iOS Safari (-webkit-overflow-scrolling)
+           recorta o botão quando a lista de sabores rola, sumindo com o X. -->
+      <button class="modal-close" id="modalClose">✕</button>
       <div class="modal-img" id="modalImg"></div>
       <div class="modal-body">
-        <button class="modal-close" id="modalClose">✕</button>
         <span class="brand-lbl" id="modalBrand"></span>
         <h2 id="modalName"></h2>
         <span class="puffs" id="modalPuffs"></span>
