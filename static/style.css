@@ -1625,9 +1625,14 @@ body.editor-mode .model-card { cursor: default; }
   .modal {
     border-radius: 22px 22px 0 0;
     max-width: 100%;
-    /* Folha quase cheia pra caber mais sabores, mas travada logo abaixo do
-       notch (safe-area-inset-top) pra o botão X nunca ficar escondido. */
-    max-height: calc(100vh - env(safe-area-inset-top) - 8px);
+    /* Altura FIXA pra padronizar: o modal sempre enche a tela, mesmo com poucos
+       sabores (antes com max-height ele encolhia até o conteúdo). Usa dvh
+       (viewport visível dinâmico) em vez de vh: com a barra de URL do Safari
+       visível, vh é maior que a tela e empurrava o topo (com o X) pra fora.
+       O max-height:none remove o cap herdado do @media 860px. */
+    height: 90vh; /* fallback p/ navegadores sem dvh */
+    height: calc(100dvh - env(safe-area-inset-top) - 8px);
+    max-height: none;
     transform: translateY(100%);
   }
   .modal-overlay.open .modal { transform: none; }
