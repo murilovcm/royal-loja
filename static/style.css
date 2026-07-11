@@ -814,6 +814,9 @@ header.site-header {
   overflow: hidden;
   display: grid;
   grid-template-columns: 1fr 1fr;
+  /* minmax(0,1fr) limita a linha à altura do modal; sem isso a track cresce
+     com o conteúdo e o .modal-body é cortado em vez de rolar (botão some). */
+  grid-template-rows: minmax(0, 1fr);
   box-shadow: var(--shadow);
   opacity: 0;
   transform: translateY(16px) scale(.97);
@@ -1532,7 +1535,7 @@ body.editor-mode .model-card { cursor: default; }
 
 
 @media (max-width: 860px) {
-  .modal { grid-template-columns: 1fr; max-height: 92vh; }
+  .modal { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); max-height: 92vh; }
   /* No mobile a imagem vira topo do card e o min-height:300px da base a deixava
      ocupando ~metade da tela. Cap em 38vh + min-height:0 pra a foto real caber
      sem empurrar sabor/quantidade/preço pra baixo. */
