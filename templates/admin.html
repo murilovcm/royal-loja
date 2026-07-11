@@ -585,6 +585,54 @@
               <button class="mini-btn primary" id="saveIdentityBtn" onclick="saveIdentity()">Salvar Identidade Visual</button>
             </div>
           </div>
+
+          <div class="sections-block">
+            <div class="sections-head">
+              ⚙️ Configurações Gerais <span class="sections-sub">Nome, contato, redes sociais e SEO da loja</span>
+            </div>
+
+            <div class="pp-row">
+              <div class="pp-field">
+                <label for="cfgStoreName">Nome da loja</label>
+                <input type="text" id="cfgStoreName" maxlength="80" value="{{ config.store_name or '' }}" placeholder="Ex: Royal">
+              </div>
+              <div class="pp-field">
+                <label for="cfgStoreCity">Cidade</label>
+                <input type="text" id="cfgStoreCity" maxlength="80" value="{{ config.store_city or '' }}" placeholder="Ex: São Luís">
+              </div>
+            </div>
+
+            <div class="pp-row">
+              <div class="pp-field">
+                <label for="cfgWhatsapp">WhatsApp</label>
+                <input type="text" id="cfgWhatsapp" inputmode="numeric" maxlength="20" value="{{ config.whatsapp_phone or '' }}" placeholder="5598985086085">
+                <small class="pp-hint">Somente números: país + DDD + número (ex: 5598985086085).</small>
+              </div>
+              <div class="pp-field">
+                <label for="cfgInstagram">Instagram (URL completa)</label>
+                <input type="text" id="cfgInstagram" maxlength="200" value="{{ config.instagram_url or '' }}" placeholder="https://www.instagram.com/sua_loja/">
+                <small class="pp-hint">Vazio oculta o botão do Instagram no site.</small>
+              </div>
+            </div>
+
+            <div class="pp-field">
+              <label for="cfgMetaDesc">Meta description (SEO)</label>
+              <textarea id="cfgMetaDesc" maxlength="300" rows="2" placeholder="Descrição curta da loja para o Google.">{{ config.meta_description or '' }}</textarea>
+            </div>
+            <div class="pp-field">
+              <label for="cfgMetaKeywords">Meta keywords (SEO)</label>
+              <input type="text" id="cfgMetaKeywords" maxlength="300" value="{{ config.meta_keywords or '' }}" placeholder="vape, pods, descartáveis">
+            </div>
+            <div class="pp-field">
+              <label for="cfgFavicon">URL do favicon</label>
+              <input type="text" id="cfgFavicon" maxlength="300" value="{{ config.favicon_url or '' }}" placeholder="https://.../favicon.png">
+              <small class="pp-hint">Vazio usa o favicon padrão da loja.</small>
+            </div>
+
+            <div class="identity-save-row">
+              <button class="mini-btn primary" id="saveGeneralBtn" onclick="saveGeneralSettings()">Salvar Configurações</button>
+            </div>
+          </div>
         </div>
 
         <div>
@@ -1039,6 +1087,38 @@
         else toast("Algumas alterações não foram salvas");
       } catch (e) {
         toast("Erro ao salvar identidade visual");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
+    }
+
+    async function saveGeneralSettings() {
+      const btn = document.getElementById('saveGeneralBtn');
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = "Salvando...";
+      try {
+        // WhatsApp: mantém apenas dígitos (o link wa.me não aceita máscara).
+        const waEl = document.getElementById('cfgWhatsapp');
+        waEl.value = waEl.value.replace(/\D/g, '');
+        const fields = {
+          store_name: document.getElementById('cfgStoreName').value.trim(),
+          store_city: document.getElementById('cfgStoreCity').value.trim(),
+          whatsapp_phone: waEl.value,
+          instagram_url: document.getElementById('cfgInstagram').value.trim(),
+          meta_description: document.getElementById('cfgMetaDesc').value.trim(),
+          meta_keywords: document.getElementById('cfgMetaKeywords').value.trim(),
+          favicon_url: document.getElementById('cfgFavicon').value.trim(),
+        };
+        let allOk = true;
+        for (const [key, value] of Object.entries(fields)) {
+          const res = await api('/api/update_config', 'POST', { key, value });
+          if (!res || !res.ok) allOk = false;
+        }
+        toast(allOk ? "Configurações salvas com sucesso ✓" : "Algumas configurações não foram salvas");
+      } catch (e) {
+        toast("Erro ao salvar configurações");
       } finally {
         btn.disabled = false;
         btn.textContent = originalLabel;

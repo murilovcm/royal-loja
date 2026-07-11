@@ -53,7 +53,9 @@
   <meta name="theme-color" content="#0a0a0c">
   <meta name="mobile-web-app-capable" content="yes">
   <title>{{ config.store_name or 'Royal' }} — Premium Vapes</title>
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon-64.png') }}">
+  {% if config.meta_description %}<meta name="description" content="{{ config.meta_description }}">{% endif %}
+  {% if config.meta_keywords %}<meta name="keywords" content="{{ config.meta_keywords }}">{% endif %}
+  <link rel="icon" href="{{ config.favicon_url or url_for('static', filename='favicon-64.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_v }}">
   <style>:root{
     --primary-yellow: {{ config.theme_primary_color or '#FFD60A' }};
@@ -133,19 +135,21 @@
     </div>
 
     <div class="hero-social">
-      <a href="https://wa.me/{{ whatsapp }}?text={{ 'Olá! Vim pelo site da Royal e quero saber mais sobre os produtos.' | urlencode }}" target="_blank" class="btn btn-whatsapp" aria-label="Falar no WhatsApp">
+      <a href="https://wa.me/{{ config.whatsapp_phone or whatsapp }}?text={{ 'Olá! Vim pelo site da Royal e quero saber mais sobre os produtos.' | urlencode }}" target="_blank" class="btn btn-whatsapp" aria-label="Falar no WhatsApp">
         <svg class="btn-whatsapp-icon" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
           <path d="M16 3C9.373 3 4 8.373 4 15c0 2.379.694 4.596 1.888 6.463L4 29l7.75-1.85A11.94 11.94 0 0 0 16 27c6.627 0 12-5.373 12-12S22.627 3 16 3zm0 21.6c-1.98 0-3.828-.58-5.383-1.578l-.385-.242-4.6 1.098 1.128-4.48-.25-.397A9.56 9.56 0 0 1 5.4 15c0-5.85 4.75-10.6 10.6-10.6S26.6 9.15 26.6 15 21.85 24.6 16 24.6zm5.75-7.9c-.313-.157-1.85-.913-2.138-1.017-.288-.105-.497-.157-.706.157-.21.313-.81 1.017-.993 1.226-.183.21-.366.235-.68.078-.313-.157-1.322-.487-2.518-1.552-.93-.83-1.558-1.855-1.741-2.168-.183-.313-.02-.482.137-.638.14-.14.313-.366.47-.548.157-.183.209-.313.313-.522.105-.21.052-.392-.026-.548-.078-.157-.706-1.7-.968-2.33-.255-.613-.514-.53-.706-.54l-.601-.01c-.21 0-.548.078-.836.392-.288.313-1.096 1.07-1.096 2.61s1.122 3.028 1.278 3.237c.157.21 2.208 3.372 5.35 4.73.747.323 1.33.516 1.784.66.75.238 1.432.204 1.972.124.601-.09 1.85-.756 2.11-1.487.26-.73.26-1.356.183-1.487-.078-.13-.288-.209-.6-.366z"></path>
         </svg>
         <span class="btn-whatsapp-text">Falar no WhatsApp</span>
       </a>
-      <a href="https://www.instagram.com/royal_slz/" target="_blank" rel="noopener" class="btn btn-instagram" aria-label="Seguir no Instagram">
+      {% if config.instagram_url %}
+      <a href="{{ config.instagram_url }}" target="_blank" rel="noopener" class="btn btn-instagram" aria-label="Seguir no Instagram">
         <svg class="btn-instagram-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="currentColor" stroke-width="1.8"></rect>
           <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"></circle>
           <circle cx="17.3" cy="6.7" r="1.3" fill="currentColor"></circle>
         </svg>
       </a>
+      {% endif %}
     </div>
 
     <p class="hero-trust">Pedido direto pelo WhatsApp — sem cadastro</p>
@@ -248,8 +252,8 @@
           </div>
         </div>
         <div class="atacado-right">
-          <a href="https://wa.me/{{ whatsapp }}?text={{ block.btn_primary_msg | urlencode }}" target="_blank" class="atacado-btn-primary" data-cfg="promo_{{ block.id }}_btn_primary" style="--ac-btn-bg: {{ block.btn_bg_color }}; --ac-btn-text: {{ block.btn_text_color }};" {{ 'contenteditable=true' if editor else '' }}>{{ block.btn_primary }}</a>
-          <a href="https://wa.me/{{ whatsapp }}?text={{ block.btn_secondary_msg | urlencode }}" target="_blank" class="atacado-btn-secondary" data-cfg="promo_{{ block.id }}_btn_secondary" {{ 'contenteditable=true' if editor else '' }}>{{ block.btn_secondary }}</a>
+          <a href="https://wa.me/{{ config.whatsapp_phone or whatsapp }}?text={{ block.btn_primary_msg | urlencode }}" target="_blank" class="atacado-btn-primary" data-cfg="promo_{{ block.id }}_btn_primary" style="--ac-btn-bg: {{ block.btn_bg_color }}; --ac-btn-text: {{ block.btn_text_color }};" {{ 'contenteditable=true' if editor else '' }}>{{ block.btn_primary }}</a>
+          <a href="https://wa.me/{{ config.whatsapp_phone or whatsapp }}?text={{ block.btn_secondary_msg | urlencode }}" target="_blank" class="atacado-btn-secondary" data-cfg="promo_{{ block.id }}_btn_secondary" {{ 'contenteditable=true' if editor else '' }}>{{ block.btn_secondary }}</a>
         </div>
       </div>
     </div>
@@ -465,7 +469,7 @@
   <script id="catalogData" type="application/json">{{ catalog | tojson }}</script>
   <script>
     window.ROYAL = {
-      whatsapp: "{{ whatsapp }}",
+      whatsapp: "{{ config.whatsapp_phone or whatsapp }}",
       editor: {{ 'true' if editor else 'false' }},
       storeName: "{{ config.store_name or 'Royal' }}"
     };

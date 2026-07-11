@@ -193,6 +193,15 @@ def inject_asset_version():
     return {"asset_v": ASSET_VERSION}
 
 
+@app.context_processor
+def inject_config():
+    """Deixa a config da loja (site_config) disponível em TODOS os templates
+    como `config.*` — inclusive login.html, que não recebe config pela rota.
+    Rotas que passam config=get_config() explicitamente continuam funcionando
+    (o kwarg explícito do render_template tem prioridade sobre o processor)."""
+    return {"config": get_config()}
+
+
 @app.after_request
 def set_security_headers(response):
     """Headers de defesa-em-profundidade contra clickjacking, MIME-sniffing e
@@ -508,6 +517,15 @@ def init_db():
         "hero_subtitle": "Os melhores pods descartáveis com a curadoria mais premium do Brasil.",
         "store_name": "Royal",
         "store_city": "São Luís",
+        # Número do WhatsApp usado no checkout / links wa.me. Fica editável no
+        # painel; o valor inicial vem da env var WHATSAPP_PHONE.
+        "whatsapp_phone": os.environ.get("WHATSAPP_PHONE", ""),
+        # Identidade / SEO da loja — editáveis em "Configurações Gerais" no
+        # painel; valores iniciais vêm das env vars correspondentes.
+        "favicon_url": os.environ.get("FAVICON_URL", ""),
+        "meta_description": os.environ.get("META_DESCRIPTION", ""),
+        "meta_keywords": os.environ.get("META_KEYWORDS", ""),
+        "instagram_url": os.environ.get("INSTAGRAM_URL", ""),
         # Pop-up de promoção do site (gerenciado na aba Cupons do painel).
         "promo_popup_enabled": "0",
         "promo_popup_badge": "OFERTA ESPECIAL",

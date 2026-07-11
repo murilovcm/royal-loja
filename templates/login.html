@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0a0a0c">
-  <title>Acesso — Royal</title>
+  <title>Acesso — {{ config.store_name or 'Royal' }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon-64.png') }}">
   <style>
@@ -73,7 +73,7 @@
 <body>
   <div class="login-wrap">
     <div class="login-card">
-      <img src="{{ url_for('static', filename='logo.png') }}" alt="Royal">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}">
       <h1>Painel Administrativo</h1>
       <p class="hint">Digite seu usuário e senha para acessar</p>
       {% if error %}<div class="login-error">{{ error }}</div>{% endif %}
