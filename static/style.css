@@ -860,7 +860,10 @@ header.site-header {
   transform: none;
 }
 .modal-img {
-  background: #1a1a2e;
+  /* Fundo branco: as fotos de produto têm fundo branco, então a margem ao
+     redor da imagem (object-fit: contain + padding) funde com a foto em vez
+     de deixar bordas escuras. */
+  background: #ffffff;
   display: flex;
   flex-direction: column;
   justify-content: center;
