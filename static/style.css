@@ -517,18 +517,23 @@ header.site-header {
   initial-value: 0deg;
 }
 .ring-btn { position: relative; isolation: isolate; }
+/* z-index POSITIVO de propósito: como é só um aro fino (não cobre o texto
+   centralizado), fica sobre o fundo opaco do botão e aparece em todos os
+   navegadores — inclusive Safari/mobile, que esconde pseudo com z negativo
+   atrás do próprio fundo. O drop-shadow dá um brilho que reforça no celular. */
 .ring-btn::before {
-  content: ""; position: absolute; inset: -1.5px; border-radius: inherit; z-index: -1;
-  padding: 2px; pointer-events: none;
+  content: ""; position: absolute; inset: -1.5px; border-radius: inherit; z-index: 2;
+  padding: 2.5px; pointer-events: none;
   background: conic-gradient(from var(--ring-angle),
       rgba(var(--primary-rgb),0) 0deg,
-      rgba(var(--primary-rgb),.9) 110deg,
-      rgba(var(--primary-rgb),0) 210deg,
+      rgba(var(--primary-rgb),1) 100deg,
+      rgba(var(--primary-rgb),0) 200deg,
       rgba(var(--primary-rgb),0) 360deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
           mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
           mask-composite: exclude;
+  filter: drop-shadow(0 0 4px rgba(var(--primary-rgb),.55));
   animation: ringAngle 4.5s linear infinite;
   transition: opacity .3s ease-out;
 }
