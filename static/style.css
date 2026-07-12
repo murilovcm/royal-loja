@@ -501,6 +501,43 @@ header.site-header {
 }
 .btn:hover { transform: translateY(-2px); }
 .btn:active { transform: scale(.96); }
+
+/* ---- Efeito reutilizável: anel de gradiente giratório ----
+   Mesmo conceito do botão "+" dos cards, aplicado aos CTAs (Ver Catálogo,
+   Adicionar, Finalizar Pedido, Localização, Confirmar no WhatsApp).
+   A cor vem de --primary-rgb (cor primária do painel), então acompanha a
+   paleta da loja. Fica sobre o preenchimento e sob o texto, girando na borda.
+   No hover acelera; some quando o botão está desabilitado. */
+/* Ângulo animável: giramos o ÂNGULO do gradiente (não o elemento), senão um
+   retângulo girando varreria a tela. Requer @property (Chrome/Edge/Safari
+   modernos); sem suporte, o anel fica estático — degradação aceitável. */
+@property --ring-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.ring-btn { position: relative; isolation: isolate; }
+.ring-btn::before {
+  content: ""; position: absolute; inset: -1.5px; border-radius: inherit; z-index: -1;
+  padding: 2px; pointer-events: none;
+  background: conic-gradient(from var(--ring-angle),
+      rgba(var(--primary-rgb),0) 0deg,
+      rgba(var(--primary-rgb),.9) 110deg,
+      rgba(var(--primary-rgb),0) 210deg,
+      rgba(var(--primary-rgb),0) 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
+  animation: ringAngle 4.5s linear infinite;
+  transition: opacity .3s ease-out;
+}
+@keyframes ringAngle { to { --ring-angle: 360deg; } }
+.ring-btn:hover::before { animation-duration: 1.3s; }
+.ring-btn:disabled::before { opacity: 0; animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ring-btn::before { animation: none; }
+}
 /* CTA "Ver Catálogo" — dourado de marca sólido e dominante, com um halo suave
    (não sombra dura) derivado da cor de marca. Ícone de catálogo à esquerda. */
 .btn-primary.hero-btn-main {
