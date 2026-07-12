@@ -375,7 +375,11 @@
     byId("modalImg").innerHTML = imgHTML(model);
     byId("modalBrand").textContent = model.brand_name;
     byId("modalName").textContent = model.name;
-    byId("modalPuffs").textContent = "⚡ " + model.puff_count;
+    // Ícone de raio temável (segue currentColor) + texto como nó de texto
+    // (nunca innerHTML com dado do produto — evita injeção de HTML).
+    const puffsEl = byId("modalPuffs");
+    puffsEl.innerHTML = '<i class="ico-bolt"></i> ';
+    puffsEl.append(model.puff_count);
     byId("qtyVal").textContent = "1";
 
     const inStock = model.flavors.filter((f) => f.is_in_stock);

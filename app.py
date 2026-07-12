@@ -552,42 +552,12 @@ def init_db():
         )
     db.commit()
 
-    # Migração: bloco único "Atacado" -> primeiro item da lista replicável de
-    # promo_blocks. Roda uma única vez (quando a tabela promo_blocks está vazia).
-    if db.execute("SELECT COUNT(*) AS c FROM promo_blocks").fetchone()[0] == 0:
-        old = {
-            r["key"]: r["value"]
-            for r in db.execute(
-                "SELECT key, value FROM site_config WHERE key LIKE 'atacado_%' OR key = 'show_atacado'"
-            ).fetchall()
-        }
-        cur = db.execute(
-            "INSERT INTO promo_blocks (position, active, bg_color_1, bg_color_2, text_theme, btn_bg_color, btn_text_color) "
-            "VALUES (1, ?, '#FFD60A', '#ffe45e', 'light', '#ffffff', '#0a0a0c')",
-            (1 if old.get("show_atacado", "1") == "1" else 0,),
-        )
-        pid = cur.lastrowid
-        texts = {
-            "eyebrow": old.get("atacado_eyebrow", PROMO_BLOCK_TEXT_DEFAULTS["eyebrow"]),
-            "title": old.get("atacado_title", PROMO_BLOCK_TEXT_DEFAULTS["title"]),
-            "subtitle": old.get("atacado_subtitle", PROMO_BLOCK_TEXT_DEFAULTS["subtitle"]),
-            "bg_word": old.get("atacado_bg_word", PROMO_BLOCK_TEXT_DEFAULTS["bg_word"]),
-            "item_1": old.get("atacado_item_1", PROMO_BLOCK_TEXT_DEFAULTS["item_1"]),
-            "item_2": old.get("atacado_item_2", PROMO_BLOCK_TEXT_DEFAULTS["item_2"]),
-            "item_3": old.get("atacado_item_3", PROMO_BLOCK_TEXT_DEFAULTS["item_3"]),
-            "item_4": old.get("atacado_item_4", PROMO_BLOCK_TEXT_DEFAULTS["item_4"]),
-            "btn_primary": old.get("atacado_btn_primary", PROMO_BLOCK_TEXT_DEFAULTS["btn_primary"]),
-            "btn_secondary": old.get("atacado_btn_secondary", PROMO_BLOCK_TEXT_DEFAULTS["btn_secondary"]),
-            "btn_primary_msg": PROMO_BLOCK_TEXT_DEFAULTS["btn_primary_msg"],
-            "btn_secondary_msg": PROMO_BLOCK_TEXT_DEFAULTS["btn_secondary_msg"],
-        }
-        for field, value in texts.items():
-            db.execute(
-                "INSERT OR IGNORE INTO site_config (key, value) VALUES (?, ?)",
-                (f"promo_{pid}_{field}", value),
-            )
-        db.execute("DELETE FROM site_config WHERE key LIKE 'atacado_%' OR key = 'show_atacado'")
-        db.commit()
+    # O bloco "Atacado" foi descontinuado: nunca é semeado automaticamente.
+    # Só limpamos eventuais chaves legadas (atacado_*/show_atacado) que tenham
+    # sobrado de versões antigas, para não deixar lixo no site_config. Blocos
+    # promocionais continuam podendo ser criados manualmente no painel.
+    db.execute("DELETE FROM site_config WHERE key LIKE 'atacado_%' OR key = 'show_atacado'")
+    db.commit()
 
     # Semeia shipping_zones com os valores de shipping.py na primeira execução.
     # Depois disso, o banco manda — editar shipping.py não muda mais nada em produção.

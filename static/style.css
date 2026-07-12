@@ -78,6 +78,16 @@ a { color: inherit; text-decoration: none; }
 img { display: block; max-width: 100%; }
 button { font-family: inherit; cursor: pointer; border: none; }
 
+/* Raio (bolt) desenhado por SVG mascarado: usa currentColor, então acompanha
+   a cor do elemento (as cores globais do painel). Um emoji ⚡ não pode ser
+   recolorido por CSS — por isso trocamos o emoji por este ícone. */
+.ico-bolt {
+  display: inline-block; width: 1em; height: 1em; vertical-align: -.14em; flex-shrink: 0;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 2v11h3v9l7-12h-4l4-8z'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 2v11h3v9l7-12h-4l4-8z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
 /* ---------- Age Gate ---------- */
 html:not(.age-ok) #ageGate ~ * { visibility: hidden !important; }
 
@@ -153,7 +163,7 @@ html.age-ok .age-gate-card,
   font-weight: 800;
   letter-spacing: 1.6px;
   text-transform: uppercase;
-  color: var(--yellow-soft);
+  color: var(--primary-yellow);
   background: rgba(var(--primary-rgb),.08);
   border: 1px solid rgba(var(--primary-rgb),.22);
   padding: 6px 14px;
@@ -230,7 +240,7 @@ html.age-ok .age-gate-card,
   text-underline-offset: 3px;
   transition: color .2s ease-out;
 }
-.age-gate-exit:hover { color: var(--yellow-soft); }
+.age-gate-exit:hover { color: var(--primary-yellow); }
 
 /* ---------- Disclaimer legal fixo ---------- */
 .legal-bar {
@@ -730,7 +740,7 @@ header.site-header {
 }
 .model-card .puff-badge {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: .8rem; font-weight: 700; color: var(--yellow-soft);
+  font-size: .8rem; font-weight: 700; color: var(--primary-yellow);
   background: rgba(var(--primary-rgb),.09);
   border: 1px solid rgba(var(--primary-rgb),.24);
   padding: 6px 13px; border-radius: 999px;
@@ -754,7 +764,7 @@ header.site-header {
 .model-card h3 { font-size: 1.25rem; font-weight: 800; margin: 2px 0 6px; letter-spacing: -.3px; }
 .model-card .puffs {
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: .82rem; color: var(--yellow-soft);
+  font-size: .82rem; color: var(--primary-yellow);
   background: rgba(var(--primary-rgb),.08);
   border: 1px solid rgba(var(--primary-rgb),.18);
   padding: 6px 14px; border-radius: 999px;
@@ -790,7 +800,7 @@ header.site-header {
   line-height: 1.15; letter-spacing: -.5px;
 }
 .card-foot .price .cur {
-  font-size: .62em; font-weight: 700; color: var(--yellow-soft);
+  font-size: .62em; font-weight: 700; color: var(--primary-yellow);
   opacity: .8; margin-right: 3px; vertical-align: 1px;
 }
 .card-foot .arrow {
@@ -878,7 +888,7 @@ header.site-header {
 .modal-body h2 { font-size: 1.9rem; font-weight: 800; letter-spacing: -.5px; margin: 4px 0 12px; }
 .modal-body .puffs {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: .82rem; color: var(--yellow-soft);
+  font-size: .82rem; color: var(--primary-yellow);
   background: rgba(var(--primary-rgb),.08); border: 1px solid rgba(var(--primary-rgb),.18);
   padding: 6px 14px; border-radius: 999px; width: fit-content; margin-bottom: 22px;
 }
@@ -1242,7 +1252,7 @@ header.site-header {
 #custAddress { margin-top: 14px; }
 .geo-status.show { display: block; }
 .geo-status.ok { color: var(--green); }
-.geo-status.warn { color: var(--yellow-soft); }
+.geo-status.warn { color: var(--primary-yellow); }
 .geo-status.danger { color: #ff5a5a; }
 
 .pickup-field {

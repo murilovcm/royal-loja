@@ -8,7 +8,7 @@
          data-name="{{ m.name | lower }}"
          data-brandname="{{ m.brand_name | lower }}">
   <div class="card-top">
-    <span class="puff-badge">⚡ {{ m.puff_count }}</span>
+    <span class="puff-badge"><i class="ico-bolt"></i>{{ m.puff_count }}</span>
     {% if m.is_best_seller %}<span class="best-tag">★ TOP</span>{% endif %}
   </div>
   <div class="card-img">
@@ -118,7 +118,7 @@
   <!-- Hero -->
   <section class="hero container">
     <div class="hero-chips" id="heroChips">
-      <button type="button" class="hero-chip" data-filter="best">⚡ Mais Vendidos</button>
+      <button type="button" class="hero-chip" data-filter="best"><i class="ico-bolt"></i> Mais Vendidos</button>
       {% for b in brands %}
       <button type="button" class="hero-chip" data-filter="brand-{{ b.id }}">{{ b.name }}</button>
       {% endfor %}
@@ -203,7 +203,7 @@
   {% if best %}
   <section class="section container" id="best">
     <div class="section-head">
-      <h2><span class="bolt">⚡</span> Mais Vendidos</h2>
+      <h2><span class="bolt ico-bolt"></span> Mais Vendidos</h2>
       <p>Os queridinhos da realeza</p>
     </div>
     <div class="grid">
