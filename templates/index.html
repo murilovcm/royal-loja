@@ -111,12 +111,13 @@
   <!-- Header -->
   <header class="site-header">
     <div class="container header-inner">
-      <span class="header-side" aria-hidden="true"></span>
-      <a href="/" class="logo"><img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="logo-img"></a>
-      <div class="header-actions">
+      <div class="header-side header-lead">
         <a class="nav-icon nav-icon-wa" href="https://wa.me/{{ config.whatsapp_phone or whatsapp }}?text={{ 'Olá! Vim pelo site e quero fazer um pedido.' | urlencode }}" target="_blank" rel="noopener" aria-label="Falar no WhatsApp">
           <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M16 3C9.373 3 4 8.373 4 15c0 2.379.694 4.596 1.888 6.463L4 29l7.75-1.85A11.94 11.94 0 0 0 16 27c6.627 0 12-5.373 12-12S22.627 3 16 3zm0 21.6c-1.98 0-3.828-.58-5.383-1.578l-.385-.242-4.6 1.098 1.128-4.48-.25-.397A9.56 9.56 0 0 1 5.4 15c0-5.85 4.75-10.6 10.6-10.6S26.6 9.15 26.6 15 21.85 24.6 16 24.6zm5.75-7.9c-.313-.157-1.85-.913-2.138-1.017-.288-.105-.497-.157-.706.157-.21.313-.81 1.017-.993 1.226-.183.21-.366.235-.68.078-.313-.157-1.322-.487-2.518-1.552-.93-.83-1.558-1.855-1.741-2.168-.183-.313-.02-.482.137-.638.14-.14.313-.366.47-.548.157-.183.209-.313.313-.522.105-.21.052-.392-.026-.548-.078-.157-.706-1.7-.968-2.33-.255-.613-.514-.53-.706-.54l-.601-.01c-.21 0-.548.078-.836.392-.288.313-1.096 1.07-1.096 2.61s1.122 3.028 1.278 3.237c.157.21 2.208 3.372 5.35 4.73.747.323 1.33.516 1.784.66.75.238 1.432.204 1.972.124.601-.09 1.85-.756 2.11-1.487.26-.73.26-1.356.183-1.487-.078-.13-.288-.209-.6-.366z"/></svg>
         </a>
+      </div>
+      <a href="/" class="logo"><img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="logo-img"></a>
+      <div class="header-actions">
         <button type="button" class="nav-icon nav-icon-menu" id="navToggle" aria-label="Abrir menu" aria-controls="navSidebar" aria-expanded="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><line x1="4.5" y1="7" x2="19.5" y2="7"/><line x1="4.5" y1="12" x2="19.5" y2="12"/><line x1="4.5" y1="17" x2="19.5" y2="17"/></svg>
         </button>

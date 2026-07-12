@@ -288,7 +288,7 @@ header.site-header {
   gap: 20px;
   padding: 14px 0;
 }
-.header-side { display: block; grid-column: 1; }
+.header-side { grid-column: 1; justify-self: start; display: flex; align-items: center; gap: 10px; }
 .header-inner > .logo { grid-column: 2; justify-self: center; }
 .header-actions { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 10px; }
 .nav-icon {
@@ -315,14 +315,14 @@ header.site-header {
 }
 .nav-overlay.open { opacity: 1; visibility: visible; transition: opacity .3s cubic-bezier(.22,1,.36,1), visibility 0s linear 0s; }
 .nav-sidebar {
-  position: fixed; top: 0; top: var(--app-vv-top, 0px); left: 0; z-index: 120;
+  position: fixed; top: 0; top: var(--app-vv-top, 0px); right: 0; z-index: 120;
   height: 100dvh; height: var(--app-vvh, 100dvh);
   width: 320px; max-width: 84vw;
   background: var(--bg-2);
-  border-right: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   display: flex; flex-direction: column;
   opacity: 0; visibility: hidden; pointer-events: none;
-  transform: translateX(-100%);
+  transform: translateX(100%);
   transition: transform .32s cubic-bezier(.22,1,.36,1), opacity .26s ease-out, visibility 0s linear .32s;
 }
 .nav-sidebar.open {
