@@ -1638,6 +1638,21 @@ def clean_hex_color(value):
     return v if _HEX_COLOR_RE.match(v) else None
 
 
+@app.template_filter("hex_to_rgb")
+def hex_to_rgb(value):
+    """Converte '#rrggbb' (ou '#rgb') em 'r, g, b' para uso em
+    rgba(var(--...-rgb), alpha). Sanitiza antes, então valores fora do
+    formato hex caem no cinza neutro — nunca quebram o CSS injetado."""
+    v = clean_hex_color(value)
+    if not v:
+        return "154, 151, 165"
+    v = v.lstrip("#")
+    if len(v) == 3:
+        v = "".join(c * 2 for c in v)
+    r, g, b = int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16)
+    return f"{r}, {g}, {b}"
+
+
 @app.route("/api/product", methods=["POST"])
 @api_catalog_required
 def api_create_product():

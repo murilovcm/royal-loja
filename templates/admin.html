@@ -185,12 +185,14 @@
     .sp-cart {
       width:40px; height:40px; border-radius:11px; display:flex; align-items:center; justify-content:center;
       font-size:1rem; background:var(--pv-grad); color:var(--pv-on-primary, #000);
+      box-shadow:0 6px 18px rgba(var(--pv-primary-rgb, 255,214,10), .4);
     }
     .sp-hero { padding:22px 16px 16px; text-align:center; }
     .sp-hero h4 { font-size:1.05rem; font-weight:800; margin-bottom:12px; color:var(--pv-text, #fff); }
     .sp-cta {
       display:inline-block; padding:12px 26px; border-radius:999px; font-weight:800; font-size:.85rem;
       background:var(--pv-primary, #FFD60A); color:var(--pv-on-primary, #000);
+      box-shadow:0 8px 26px rgba(var(--pv-primary-rgb, 255,214,10), .45);
     }
     .sp-pills { display:flex; gap:8px; justify-content:center; padding:0 16px 16px; flex-wrap:wrap; }
     .sp-pill {
@@ -216,6 +218,7 @@
     .sp-add {
       width:100%; padding:9px; border-radius:10px; border:none; font-weight:800; font-size:.75rem;
       background:var(--pv-grad); color:var(--pv-on-primary, #000);
+      box-shadow:0 6px 20px rgba(var(--pv-primary-rgb, 255,214,10), .38);
     }
     .sp-foot { display:flex; justify-content:center; padding:0 16px 18px; }
     .sp-wa {
@@ -1151,6 +1154,12 @@
     const pendingLogoFiles = { main: null, footer: null };
 
     const cval = (id) => document.getElementById(id).value;
+    function hexToRgb(hex) {
+      let v = (hex || '').replace('#', '');
+      if (v.length === 3) v = v.split('').map((c) => c + c).join('');
+      if (v.length !== 6) return '255, 214, 10';
+      return parseInt(v.slice(0,2),16) + ', ' + parseInt(v.slice(2,4),16) + ', ' + parseInt(v.slice(4,6),16);
+    }
     function setColorInput(id, hex) {
       document.getElementById(id).value = hex;
       document.getElementById(id + 'Hex').value = hex;
@@ -1225,6 +1234,7 @@
       p.style.setProperty('--pv-text', cval('colorText'));
       p.style.setProperty('--pv-text-dim', cval('colorTextDim'));
       p.style.setProperty('--pv-primary', primary);
+      p.style.setProperty('--pv-primary-rgb', hexToRgb(primary));
       p.style.setProperty('--pv-grad-end', gradEnd);
       p.style.setProperty('--pv-angle', angle);
       p.style.setProperty('--pv-on-primary', onPrimary);
