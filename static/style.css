@@ -1071,6 +1071,11 @@ header.site-header {
 }
 .cart-fab.show { transform: scale(1); opacity: 1; }
 .cart-fab:hover { box-shadow: 0 14px 38px rgba(var(--primary-rgb),.55), inset 0 1px 0 rgba(255,255,255,.5); }
+/* Ícone de carrinho em SVG: herda a cor do texto (currentColor), então
+   acompanha qualquer paleta escolhida no painel sem ajuste manual. */
+.cart-ico { display: block; width: 24px; height: 24px; }
+.cart-fab .cart-ico { width: 27px; height: 27px; }
+.cart-header h3 .cart-ico { width: 22px; height: 22px; flex-shrink: 0; }
 .cart-fab-badge {
   position: absolute; top: -6px; right: -6px;
   background: var(--purple); color: #fff;
