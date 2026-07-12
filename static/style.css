@@ -713,9 +713,16 @@ header.site-header {
     box-shadow: 0 14px 30px rgba(var(--accent-rgb),.16), 0 0 0 1px rgba(var(--accent-soft-rgb),.2);
   }
   .model-card:hover .arrow {
-    background: var(--arrow-color); color: var(--text-on-primary); border-color: transparent;
-    transform: translateX(3px);
-    box-shadow: 0 6px 18px rgba(var(--arrow-rgb),.38);
+    border-color: transparent;
+    transform: scale(1.09);
+    box-shadow: 0 10px 26px rgba(var(--arrow-rgb),.5);
+  }
+  .model-card:hover .arrow::before { opacity: 1; transform: scale(1); }
+  .model-card:hover .arrow::after { animation: none; box-shadow: none; }
+  .model-card:hover .arrow .arrow-i {
+    color: var(--text-on-primary);
+    transform: translateX(4px);
+    animation: none;
   }
 }
 /* :active depois do hover na cascata para "vencer" o lift quando os dois se aplicam ao mesmo tempo (clique) */
@@ -787,10 +794,13 @@ header.site-header {
 .flavor-badge .more { color: var(--flavor-more-color); font-weight: 600; margin-left: 6px; white-space: nowrap; vertical-align: middle; }
 .card-foot {
   margin-top: auto;
-  padding-top: 13px;
+  padding: 13px 6px 2px;
   border-top: 1px solid rgba(255,255,255,.08);
-  display: flex; align-items: center; justify-content: center; gap: 14px;
+  /* Preço à esquerda (centralizado no seu bloco), seta encostada à direita:
+     leitura de valor primeiro, ação depois. */
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
 }
+.card-foot .price-wrap { text-align: center; flex: 1 1 auto; padding-left: 8px; }
 .card-foot .from {
   font-size: .58rem; text-transform: uppercase; letter-spacing: 1.2px;
   color: var(--text-dim); font-weight: 600;
@@ -803,13 +813,51 @@ header.site-header {
   font-size: .62em; font-weight: 700; color: var(--price-color);
   opacity: .8; margin-right: 3px; vertical-align: 1px;
 }
+/* ---- Seta animada dos cards ----
+   Todas as cores saem das variáveis do painel (--arrow-color / --arrow-rgb /
+   --btn-grad), então a animação acompanha a paleta escolhida pelo lojista. */
 .card-foot .arrow {
-  width: 44px; height: 44px; min-width: 44px; border-radius: 50%; font-size: 1.15rem;
-  background: rgba(var(--arrow-rgb),.08);
-  border: 1px solid rgba(var(--arrow-rgb),.22);
+  position: relative; isolation: isolate;
+  width: 46px; height: 46px; min-width: 46px; border-radius: 50%;
   color: var(--arrow-color); flex-shrink: 0;
+  background: rgba(var(--arrow-rgb),.09);
+  border: 1px solid rgba(var(--arrow-rgb),.28);
   display: grid; place-items: center;
-  transition: transform .22s cubic-bezier(.2,.8,.3,1), background .2s ease-out, box-shadow .25s ease-out, color .2s, border-color .2s;
+  transition: transform .32s cubic-bezier(.34,1.56,.64,1), background .25s ease-out,
+              border-color .25s ease-out, box-shadow .3s ease-out;
+}
+/* Preenchimento com o gradiente do tema — cresce a partir do centro no hover. */
+.card-foot .arrow::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: var(--btn-grad);
+  opacity: 0; transform: scale(.55);
+  transition: opacity .3s ease, transform .42s cubic-bezier(.34,1.56,.64,1);
+  z-index: -1;
+}
+/* Halo "respirando" — anel que pulsa continuamente, dando vida à seta. */
+.card-foot .arrow::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  box-shadow: 0 0 0 0 rgba(var(--arrow-rgb),.45);
+  animation: arrowHalo 2.6s ease-out infinite;
+  z-index: -2;
+}
+.card-foot .arrow .arrow-i {
+  font-size: 1.15rem; line-height: 1; display: block;
+  animation: arrowNudge 2.6s ease-in-out infinite;
+  transition: transform .32s cubic-bezier(.34,1.56,.64,1), color .25s ease-out;
+}
+@keyframes arrowHalo {
+  0%   { box-shadow: 0 0 0 0 rgba(var(--arrow-rgb),.40); }
+  70%  { box-shadow: 0 0 0 11px rgba(var(--arrow-rgb),0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--arrow-rgb),0); }
+}
+@keyframes arrowNudge {
+  0%, 55%, 100% { transform: translateX(0); }
+  27%           { transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-foot .arrow::after,
+  .card-foot .arrow .arrow-i { animation: none; }
 }
 
 .empty-msg { text-align: center; color: var(--text-dim); padding: 50px 0; grid-column: 1/-1; }
@@ -1659,7 +1707,8 @@ body.editor-mode .model-card { cursor: default; }
   .card-foot { padding-top: 12px; gap: 12px; }
   .card-foot .from { font-size: .56rem; }
   .card-foot .price { font-size: 1.45rem; }
-  .card-foot .arrow { width: 42px; height: 42px; min-width: 42px; border-radius: 50%; font-size: 1.05rem; }
+  .card-foot .arrow { width: 42px; height: 42px; min-width: 42px; border-radius: 50%; }
+  .card-foot .arrow .arrow-i { font-size: 1.05rem; }
 
   /* --- Modal ocupa a tela como uma folha vinda de baixo --- */
   .modal-overlay { padding: 0; align-items: flex-end; }

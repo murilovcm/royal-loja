@@ -24,11 +24,11 @@
   </div>
   {% endif %}
   <div class="card-foot">
-    <div>
+    <div class="price-wrap">
       <span class="from">a partir de</span><br>
       <span class="price"><span class="cur">R$</span>{{ '%.2f' | format(m.min_price) | replace('.', ',') }}</span>
     </div>
-    <span class="arrow">→</span>
+    <span class="arrow"><span class="arrow-i">→</span></span>
   </div>
 </article>
 {% endmacro %}
