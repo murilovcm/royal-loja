@@ -213,7 +213,10 @@
       border:1px solid color-mix(in srgb, var(--pv-primary, #FFD60A) 24%, transparent);
       border-radius:999px; padding:2px 8px; margin-bottom:6px;
     }
+    .sp-brand { font-size:.6rem; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--pv-brand, #a855f7); }
     .sp-name { font-weight:800; font-size:.8rem; color:var(--pv-text, #fff); margin-bottom:2px; }
+    .sp-flavor { font-size:.66rem; color:var(--pv-text-dim, #9a97a5); margin-bottom:7px; }
+    .sp-more { color:var(--pv-flavor-more, #a855f7); font-weight:600; }
     .sp-price-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px; }
     .sp-price { font-weight:800; font-size:.9rem; color:var(--pv-price, #FFD60A); }
     .sp-arrow {
@@ -634,6 +637,16 @@
               <input type="color" id="colorArrow" value="{{ config.theme_arrow_color or config.theme_primary_color or '#FFD60A' }}">
               <input type="text" id="colorArrowHex" value="{{ config.theme_arrow_color or config.theme_primary_color or '#FFD60A' }}" maxlength="7">
             </div>
+            <div class="color-row">
+              <div class="cr-label">Cor da marca<small>Nome da marca nos cards (ex: LOST MARY)</small></div>
+              <input type="color" id="colorBrandLabel" value="{{ config.theme_brand_label_color or config.theme_accent_soft_color or '#a855f7' }}">
+              <input type="text" id="colorBrandLabelHex" value="{{ config.theme_brand_label_color or config.theme_accent_soft_color or '#a855f7' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Cor do "+x sabores"<small>Contador de sabores extras nos cards</small></div>
+              <input type="color" id="colorFlavorMore" value="{{ config.theme_flavor_more_color or config.theme_accent_soft_color or '#a855f7' }}">
+              <input type="text" id="colorFlavorMoreHex" value="{{ config.theme_flavor_more_color or config.theme_accent_soft_color or '#a855f7' }}" maxlength="7">
+            </div>
           </div>
 
           <div class="sections-block">
@@ -804,7 +817,9 @@
                 <div class="sp-card">
                   <div class="sp-card-img">📦</div>
                   <span class="sp-badge">⚡ 25.000 puffs</span>
+                  <div class="sp-brand">LOST MARY</div>
                   <div class="sp-name">Vape Exemplo</div>
+                  <div class="sp-flavor">Menta <span class="sp-more">+3 sabores</span></div>
                   <div class="sp-price-row">
                     <div class="sp-price">R$ 89,90</div>
                     <span class="sp-arrow">→</span>
@@ -814,7 +829,9 @@
                 <div class="sp-card">
                   <div class="sp-card-img">🧊</div>
                   <span class="sp-badge">❄️ Ice</span>
+                  <div class="sp-brand">ELF BAR</div>
                   <div class="sp-name">Vape Menta</div>
+                  <div class="sp-flavor">Ice <span class="sp-more">+2 sabores</span></div>
                   <div class="sp-price-row">
                     <div class="sp-price">R$ 79,90</div>
                     <span class="sp-arrow">→</span>
@@ -1212,7 +1229,8 @@
     }
     ['colorPrimary', 'colorOnPrimary', 'colorGradEnd', 'colorBg', 'colorCard',
      'colorSurface', 'colorSurface2', 'colorBorder', 'colorAccent', 'colorAccentSoft',
-     'colorText', 'colorTextDim', 'colorPrice', 'colorArrow'].forEach((id) => syncColorPair(id, id + 'Hex'));
+     'colorText', 'colorTextDim', 'colorPrice', 'colorArrow',
+     'colorBrandLabel', 'colorFlavorMore'].forEach((id) => syncColorPair(id, id + 'Hex'));
 
     // A "cor inicial" do gradiente e a "cor primária" são o mesmo valor:
     // manter os dois campos espelhados em ambas as direções.
@@ -1277,6 +1295,8 @@
       p.style.setProperty('--pv-price', priceColor);
       p.style.setProperty('--pv-arrow', arrowColor);
       p.style.setProperty('--pv-arrow-rgb', hexToRgb(arrowColor));
+      p.style.setProperty('--pv-brand', cval('colorBrandLabel'));
+      p.style.setProperty('--pv-flavor-more', cval('colorFlavorMore'));
     }
     updateIdentityPreview();
 
@@ -1362,6 +1382,8 @@
           theme_text_dim_color: cval('colorTextDim'),
           theme_price_color: cval('colorPrice'),
           theme_arrow_color: cval('colorArrow'),
+          theme_brand_label_color: cval('colorBrandLabel'),
+          theme_flavor_more_color: cval('colorFlavorMore'),
         };
         const res = await api('/api/update_theme_colors', 'POST', colors);
         if (okMain && okFooter && res.ok) toast("Identidade visual salva com sucesso ✓");

@@ -760,7 +760,7 @@ header.site-header {
 }
 .model-card .card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .model-card .card-img .ph { color: var(--border); font-size: 3rem; font-weight: 800; }
-.model-card .brand-lbl { font-size: .85rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--purple-soft); font-weight: 700; }
+.model-card .brand-lbl { font-size: .85rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--brand-label-color); font-weight: 700; }
 .model-card h3 { font-size: 1.25rem; font-weight: 800; margin: 2px 0 6px; letter-spacing: -.3px; }
 .model-card .puffs {
   display: inline-flex; align-items: center; gap: 5px;
@@ -784,7 +784,7 @@ header.site-header {
   vertical-align: middle; margin-right: 6px; box-shadow: 0 0 0 2px rgba(255,255,255,.06);
 }
 .flavor-badge .fn { vertical-align: middle; }
-.flavor-badge .more { color: var(--purple-soft); font-weight: 600; margin-left: 6px; white-space: nowrap; vertical-align: middle; }
+.flavor-badge .more { color: var(--flavor-more-color); font-weight: 600; margin-left: 6px; white-space: nowrap; vertical-align: middle; }
 .card-foot {
   margin-top: auto;
   padding-top: 13px;
