@@ -559,6 +559,25 @@ def init_db():
     db.execute("DELETE FROM site_config WHERE key LIKE 'atacado_%' OR key = 'show_atacado'")
     db.commit()
 
+    # Limpeza única (uma vez por banco): remove o bloco "Atacado" que versões
+    # antigas semeavam automaticamente e ficou gravado em promo_blocks nas lojas
+    # já publicadas (vapor-loja, pods-ilha, etc.). Identifica pelo bg_word padrão
+    # "ATACADO" — não toca em blocos promocionais criados/renomeados pelo lojista.
+    # A flag garante que roda só uma vez, então blocos legítimos futuros ficam a salvo.
+    if db.execute("SELECT 1 FROM site_config WHERE key = 'atacado_block_purged'").fetchone() is None:
+        for r in db.execute("SELECT id FROM promo_blocks").fetchall():
+            pid = r["id"]
+            bg = db.execute(
+                "SELECT value FROM site_config WHERE key = ?", (f"promo_{pid}_bg_word",)
+            ).fetchone()
+            if bg and (bg["value"] or "").strip().upper() == "ATACADO":
+                db.execute("DELETE FROM promo_blocks WHERE id = ?", (pid,))
+                db.execute("DELETE FROM site_config WHERE key LIKE ?", (f"promo_{pid}_%",))
+        db.execute(
+            "INSERT OR IGNORE INTO site_config (key, value) VALUES ('atacado_block_purged', '1')"
+        )
+        db.commit()
+
     # Semeia shipping_zones com os valores de shipping.py na primeira execução.
     # Depois disso, o banco manda — editar shipping.py não muda mais nada em produção.
     if db.execute("SELECT COUNT(*) AS c FROM shipping_zones").fetchone()[0] == 0:
