@@ -1761,7 +1761,7 @@ body.editor-mode .model-card { cursor: default; }
   .container { padding-left: 16px; padding-right: 16px; }
 
   /* Header em uma linha limpa: logo | espaço | carrinho, busca embaixo */
-  .header-inner { flex-wrap: wrap; gap: 12px; padding: 12px 0; }
+  .header-inner { flex-wrap: wrap; gap: 12px; padding-block: 12px; }
   .logo { font-size: 1.4rem; }
   .logo-img { height: 80px; }
   .footer-logo img { height: 112px; }
@@ -1787,7 +1787,10 @@ body.editor-mode .model-card { cursor: default; }
   .container { padding-left: 12px; padding-right: 12px; }
 
   /* --- Header premium mobile --- */
-  .header-inner { gap: 12px; padding: 12px 0; align-items: center; }
+  .header-inner { gap: 12px; padding-block: 12px; align-items: center; }
+  /* Respiro extra à direita para a barra de rolagem não passar por cima
+     dos ícones (soma-se ao padding horizontal do container). */
+  .header-actions { padding-right: 8px; }
   .logo { font-size: 1.3rem; gap: 6px; }
   .logo-img { height: 84px; }
   .footer-logo img { height: 112px; }
