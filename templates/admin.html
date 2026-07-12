@@ -151,31 +151,76 @@
     }
     .color-row input[type=text]:focus { outline:none; border-color:var(--primary-yellow); }
 
-    .identity-preview {
-      background:var(--preview-bg, #0d0d1a); border:1px solid var(--border); border-radius:16px;
-      padding:22px; display:flex; flex-direction:column; align-items:center; gap:16px; transition:background .15s;
-      position:sticky; top:20px;
+    /* ---- Gradiente dos botões (presets + ajuste manual) ---- */
+    .grad-preview-bar {
+      height:54px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+      font-weight:800; font-size:.9rem; color:var(--grad-ink, #000); margin:2px 0 16px;
+      background:linear-gradient(var(--grad-angle, 120deg), var(--grad-c1, #FFD60A), var(--grad-c2, #ffe45e));
+      border:1px solid var(--border); transition:.15s;
     }
-    .identity-preview .ip-logo { max-height:44px; max-width:160px; object-fit:contain; }
-    .identity-preview .ip-card {
-      width:100%; max-width:220px; background:var(--preview-card, #1a1a2e); border-radius:14px; padding:14px;
-      transition:background .15s;
+    .grad-presets { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; }
+    .grad-preset {
+      flex:1; min-width:92px; height:44px; padding:0; border-radius:10px; border:2px solid transparent;
+      color:#fff; font-weight:700; font-size:.78rem; text-shadow:0 1px 3px rgba(0,0,0,.55);
+      background:var(--pv); cursor:pointer; transition:transform .15s, box-shadow .15s;
     }
-    .identity-preview .ip-img {
-      width:100%; aspect-ratio:1/1; border-radius:10px; margin-bottom:10px;
-      background:linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
-      display:flex; align-items:center; justify-content:center; font-size:2rem;
+    .grad-preset:hover { transform:translateY(-2px); }
+    .grad-preset.active { border-color:#fff; box-shadow:0 0 0 2px var(--purple-soft); }
+    .grad-angle-row { display:flex; align-items:center; gap:12px; padding:6px 0 2px; }
+    .grad-angle-row > span { flex:1; font-size:.85rem; font-weight:600; }
+    .grad-angle-row input[type=range] { flex:1; accent-color:var(--primary-yellow); }
+    .grad-angle-val { width:54px; text-align:right; font-weight:700; font-size:.85rem; }
+
+    /* ---- Preview realista (mini-página) ---- */
+    .site-preview {
+      position:sticky; top:20px; border:1px solid var(--border); border-radius:18px; overflow:hidden;
+      background:var(--pv-bg, #0d0d1a); color:var(--pv-text, #fff); transition:.15s;
+      --pv-grad:linear-gradient(var(--pv-angle, 120deg), var(--pv-primary, #FFD60A), var(--pv-grad-end, #ffe45e));
     }
-    .identity-preview .ip-badge {
-      display:inline-block; font-size:.68rem; font-weight:700; color:var(--yellow-soft);
-      background:rgba(255,214,10,.08); border:1px solid rgba(255,214,10,.18); border-radius:999px;
-      padding:3px 10px; margin-bottom:6px;
+    .sp-nav {
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:12px 16px; border-bottom:1px solid var(--pv-border, #29262f); background:var(--pv-surface, #17151c);
     }
-    .identity-preview .ip-name { font-weight:800; font-size:.95rem; color:var(--preview-text, #fff); margin-bottom:4px; transition:color .15s; }
-    .identity-preview .ip-price { font-weight:800; font-size:1.1rem; color:var(--preview-text, #fff); margin-bottom:12px; transition:color .15s; }
-    .identity-preview .ip-btn {
-      width:100%; padding:12px; border-radius:12px; border:none; font-weight:800; font-size:.85rem;
-      background:var(--preview-primary, #FFD60A); color:var(--preview-on-primary, #000); transition:.15s;
+    .sp-nav img { max-height:30px; max-width:120px; object-fit:contain; }
+    .sp-cart {
+      width:40px; height:40px; border-radius:11px; display:flex; align-items:center; justify-content:center;
+      font-size:1rem; background:var(--pv-grad); color:var(--pv-on-primary, #000);
+    }
+    .sp-hero { padding:22px 16px 16px; text-align:center; }
+    .sp-hero h4 { font-size:1.05rem; font-weight:800; margin-bottom:12px; color:var(--pv-text, #fff); }
+    .sp-cta {
+      display:inline-block; padding:12px 26px; border-radius:999px; font-weight:800; font-size:.85rem;
+      background:var(--pv-primary, #FFD60A); color:var(--pv-on-primary, #000);
+    }
+    .sp-pills { display:flex; gap:8px; justify-content:center; padding:0 16px 16px; flex-wrap:wrap; }
+    .sp-pill {
+      padding:7px 14px; border-radius:999px; font-size:.72rem; font-weight:700;
+      border:1px solid var(--pv-border, #29262f); color:var(--pv-text-dim, #9a97a5); background:transparent;
+    }
+    .sp-pill.active { background:var(--pv-grad); color:var(--pv-on-primary, #000); border-color:transparent; }
+    .sp-cards { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:0 16px 16px; }
+    .sp-card { background:var(--pv-card, #1a1a2e); border:1px solid var(--pv-border, #29262f); border-radius:14px; padding:12px; }
+    .sp-card-img {
+      width:100%; aspect-ratio:1/1; border-radius:10px; margin-bottom:8px; font-size:1.6rem;
+      display:flex; align-items:center; justify-content:center;
+      background:linear-gradient(135deg, color-mix(in srgb, var(--pv-accent, #7c3aed) 22%, transparent), transparent);
+    }
+    .sp-badge {
+      display:inline-block; font-size:.6rem; font-weight:700; color:var(--pv-primary, #FFD60A);
+      background:color-mix(in srgb, var(--pv-primary, #FFD60A) 12%, transparent);
+      border:1px solid color-mix(in srgb, var(--pv-primary, #FFD60A) 24%, transparent);
+      border-radius:999px; padding:2px 8px; margin-bottom:6px;
+    }
+    .sp-name { font-weight:800; font-size:.8rem; color:var(--pv-text, #fff); margin-bottom:2px; }
+    .sp-price { font-weight:800; font-size:.9rem; color:var(--pv-text, #fff); margin-bottom:9px; }
+    .sp-add {
+      width:100%; padding:9px; border-radius:10px; border:none; font-weight:800; font-size:.75rem;
+      background:var(--pv-grad); color:var(--pv-on-primary, #000);
+    }
+    .sp-foot { display:flex; justify-content:center; padding:0 16px 18px; }
+    .sp-wa {
+      display:inline-flex; align-items:center; gap:8px; padding:10px 20px; border-radius:999px;
+      font-weight:800; font-size:.8rem; background:#25D366; color:#04331b;
     }
     .identity-save-row { display:flex; justify-content:flex-end; margin-top:20px; }
 
@@ -552,19 +597,59 @@
 
           <div class="sections-block">
             <div class="sections-head">
-              🎨 Cores Primárias <span class="sections-sub">Cores usadas em botões, fundo e textos da loja</span>
+              🎨 Cores da marca <span class="sections-sub">Cor principal e texto dos botões</span>
             </div>
 
             <div class="color-row">
-              <div class="cr-label">Cor primária<small>Botões, destaques, badges</small></div>
+              <div class="cr-label">Cor primária<small>Início do gradiente · badges · destaques</small></div>
               <input type="color" id="colorPrimary" value="{{ config.theme_primary_color or '#FFD60A' }}">
               <input type="text" id="colorPrimaryHex" value="{{ config.theme_primary_color or '#FFD60A' }}" maxlength="7">
             </div>
             <div class="color-row">
-              <div class="cr-label">Texto sobre primária<small>Texto dentro de botões amarelos</small></div>
+              <div class="cr-label">Texto sobre primária<small>Texto dentro dos botões</small></div>
               <input type="color" id="colorOnPrimary" value="{{ config.theme_text_on_primary_color or '#000000' }}">
               <input type="text" id="colorOnPrimaryHex" value="{{ config.theme_text_on_primary_color or '#000000' }}" maxlength="7">
             </div>
+          </div>
+
+          <div class="sections-block">
+            <div class="sections-head">
+              🌈 Gradiente dos botões <span class="sections-sub">Escolha um preset ou ajuste manualmente — vale para todos os botões</span>
+            </div>
+
+            <div class="grad-preview-bar" id="gradPreviewBar">Botão de exemplo</div>
+
+            <div class="grad-presets" id="gradPresets">
+              <button type="button" class="grad-preset" data-c1="#FFD60A" data-c2="#ffe45e" data-angle="120" style="--pv:linear-gradient(120deg,#FFD60A,#ffe45e)">Dourado</button>
+              <button type="button" class="grad-preset" data-c1="#7c3aed" data-c2="#a855f7" data-angle="120" style="--pv:linear-gradient(120deg,#7c3aed,#a855f7)">Roxo</button>
+              <button type="button" class="grad-preset" data-c1="#12b76a" data-c2="#6be3a4" data-angle="120" style="--pv:linear-gradient(120deg,#12b76a,#6be3a4)">Verde</button>
+              <button type="button" class="grad-preset" data-c1="#ff512f" data-c2="#f9a825" data-angle="120" style="--pv:linear-gradient(120deg,#ff512f,#f9a825)">Fogo</button>
+              <button type="button" class="grad-preset" data-c1="#2563eb" data-c2="#22d3ee" data-angle="120" style="--pv:linear-gradient(120deg,#2563eb,#22d3ee)">Oceano</button>
+              <button type="button" class="grad-preset" data-c1="#ec4899" data-c2="#f9a8d4" data-angle="120" style="--pv:linear-gradient(120deg,#ec4899,#f9a8d4)">Rosé</button>
+            </div>
+
+            <div class="color-row">
+              <div class="cr-label">Cor inicial<small>É a mesma da cor primária acima</small></div>
+              <input type="color" id="colorGradStart" value="{{ config.theme_primary_color or '#FFD60A' }}">
+              <input type="text" id="colorGradStartHex" value="{{ config.theme_primary_color or '#FFD60A' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Cor final<small>Segundo tom do degradê</small></div>
+              <input type="color" id="colorGradEnd" value="{{ config.theme_primary_grad_end or '#ffe45e' }}">
+              <input type="text" id="colorGradEndHex" value="{{ config.theme_primary_grad_end or '#ffe45e' }}" maxlength="7">
+            </div>
+            <div class="grad-angle-row">
+              <span>Ângulo do degradê</span>
+              <input type="range" id="gradAngle" min="0" max="360" step="5" value="{{ config.theme_grad_angle or '120' }}">
+              <span class="grad-angle-val" id="gradAngleVal">{{ config.theme_grad_angle or '120' }}°</span>
+            </div>
+          </div>
+
+          <div class="sections-block">
+            <div class="sections-head">
+              🎛️ Cores do site <span class="sections-sub">Fundos, superfícies, bordas e textos da loja inteira</span>
+            </div>
+
             <div class="color-row">
               <div class="cr-label">Fundo principal<small>Fundo geral da loja</small></div>
               <input type="color" id="colorBg" value="{{ config.theme_bg_color or '#0d0d1a' }}">
@@ -576,9 +661,39 @@
               <input type="text" id="colorCardHex" value="{{ config.theme_card_bg_color or '#1a1a2e' }}" maxlength="7">
             </div>
             <div class="color-row">
+              <div class="cr-label">Superfície<small>Navbar, menus e modais</small></div>
+              <input type="color" id="colorSurface" value="{{ config.theme_surface_color or '#17151c' }}">
+              <input type="text" id="colorSurfaceHex" value="{{ config.theme_surface_color or '#17151c' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Superfície 2<small>Painéis e blocos elevados</small></div>
+              <input type="color" id="colorSurface2" value="{{ config.theme_surface_2_color or '#1e1b26' }}">
+              <input type="text" id="colorSurface2Hex" value="{{ config.theme_surface_2_color or '#1e1b26' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Bordas<small>Linhas e contornos</small></div>
+              <input type="color" id="colorBorder" value="{{ config.theme_border_color or '#29262f' }}">
+              <input type="text" id="colorBorderHex" value="{{ config.theme_border_color or '#29262f' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Cor de destaque<small>Detalhes, brilhos e hovers</small></div>
+              <input type="color" id="colorAccent" value="{{ config.theme_accent_color or '#7c3aed' }}">
+              <input type="text" id="colorAccentHex" value="{{ config.theme_accent_color or '#7c3aed' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Destaque suave<small>Segundo tom do destaque</small></div>
+              <input type="color" id="colorAccentSoft" value="{{ config.theme_accent_soft_color or '#a855f7' }}">
+              <input type="text" id="colorAccentSoftHex" value="{{ config.theme_accent_soft_color or '#a855f7' }}" maxlength="7">
+            </div>
+            <div class="color-row">
               <div class="cr-label">Texto principal<small>Texto geral da loja</small></div>
               <input type="color" id="colorText" value="{{ config.theme_text_color or '#ffffff' }}">
               <input type="text" id="colorTextHex" value="{{ config.theme_text_color or '#ffffff' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Texto secundário<small>Legendas e textos apagados</small></div>
+              <input type="color" id="colorTextDim" value="{{ config.theme_text_dim_color or '#9a97a5' }}">
+              <input type="text" id="colorTextDimHex" value="{{ config.theme_text_dim_color or '#9a97a5' }}" maxlength="7">
             </div>
 
             <div class="identity-save-row">
@@ -640,14 +755,38 @@
             <div class="sections-head">
               👁️ Preview ao vivo <span class="sections-sub">Atualiza em tempo real, antes mesmo de salvar</span>
             </div>
-            <div class="identity-preview" id="identityPreview">
-              <img class="ip-logo" id="ipLogo" src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="">
-              <div class="ip-card">
-                <div class="ip-img">📦</div>
-                <span class="ip-badge">⚡ 25.000 puffs</span>
-                <div class="ip-name">Vape Modelo Exemplo</div>
-                <div class="ip-price">R$ 89,90</div>
-                <button class="ip-btn" type="button">Ver Catálogo</button>
+            <div class="site-preview" id="sitePreview">
+              <div class="sp-nav">
+                <img id="ipLogo" src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="">
+                <div class="sp-cart">🛒</div>
+              </div>
+              <div class="sp-hero">
+                <h4>Sabor que reina.</h4>
+                <span class="sp-cta">Ver Catálogo</span>
+              </div>
+              <div class="sp-pills">
+                <span class="sp-pill active">Todos</span>
+                <span class="sp-pill">25.000 puffs</span>
+                <span class="sp-pill">Menta</span>
+              </div>
+              <div class="sp-cards">
+                <div class="sp-card">
+                  <div class="sp-card-img">📦</div>
+                  <span class="sp-badge">⚡ 25.000 puffs</span>
+                  <div class="sp-name">Vape Exemplo</div>
+                  <div class="sp-price">R$ 89,90</div>
+                  <button class="sp-add" type="button">Adicionar</button>
+                </div>
+                <div class="sp-card">
+                  <div class="sp-card-img">🧊</div>
+                  <span class="sp-badge">❄️ Ice</span>
+                  <div class="sp-name">Vape Menta</div>
+                  <div class="sp-price">R$ 79,90</div>
+                  <button class="sp-add" type="button">Adicionar</button>
+                </div>
+              </div>
+              <div class="sp-foot">
+                <span class="sp-wa">💬 Comprar no WhatsApp</span>
               </div>
             </div>
           </div>
@@ -1011,25 +1150,84 @@
     // ---- Identidade Visual ----
     const pendingLogoFiles = { main: null, footer: null };
 
-    function syncColorPair(colorId, hexId) {
+    const cval = (id) => document.getElementById(id).value;
+    function setColorInput(id, hex) {
+      document.getElementById(id).value = hex;
+      document.getElementById(id + 'Hex').value = hex;
+    }
+
+    function syncColorPair(colorId, hexId, onChange) {
       const colorEl = document.getElementById(colorId);
       const hexEl = document.getElementById(hexId);
-      colorEl.addEventListener('input', () => { hexEl.value = colorEl.value; updateIdentityPreview(); });
+      const done = onChange || updateIdentityPreview;
+      colorEl.addEventListener('input', () => { hexEl.value = colorEl.value; done(); });
       hexEl.addEventListener('input', () => {
         let v = hexEl.value.trim();
         if (v && !v.startsWith('#')) v = '#' + v;
-        if (/^#[0-9a-fA-F]{6}$/.test(v)) { colorEl.value = v; updateIdentityPreview(); }
+        if (/^#[0-9a-fA-F]{6}$/.test(v)) { colorEl.value = v; done(); }
       });
     }
-    ['colorPrimary', 'colorOnPrimary', 'colorBg', 'colorCard', 'colorText'].forEach((id) => syncColorPair(id, id + 'Hex'));
+    ['colorPrimary', 'colorOnPrimary', 'colorGradEnd', 'colorBg', 'colorCard',
+     'colorSurface', 'colorSurface2', 'colorBorder', 'colorAccent', 'colorAccentSoft',
+     'colorText', 'colorTextDim'].forEach((id) => syncColorPair(id, id + 'Hex'));
+
+    // A "cor inicial" do gradiente e a "cor primária" são o mesmo valor:
+    // manter os dois campos espelhados em ambas as direções.
+    syncColorPair('colorGradStart', 'colorGradStartHex', () => {
+      setColorInput('colorPrimary', cval('colorGradStart'));
+      updateIdentityPreview();
+    });
+    ['colorPrimary', 'colorPrimaryHex'].forEach((id) => {
+      document.getElementById(id).addEventListener('input', () => setColorInput('colorGradStart', cval('colorPrimary')));
+    });
+
+    // Ângulo do degradê
+    const gradAngleEl = document.getElementById('gradAngle');
+    gradAngleEl.addEventListener('input', () => {
+      document.getElementById('gradAngleVal').textContent = gradAngleEl.value + '°';
+      updateIdentityPreview();
+    });
+
+    // Presets de gradiente
+    document.querySelectorAll('.grad-preset').forEach((b) => {
+      b.addEventListener('click', () => {
+        setColorInput('colorPrimary', b.dataset.c1);
+        setColorInput('colorGradStart', b.dataset.c1);
+        setColorInput('colorGradEnd', b.dataset.c2);
+        gradAngleEl.value = b.dataset.angle;
+        document.getElementById('gradAngleVal').textContent = b.dataset.angle + '°';
+        document.querySelectorAll('.grad-preset').forEach((x) => x.classList.remove('active'));
+        b.classList.add('active');
+        updateIdentityPreview();
+      });
+    });
 
     function updateIdentityPreview() {
-      const preview = document.getElementById('identityPreview');
-      preview.style.setProperty('--preview-bg', document.getElementById('colorBg').value);
-      preview.style.setProperty('--preview-card', document.getElementById('colorCard').value);
-      preview.style.setProperty('--preview-primary', document.getElementById('colorPrimary').value);
-      preview.style.setProperty('--preview-on-primary', document.getElementById('colorOnPrimary').value);
-      preview.style.setProperty('--preview-text', document.getElementById('colorText').value);
+      const primary = cval('colorPrimary');
+      const gradEnd = cval('colorGradEnd');
+      const angle = gradAngleEl.value + 'deg';
+      const onPrimary = cval('colorOnPrimary');
+
+      // Barra de preview do gradiente
+      const bar = document.getElementById('gradPreviewBar');
+      bar.style.setProperty('--grad-c1', primary);
+      bar.style.setProperty('--grad-c2', gradEnd);
+      bar.style.setProperty('--grad-angle', angle);
+      bar.style.setProperty('--grad-ink', onPrimary);
+
+      // Mini-página realista
+      const p = document.getElementById('sitePreview');
+      p.style.setProperty('--pv-bg', cval('colorBg'));
+      p.style.setProperty('--pv-card', cval('colorCard'));
+      p.style.setProperty('--pv-surface', cval('colorSurface'));
+      p.style.setProperty('--pv-border', cval('colorBorder'));
+      p.style.setProperty('--pv-accent', cval('colorAccent'));
+      p.style.setProperty('--pv-text', cval('colorText'));
+      p.style.setProperty('--pv-text-dim', cval('colorTextDim'));
+      p.style.setProperty('--pv-primary', primary);
+      p.style.setProperty('--pv-grad-end', gradEnd);
+      p.style.setProperty('--pv-angle', angle);
+      p.style.setProperty('--pv-on-primary', onPrimary);
     }
     updateIdentityPreview();
 
@@ -1076,11 +1274,19 @@
         const okMain = await uploadPendingLogo('main');
         const okFooter = await uploadPendingLogo('footer');
         const colors = {
-          theme_primary_color: document.getElementById('colorPrimary').value,
-          theme_text_on_primary_color: document.getElementById('colorOnPrimary').value,
-          theme_bg_color: document.getElementById('colorBg').value,
-          theme_card_bg_color: document.getElementById('colorCard').value,
-          theme_text_color: document.getElementById('colorText').value,
+          theme_primary_color: cval('colorPrimary'),
+          theme_primary_grad_end: cval('colorGradEnd'),
+          theme_grad_angle: gradAngleEl.value,
+          theme_text_on_primary_color: cval('colorOnPrimary'),
+          theme_bg_color: cval('colorBg'),
+          theme_card_bg_color: cval('colorCard'),
+          theme_surface_color: cval('colorSurface'),
+          theme_surface_2_color: cval('colorSurface2'),
+          theme_border_color: cval('colorBorder'),
+          theme_accent_color: cval('colorAccent'),
+          theme_accent_soft_color: cval('colorAccentSoft'),
+          theme_text_color: cval('colorText'),
+          theme_text_dim_color: cval('colorTextDim'),
         };
         const res = await api('/api/update_theme_colors', 'POST', colors);
         if (okMain && okFooter && res.ok) toast("Identidade visual salva com sucesso ✓");

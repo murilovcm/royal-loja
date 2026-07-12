@@ -4,6 +4,10 @@
 :root {
   --primary-yellow: #FFD60A;
   --yellow-soft: #ffe45e;
+  /* Degradê único usado em TODOS os botões de marca. Ângulo e paradas são
+     editáveis pelo painel (Identidade Visual → Gradiente dos botões). */
+  --btn-grad-angle: 120deg;
+  --btn-grad: linear-gradient(var(--btn-grad-angle), var(--primary-yellow), var(--yellow-soft));
   --text-on-primary: #000000;
   --bg: #0a0a0c;
   --bg-2: #111014;
@@ -168,7 +172,7 @@ html.age-ok .age-gate-card,
   width: 100%;
   padding: 17px;
   border-radius: 14px;
-  background: linear-gradient(120deg, var(--primary-yellow), var(--yellow-soft));
+  background: var(--btn-grad);
   color: var(--text-on-primary);
   font-weight: 800;
   font-size: .92rem;
@@ -291,7 +295,7 @@ header.site-header {
 }
 .logo .crown { color: var(--primary-yellow); filter: drop-shadow(var(--glow)); }
 .logo b {
-  background: linear-gradient(120deg, var(--primary-yellow), var(--yellow-soft));
+  background: var(--btn-grad);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -324,7 +328,7 @@ header.site-header {
 
 .cart-btn {
   position: relative;
-  background: linear-gradient(135deg, var(--primary-yellow), var(--yellow-soft));
+  background: var(--btn-grad);
   border: none;
   width: 48px; height: 48px;
   border-radius: 14px;
@@ -644,7 +648,7 @@ header.site-header {
 }
 .pill:hover { color: var(--text); border-color: var(--purple-soft); }
 .pill.active {
-  background: linear-gradient(120deg, var(--primary-yellow), var(--yellow-soft));
+  background: var(--btn-grad);
   color: var(--text-on-primary);
   border-color: transparent;
   box-shadow: var(--glow);
@@ -883,7 +887,7 @@ header.site-header {
 .flavor-pill:hover { border-color: var(--purple-soft); }
 .flavor-pill .dot { width: 10px; height: 10px; border-radius: 50%; }
 .flavor-pill.selected {
-  background: linear-gradient(120deg, var(--primary-yellow), var(--yellow-soft));
+  background: var(--btn-grad);
   color: var(--text-on-primary); border-color: transparent;
   box-shadow: var(--glow);
 }
@@ -922,7 +926,7 @@ header.site-header {
   width: 100%;
   padding: 16px;
   border-radius: 14px;
-  background: linear-gradient(120deg, var(--primary-yellow), var(--yellow-soft));
+  background: var(--btn-grad);
   color: var(--text-on-primary); font-weight: 800; font-size: 1rem;
   display: flex; align-items: center; justify-content: center; gap: 8px;
   transition: transform .18s cubic-bezier(.22,1,.36,1), box-shadow .2s, background .2s;
@@ -1042,7 +1046,7 @@ header.site-header {
 .cart-fab {
   position: fixed; bottom: 24px; right: 24px; z-index: 90;
   width: 58px; height: 58px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary-yellow), var(--yellow-soft));
+  background: var(--btn-grad);
   color: var(--text-on-primary); font-size: 1.5rem;
   display: grid; place-items: center;
   box-shadow: 0 10px 30px rgba(255,214,10,.4), inset 0 1px 0 rgba(255,255,255,.4);
@@ -1200,7 +1204,7 @@ header.site-header {
 .geo-btn {
   width: 100%; padding: 14px 16px;
   margin-top: 10px;
-  background: linear-gradient(120deg, var(--primary-yellow), var(--yellow-soft));
+  background: var(--btn-grad);
   border: none;
   border-radius: var(--radius-sm);
   color: var(--text-on-primary); font-weight: 800; font-size: .92rem;
@@ -1434,7 +1438,7 @@ body.editor-mode .model-card { cursor: default; }
    =================================================================== */
 .atacado-card {
   position: relative;
-  background: linear-gradient(120deg, var(--primary-yellow), var(--yellow-soft));
+  background: var(--btn-grad);
   border-radius: 26px;
   padding: 46px 48px;
   overflow: hidden;

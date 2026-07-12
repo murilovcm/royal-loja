@@ -507,10 +507,21 @@ def init_db():
     # Config padrão
     defaults = {
         "theme_primary_color": "#FFD60A",
+        # Segunda parada do degradê dos botões + ângulo do gradiente. Editáveis
+        # no painel ("Gradiente dos botões"); alimentam --yellow-soft/--btn-grad-angle.
+        "theme_primary_grad_end": "#ffe45e",
+        "theme_grad_angle": "120",
         "theme_text_on_primary_color": "#000000",
         "theme_bg_color": "#0d0d1a",
         "theme_card_bg_color": "#1a1a2e",
         "theme_text_color": "#ffffff",
+        # Paleta completa (superfícies, bordas, destaque roxo, texto secundário).
+        "theme_surface_color": "#17151c",
+        "theme_surface_2_color": "#1e1b26",
+        "theme_border_color": "#29262f",
+        "theme_accent_color": "#7c3aed",
+        "theme_accent_soft_color": "#a855f7",
+        "theme_text_dim_color": "#9a97a5",
         "logo_main_url": "",
         "logo_footer_url": "",
         "hero_title": "Sabor que reina. Qualidade Royal.",
@@ -1092,12 +1103,22 @@ def api_update_config():
 
 
 # ---- Identidade Visual (logos + cores do tema) ----
+# Chaves que carregam uma cor hex. São injetadas dentro de um bloco
+# <style>:root{...}</style> no index.html, então TODAS passam por
+# clean_hex_color() antes de gravar — evita injeção de CSS via painel.
 THEME_COLOR_KEYS = {
     "theme_primary_color",
+    "theme_primary_grad_end",
     "theme_text_on_primary_color",
     "theme_bg_color",
     "theme_card_bg_color",
     "theme_text_color",
+    "theme_surface_color",
+    "theme_surface_2_color",
+    "theme_border_color",
+    "theme_accent_color",
+    "theme_accent_soft_color",
+    "theme_text_dim_color",
 }
 
 
@@ -1108,10 +1129,26 @@ def api_update_theme_colors():
     db = get_db()
     for key in THEME_COLOR_KEYS:
         if key in data:
+            color = clean_hex_color(data[key])
+            if color is None:
+                continue  # ignora valores fora do formato hex
             db.execute(
                 "INSERT INTO site_config (key, value) VALUES (?, ?) "
                 "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                (key, data[key]),
+                (key, color),
+            )
+    # Ângulo do degradê dos botões: só um inteiro 0–360 (vai para o CSS).
+    if "theme_grad_angle" in data:
+        try:
+            angle = int(float(str(data["theme_grad_angle"]).strip()))
+        except (TypeError, ValueError):
+            angle = None
+        if angle is not None:
+            angle = max(0, min(360, angle))
+            db.execute(
+                "INSERT INTO site_config (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                ("theme_grad_angle", str(angle)),
             )
     db.commit()
     return jsonify({"ok": True})

@@ -59,10 +59,18 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_v }}">
   <style>:root{
     --primary-yellow: {{ config.theme_primary_color or '#FFD60A' }};
+    --yellow-soft: {{ config.theme_primary_grad_end or '#ffe45e' }};
+    --btn-grad-angle: {{ config.theme_grad_angle or '120' }}deg;
     --text-on-primary: {{ config.theme_text_on_primary_color or '#000000' }};
     --bg: {{ config.theme_bg_color or '#0d0d1a' }};
     --card-bg: {{ config.theme_card_bg_color or '#1a1a2e' }};
     --text: {{ config.theme_text_color or '#ffffff' }};
+    --surface: {{ config.theme_surface_color or '#17151c' }};
+    --surface-2: {{ config.theme_surface_2_color or '#1e1b26' }};
+    --border: {{ config.theme_border_color or '#29262f' }};
+    --purple: {{ config.theme_accent_color or '#7c3aed' }};
+    --purple-soft: {{ config.theme_accent_soft_color or '#a855f7' }};
+    --text-dim: {{ config.theme_text_dim_color or '#9a97a5' }};
   }</style>
 </head>
 <body class="{{ 'editor-mode' if editor else '' }}">
