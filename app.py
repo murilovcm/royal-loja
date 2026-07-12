@@ -531,6 +531,8 @@ def init_db():
         # primária, para lojas antigas manterem a aparência atual.
         "theme_price_color": "#FFD60A",
         "theme_arrow_color": "#FFD60A",
+        # Cor do anel animado dos botões ("+" dos cards e CTAs). Padrão = primária.
+        "theme_ring_color": "#FFD60A",
         # Cor do nome da marca (ex: "LOST MARY") e do "+x sabores" nos cards.
         # Padrão = destaque suave (roxo), para não mudar lojas já publicadas.
         "theme_brand_label_color": "#a855f7",
@@ -1123,6 +1125,7 @@ THEME_COLOR_KEYS = {
     "theme_text_dim_color",
     "theme_price_color",
     "theme_arrow_color",
+    "theme_ring_color",
     "theme_brand_label_color",
     "theme_flavor_more_color",
 }

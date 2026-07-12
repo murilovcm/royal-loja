@@ -224,7 +224,9 @@
       display:grid; place-items:center; flex-shrink:0;
       color:var(--pv-arrow, #FFD60A);
       background:rgba(var(--pv-arrow-rgb, 255,214,10),.10);
-      border:1px solid rgba(var(--pv-arrow-rgb, 255,214,10),.24);
+      /* borda na "cor da animação" para refletir o anel dos botões */
+      border:1.5px solid rgba(var(--pv-ring, 255,214,10),.85);
+      box-shadow:0 0 6px rgba(var(--pv-ring, 255,214,10),.55);
     }
     .sp-add {
       width:100%; padding:9px; border-radius:10px; border:none; font-weight:800; font-size:.75rem;
@@ -636,6 +638,11 @@
               <div class="cr-label">Cor da seta<small>Seta → dos cards de produto</small></div>
               <input type="color" id="colorArrow" value="{{ config.theme_arrow_color or config.theme_primary_color or '#FFD60A' }}">
               <input type="text" id="colorArrowHex" value="{{ config.theme_arrow_color or config.theme_primary_color or '#FFD60A' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Cor da animação<small>Anel giratório do botão "+" e dos botões (Ver Catálogo, Adicionar, Finalizar, etc.)</small></div>
+              <input type="color" id="colorRing" value="{{ config.theme_ring_color or config.theme_primary_color or '#FFD60A' }}">
+              <input type="text" id="colorRingHex" value="{{ config.theme_ring_color or config.theme_primary_color or '#FFD60A' }}" maxlength="7">
             </div>
             <div class="color-row">
               <div class="cr-label">Cor da marca<small>Nome da marca nos cards (ex: LOST MARY)</small></div>
@@ -1229,7 +1236,7 @@
     }
     ['colorPrimary', 'colorOnPrimary', 'colorGradEnd', 'colorBg', 'colorCard',
      'colorSurface', 'colorSurface2', 'colorBorder', 'colorAccent', 'colorAccentSoft',
-     'colorText', 'colorTextDim', 'colorPrice', 'colorArrow',
+     'colorText', 'colorTextDim', 'colorPrice', 'colorArrow', 'colorRing',
      'colorBrandLabel', 'colorFlavorMore'].forEach((id) => syncColorPair(id, id + 'Hex'));
 
     // A "cor inicial" do gradiente e a "cor primária" são o mesmo valor:
@@ -1297,6 +1304,7 @@
       p.style.setProperty('--pv-arrow-rgb', hexToRgb(arrowColor));
       p.style.setProperty('--pv-brand', cval('colorBrandLabel'));
       p.style.setProperty('--pv-flavor-more', cval('colorFlavorMore'));
+      p.style.setProperty('--pv-ring', hexToRgb(cval('colorRing')));
     }
     updateIdentityPreview();
 
@@ -1382,6 +1390,7 @@
           theme_text_dim_color: cval('colorTextDim'),
           theme_price_color: cval('colorPrice'),
           theme_arrow_color: cval('colorArrow'),
+          theme_ring_color: cval('colorRing'),
           theme_brand_label_color: cval('colorBrandLabel'),
           theme_flavor_more_color: cval('colorFlavorMore'),
         };

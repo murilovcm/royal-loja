@@ -524,20 +524,26 @@ header.site-header {
 .ring-btn::before {
   content: ""; position: absolute; inset: -1.5px; border-radius: inherit; z-index: 2;
   padding: 2.5px; pointer-events: none;
+  /* Fallback: sem @property o --ring-angle fica 0deg e o anel AINDA renderiza
+     (antes ficava inválido -> sumia no mobile/webview). */
+  --ring-angle: 0deg;
   background: conic-gradient(from var(--ring-angle),
-      rgba(var(--primary-rgb),0) 0deg,
-      rgba(var(--primary-rgb),1) 100deg,
-      rgba(var(--primary-rgb),0) 200deg,
-      rgba(var(--primary-rgb),0) 360deg);
+      rgba(var(--ring-rgb, var(--primary-rgb)),0) 0deg,
+      rgba(var(--ring-rgb, var(--primary-rgb)),1) 100deg,
+      rgba(var(--ring-rgb, var(--primary-rgb)),0) 200deg,
+      rgba(var(--ring-rgb, var(--primary-rgb)),0) 360deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
           mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
           mask-composite: exclude;
-  filter: drop-shadow(0 0 4px rgba(var(--primary-rgb),.55));
-  animation: ringAngle 4.5s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(var(--ring-rgb, var(--primary-rgb)),.55));
+  /* Dois efeitos: giro do ângulo (onde @property existe) + brilho pulsante
+     (opacity, suportado em QUALQUER navegador) — garante vida no mobile. */
+  animation: ringAngle 4.5s linear infinite, ringGlow 2.2s ease-in-out infinite;
   transition: opacity .3s ease-out;
 }
 @keyframes ringAngle { to { --ring-angle: 360deg; } }
+@keyframes ringGlow { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 .ring-btn:hover::before { animation-duration: 1.3s; }
 .ring-btn:disabled::before { opacity: 0; animation: none; }
 @media (prefers-reduced-motion: reduce) {
@@ -872,11 +878,12 @@ header.site-header {
 .card-foot .card-plus::before {
   content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: 1;
   padding: 2px;
+  /* Cor do anel = --ring-rgb (controlada no painel), fallback p/ a cor da seta. */
   background: conic-gradient(from 0deg,
-      rgba(var(--arrow-rgb),0) 0deg,
-      rgba(var(--arrow-rgb),.9) 110deg,
-      rgba(var(--arrow-rgb),0) 210deg,
-      rgba(var(--arrow-rgb),0) 360deg);
+      rgba(var(--ring-rgb, var(--arrow-rgb)),0) 0deg,
+      rgba(var(--ring-rgb, var(--arrow-rgb)),.9) 110deg,
+      rgba(var(--ring-rgb, var(--arrow-rgb)),0) 210deg,
+      rgba(var(--ring-rgb, var(--arrow-rgb)),0) 360deg);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
           mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
