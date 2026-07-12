@@ -460,7 +460,7 @@
 
   byId("modalClose").addEventListener("click", closeModal);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeModal(); closeCart(); } });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeModal(); closeCart(); closeNav(); } });
 
   // Card click -> open modal (disabled in editor mode)
   grid.parentElement.parentElement.addEventListener("click", () => {}); // noop guard
@@ -487,6 +487,37 @@
 
   const cartFab = byId("cartFab");
   cartFab.addEventListener("click", openCart);
+
+  // ---------------------------------------------------------------
+  // NAV SIDEBAR (menu 3 pontinhos)
+  // ---------------------------------------------------------------
+  const navSidebar = byId("navSidebar");
+  const navOverlay = byId("navOverlay");
+  const navToggle = byId("navToggle");
+  function openNav() {
+    navSidebar.classList.add("open"); navOverlay.classList.add("open");
+    navSidebar.setAttribute("aria-hidden", "false");
+    if (navToggle) navToggle.setAttribute("aria-expanded", "true");
+    lockBodyScroll();
+  }
+  function closeNav() {
+    navSidebar.classList.remove("open"); navOverlay.classList.remove("open");
+    navSidebar.setAttribute("aria-hidden", "true");
+    if (navToggle) navToggle.setAttribute("aria-expanded", "false");
+    unlockBodyScroll();
+  }
+  if (navToggle) navToggle.addEventListener("click", openNav);
+  byId("navClose").addEventListener("click", closeNav);
+  navOverlay.addEventListener("click", closeNav);
+  // Categorias -> reusa o filtro do catálogo, rola até ele e fecha o menu
+  navSidebar.querySelectorAll(".nav-side-cat").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const pill = byId("filterBar").querySelector(`.pill[data-filter="${btn.dataset.filter}"]`);
+      if (pill) pill.click();
+      closeNav();
+      byId("catalogo").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
 
   function renderCart() {
     const box = byId("cartItems");

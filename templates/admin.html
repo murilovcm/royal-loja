@@ -761,6 +761,12 @@
               </div>
             </div>
 
+            <div class="pp-field">
+              <label for="cfgPageTitle">Título da aba (navegador)</label>
+              <input type="text" id="cfgPageTitle" maxlength="120" value="{{ config.page_title or '' }}" placeholder="Ex: Pods Ilha — Premium Vapes">
+              <small class="pp-hint">Aparece na aba do navegador (desktop e celular). Vazio usa "{nome da loja} — Premium Vapes".</small>
+            </div>
+
             <div class="pp-row">
               <div class="pp-field">
                 <label for="cfgWhatsapp">WhatsApp</label>
@@ -1419,6 +1425,7 @@
           store_city: document.getElementById('cfgStoreCity').value.trim(),
           whatsapp_phone: waEl.value,
           instagram_url: document.getElementById('cfgInstagram').value.trim(),
+          page_title: document.getElementById('cfgPageTitle').value.trim(),
           meta_description: document.getElementById('cfgMetaDesc').value.trim(),
           meta_keywords: document.getElementById('cfgMetaKeywords').value.trim(),
           favicon_url: document.getElementById('cfgFavicon').value.trim(),

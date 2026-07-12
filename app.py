@@ -549,6 +549,8 @@ def init_db():
         # Identidade / SEO da loja — editáveis em "Configurações Gerais" no
         # painel; valores iniciais vêm das env vars correspondentes.
         "favicon_url": os.environ.get("FAVICON_URL", ""),
+        # Título da aba do navegador. Vazio usa "<nome da loja> — Premium Vapes".
+        "page_title": os.environ.get("PAGE_TITLE", ""),
         "meta_description": os.environ.get("META_DESCRIPTION", ""),
         "meta_keywords": os.environ.get("META_KEYWORDS", ""),
         "instagram_url": os.environ.get("INSTAGRAM_URL", ""),
