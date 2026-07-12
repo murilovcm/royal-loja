@@ -214,7 +214,15 @@
       border-radius:999px; padding:2px 8px; margin-bottom:6px;
     }
     .sp-name { font-weight:800; font-size:.8rem; color:var(--pv-text, #fff); margin-bottom:2px; }
-    .sp-price { font-weight:800; font-size:.9rem; color:var(--pv-text, #fff); margin-bottom:9px; }
+    .sp-price-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px; }
+    .sp-price { font-weight:800; font-size:.9rem; color:var(--pv-price, #FFD60A); }
+    .sp-arrow {
+      width:26px; height:26px; min-width:26px; border-radius:50%; font-size:.8rem;
+      display:grid; place-items:center; flex-shrink:0;
+      color:var(--pv-arrow, #FFD60A);
+      background:rgba(var(--pv-arrow-rgb, 255,214,10),.10);
+      border:1px solid rgba(var(--pv-arrow-rgb, 255,214,10),.24);
+    }
     .sp-add {
       width:100%; padding:9px; border-radius:10px; border:none; font-weight:800; font-size:.75rem;
       background:var(--pv-grad); color:var(--pv-on-primary, #000);
@@ -616,6 +624,16 @@
               <input type="color" id="colorOnPrimary" value="{{ config.theme_text_on_primary_color or '#000000' }}">
               <input type="text" id="colorOnPrimaryHex" value="{{ config.theme_text_on_primary_color or '#000000' }}" maxlength="7">
             </div>
+            <div class="color-row">
+              <div class="cr-label">Cor dos preços<small>Preço nos cards e no modal do produto</small></div>
+              <input type="color" id="colorPrice" value="{{ config.theme_price_color or config.theme_primary_color or '#FFD60A' }}">
+              <input type="text" id="colorPriceHex" value="{{ config.theme_price_color or config.theme_primary_color or '#FFD60A' }}" maxlength="7">
+            </div>
+            <div class="color-row">
+              <div class="cr-label">Cor da seta<small>Seta → dos cards de produto</small></div>
+              <input type="color" id="colorArrow" value="{{ config.theme_arrow_color or config.theme_primary_color or '#FFD60A' }}">
+              <input type="text" id="colorArrowHex" value="{{ config.theme_arrow_color or config.theme_primary_color or '#FFD60A' }}" maxlength="7">
+            </div>
           </div>
 
           <div class="sections-block">
@@ -787,14 +805,20 @@
                   <div class="sp-card-img">📦</div>
                   <span class="sp-badge">⚡ 25.000 puffs</span>
                   <div class="sp-name">Vape Exemplo</div>
-                  <div class="sp-price">R$ 89,90</div>
+                  <div class="sp-price-row">
+                    <div class="sp-price">R$ 89,90</div>
+                    <span class="sp-arrow">→</span>
+                  </div>
                   <button class="sp-add" type="button">Adicionar</button>
                 </div>
                 <div class="sp-card">
                   <div class="sp-card-img">🧊</div>
                   <span class="sp-badge">❄️ Ice</span>
                   <div class="sp-name">Vape Menta</div>
-                  <div class="sp-price">R$ 79,90</div>
+                  <div class="sp-price-row">
+                    <div class="sp-price">R$ 79,90</div>
+                    <span class="sp-arrow">→</span>
+                  </div>
                   <button class="sp-add" type="button">Adicionar</button>
                 </div>
               </div>
@@ -1188,7 +1212,7 @@
     }
     ['colorPrimary', 'colorOnPrimary', 'colorGradEnd', 'colorBg', 'colorCard',
      'colorSurface', 'colorSurface2', 'colorBorder', 'colorAccent', 'colorAccentSoft',
-     'colorText', 'colorTextDim'].forEach((id) => syncColorPair(id, id + 'Hex'));
+     'colorText', 'colorTextDim', 'colorPrice', 'colorArrow'].forEach((id) => syncColorPair(id, id + 'Hex'));
 
     // A "cor inicial" do gradiente e a "cor primária" são o mesmo valor:
     // manter os dois campos espelhados em ambas as direções.
@@ -1248,6 +1272,11 @@
       p.style.setProperty('--pv-grad-end', gradEnd);
       p.style.setProperty('--pv-angle', angle);
       p.style.setProperty('--pv-on-primary', onPrimary);
+      const priceColor = cval('colorPrice');
+      const arrowColor = cval('colorArrow');
+      p.style.setProperty('--pv-price', priceColor);
+      p.style.setProperty('--pv-arrow', arrowColor);
+      p.style.setProperty('--pv-arrow-rgb', hexToRgb(arrowColor));
     }
     updateIdentityPreview();
 
@@ -1331,6 +1360,8 @@
           theme_accent_soft_color: cval('colorAccentSoft'),
           theme_text_color: cval('colorText'),
           theme_text_dim_color: cval('colorTextDim'),
+          theme_price_color: cval('colorPrice'),
+          theme_arrow_color: cval('colorArrow'),
         };
         const res = await api('/api/update_theme_colors', 'POST', colors);
         if (okMain && okFooter && res.ok) toast("Identidade visual salva com sucesso ✓");

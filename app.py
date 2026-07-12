@@ -527,6 +527,10 @@ def init_db():
         "theme_accent_color": "#7c3aed",
         "theme_accent_soft_color": "#a855f7",
         "theme_text_dim_color": "#9a97a5",
+        # Cor dos preços (cards + modal) e da seta dos cards. Padrão = cor
+        # primária, para lojas antigas manterem a aparência atual.
+        "theme_price_color": "#FFD60A",
+        "theme_arrow_color": "#FFD60A",
         "logo_main_url": "",
         "logo_footer_url": "",
         "hero_title": "Sabor que reina. Qualidade Royal.",
@@ -1113,6 +1117,8 @@ THEME_COLOR_KEYS = {
     "theme_accent_color",
     "theme_accent_soft_color",
     "theme_text_dim_color",
+    "theme_price_color",
+    "theme_arrow_color",
 }
 
 

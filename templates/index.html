@@ -74,6 +74,9 @@
     --purple: {{ config.theme_accent_color or '#7c3aed' }};
     --purple-soft: {{ config.theme_accent_soft_color or '#a855f7' }};
     --text-dim: {{ config.theme_text_dim_color or '#9a97a5' }};
+    --price-color: {{ config.theme_price_color or config.theme_primary_color or '#FFD60A' }};
+    --arrow-color: {{ config.theme_arrow_color or config.theme_primary_color or '#FFD60A' }};
+    --arrow-rgb: {{ (config.theme_arrow_color or config.theme_primary_color or '#FFD60A') | hex_to_rgb }};
   }</style>
 </head>
 <body class="{{ 'editor-mode' if editor else '' }}">

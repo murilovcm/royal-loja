@@ -713,9 +713,9 @@ header.site-header {
     box-shadow: 0 14px 30px rgba(var(--accent-rgb),.16), 0 0 0 1px rgba(var(--accent-soft-rgb),.2);
   }
   .model-card:hover .arrow {
-    background: var(--primary-yellow); color: var(--text-on-primary); border-color: transparent;
+    background: var(--arrow-color); color: var(--text-on-primary); border-color: transparent;
     transform: translateX(3px);
-    box-shadow: 0 6px 18px rgba(var(--primary-rgb),.38);
+    box-shadow: 0 6px 18px rgba(var(--arrow-rgb),.38);
   }
 }
 /* :active depois do hover na cascata para "vencer" o lift quando os dois se aplicam ao mesmo tempo (clique) */
@@ -796,18 +796,18 @@ header.site-header {
   color: var(--text-dim); font-weight: 600;
 }
 .card-foot .price {
-  font-size: 1.6rem; font-weight: 800; color: var(--primary-yellow);
+  font-size: 1.6rem; font-weight: 800; color: var(--price-color);
   line-height: 1.15; letter-spacing: -.5px;
 }
 .card-foot .price .cur {
-  font-size: .62em; font-weight: 700; color: var(--primary-yellow);
+  font-size: .62em; font-weight: 700; color: var(--price-color);
   opacity: .8; margin-right: 3px; vertical-align: 1px;
 }
 .card-foot .arrow {
   width: 44px; height: 44px; min-width: 44px; border-radius: 50%; font-size: 1.15rem;
-  background: rgba(var(--primary-rgb),.08);
-  border: 1px solid rgba(var(--primary-rgb),.22);
-  color: var(--primary-yellow); flex-shrink: 0;
+  background: rgba(var(--arrow-rgb),.08);
+  border: 1px solid rgba(var(--arrow-rgb),.22);
+  color: var(--arrow-color); flex-shrink: 0;
   display: grid; place-items: center;
   transition: transform .22s cubic-bezier(.2,.8,.3,1), background .2s ease-out, box-shadow .25s ease-out, color .2s, border-color .2s;
 }
@@ -937,7 +937,7 @@ header.site-header {
 .qty-ctrl .qty-val { min-width: 36px; text-align: center; font-weight: 800; font-size: 1.05rem; }
 .modal-price { text-align: right; }
 .modal-price .lbl { font-size: .7rem; color: var(--text-dim); display: block; }
-.modal-price .val { font-size: 1.7rem; font-weight: 800; color: var(--primary-yellow); }
+.modal-price .val { font-size: 1.7rem; font-weight: 800; color: var(--price-color); }
 .add-btn {
   width: 100%;
   padding: 16px;
