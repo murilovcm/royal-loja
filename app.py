@@ -42,6 +42,11 @@ LOGO_ALLOWED_EXT = {"png", "svg"}
 LOGO_SLOTS = {"main": "logo_main_url", "footer": "logo_footer_url"}
 LOGO_MAX_DIM = 600
 
+# Favicon enviado pelo painel: recortado ao centro em quadrado e reduzido a
+# 64x64 PNG, auto-hospedado em /static/uploads (mesma origem da loja).
+FAVICON_ALLOWED_EXT = {"png", "jpg", "jpeg", "webp"}
+FAVICON_SIZE = 64
+
 # Elementos e atributos removidos de qualquer SVG enviado pelo admin, para
 # impedir que um arquivo "logo.svg" carregue <script>, handlers de evento
 # (onload, onerror...) ou referências javascript:/data:text/html — SVGs são
@@ -1209,6 +1214,50 @@ def api_upload_logo():
     )
     db.commit()
     return jsonify({"ok": True, "image_url": image_url})
+
+
+@app.route("/api/upload_favicon", methods=["POST"])
+@api_owner_required
+def api_upload_favicon():
+    if "file" not in request.files:
+        return jsonify({"ok": False, "error": "sem arquivo"}), 400
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"ok": False, "error": "nome vazio"}), 400
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in FAVICON_ALLOWED_EXT:
+        return jsonify({"ok": False, "error": "envie um arquivo PNG, JPG ou WEBP"}), 400
+
+    try:
+        img = Image.open(file.stream)
+        img = ImageOps.exif_transpose(img)  # corrige rotação de fotos de celular
+        img.load()
+    except Exception:
+        return jsonify({"ok": False, "error": "não foi possível processar a imagem"}), 400
+
+    has_alpha = img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info)
+    img = img.convert("RGBA") if has_alpha else img.convert("RGB")
+    # Recorte quadrado ao centro + reduz para 64x64 (tamanho de favicon).
+    w, h = img.size
+    side = min(w, h)
+    left = (w - side) // 2
+    top = (h - side) // 2
+    img = img.crop((left, top, left + side, top + side))
+    img = img.resize((FAVICON_SIZE, FAVICON_SIZE), Image.LANCZOS)
+
+    fname = f"favicon-{uuid.uuid4().hex}.png"
+    path = os.path.join(app.config["UPLOAD_DIR"], secure_filename(fname))
+    img.save(path, "PNG", optimize=True)
+
+    image_url = url_for("uploaded_file", filename=fname)
+    db = get_db()
+    db.execute(
+        "INSERT INTO site_config (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        ("favicon_url", image_url),
+    )
+    db.commit()
+    return jsonify({"ok": True, "favicon_url": image_url})
 
 
 # ---- Blocos promocionais (ex: Atacado) ----

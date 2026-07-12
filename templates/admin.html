@@ -257,6 +257,9 @@
     .pp-field input[type=text]:focus, .pp-field textarea:focus, .pp-field select:focus { outline:none; border-color:var(--primary-yellow); }
     .pp-field textarea { resize:vertical; }
     .pp-hint { font-size:.72rem; color:var(--text-dim); }
+    .favicon-row { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+    .favicon-preview { width:48px; height:48px; border-radius:10px; border:1px solid var(--border); background:var(--surface); object-fit:cover; flex:none; }
+    .favicon-actions { display:flex; gap:8px; }
     .pp-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     @media (max-width:520px){ .pp-row{ grid-template-columns:1fr; } }
     .promo-admin-preview { position:sticky; top:20px; }
@@ -742,9 +745,16 @@
               <input type="text" id="cfgMetaKeywords" maxlength="300" value="{{ config.meta_keywords or '' }}" placeholder="vape, pods, descartáveis">
             </div>
             <div class="pp-field">
-              <label for="cfgFavicon">URL do favicon</label>
-              <input type="text" id="cfgFavicon" maxlength="300" value="{{ config.favicon_url or '' }}" placeholder="https://.../favicon.png">
-              <small class="pp-hint">Vazio usa o favicon padrão da loja.</small>
+              <label for="cfgFavicon">Favicon</label>
+              <div class="favicon-row">
+                <img id="faviconPreview" class="favicon-preview" src="{{ config.favicon_url or url_for('static', filename='favicon-64.png') }}" alt="favicon">
+                <div class="favicon-actions">
+                  <input type="file" id="faviconFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="uploadFavicon(this)">
+                  <button type="button" class="mini-btn" onclick="document.getElementById('faviconFile').click()">Enviar imagem</button>
+                </div>
+              </div>
+              <input type="text" id="cfgFavicon" maxlength="300" value="{{ config.favicon_url or '' }}" placeholder="https://.../favicon.png ou envie uma imagem acima">
+              <small class="pp-hint">Envie um PNG/JPG/WEBP (será reduzido a 64×64) ou cole uma URL. Vazio usa o favicon padrão da loja.</small>
             </div>
 
             <div class="identity-save-row">
@@ -1272,6 +1282,30 @@
       } catch (e) {
         toast("Erro ao enviar logo");
         return false;
+      }
+    }
+
+    async function uploadFavicon(el) {
+      const file = el.files[0];
+      if (!file) return;
+      const okType = /image\/(png|jpeg|webp)/.test(file.type) || /\.(png|jpe?g|webp)$/i.test(file.name);
+      if (!okType) { toast("Selecione um arquivo PNG, JPG ou WEBP"); el.value = ''; return; }
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        const r = await fetch('/api/upload_favicon', { method: 'POST', body: fd, headers: { 'X-Admin-Token': CSRF_TOKEN } });
+        const data = await r.json();
+        if (data.ok) {
+          document.getElementById('cfgFavicon').value = data.favicon_url;
+          document.getElementById('faviconPreview').src = data.favicon_url + '?t=' + Date.now();
+          toast("Favicon atualizado ✓");
+        } else {
+          toast(data.error || "Erro ao enviar favicon");
+        }
+      } catch (e) {
+        toast("Erro ao enviar favicon");
+      } finally {
+        el.value = '';
       }
     }
 
