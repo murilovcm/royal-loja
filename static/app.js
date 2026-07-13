@@ -561,6 +561,14 @@
   // ---- Coupon (aplicado no carrinho, vale para o checkout também) ----
   let appliedCoupon = null; // { code, type: 'percent'|'fixed', value }
 
+  // Acréscimo para pagamento com cartão de crédito (5% sobre o total já com
+  // desconto e frete). Só incide quando a forma de pagamento é "Crédito".
+  const CREDIT_SURCHARGE_RATE = 0.05;
+  function creditSurcharge(base) {
+    const paymentEl = byId("custPayment");
+    return paymentEl && paymentEl.value === "Crédito" ? base * CREDIT_SURCHARGE_RATE : 0;
+  }
+
   function cartTotal() {
     return cart.reduce((s, it) => s + it.price * it.qty, 0);
   }
@@ -616,7 +624,15 @@
       checkoutShippingNote.className = "geo-status";
     }
 
-    byId("checkoutTotal").textContent = brl(discountedTotal + shippingPrice);
+    const surchargeBase = discountedTotal + shippingPrice;
+    const surcharge = creditSurcharge(surchargeBase);
+    const checkoutSurchargeRow = byId("checkoutSurchargeRow");
+    checkoutSurchargeRow.style.display = surcharge > 0 ? "flex" : "none";
+    if (surcharge > 0) {
+      byId("checkoutSurchargeValue").textContent = "+" + brl(surcharge);
+    }
+
+    byId("checkoutTotal").textContent = brl(surchargeBase + surcharge);
   }
 
   function setCouponFeedback(msg, variant) {
@@ -896,6 +912,11 @@
   }
   byId("custName").addEventListener("input", updateCheckoutBtnState);
   byId("custAddress").addEventListener("input", updateCheckoutBtnState);
+  // Recalcula o total ao trocar a forma de pagamento (acréscimo do crédito).
+  byId("custPayment").addEventListener("change", () => {
+    setFieldError(byId("custPayment"), byId("errPayment"), false);
+    updateTotals();
+  });
 
   byId("checkoutConfirmBtn").addEventListener("click", () => {
     if (cart.length === 0) return;
@@ -966,8 +987,13 @@
       }
     }
 
-    const finalTotal = Math.max(total - discount, 0) + shippingPrice;
-    if (hasNumericShipping) {
+    const baseTotal = Math.max(total - discount, 0) + shippingPrice;
+    const surcharge = creditSurcharge(baseTotal);
+    if (surcharge > 0) {
+      msg += `💳 *Acréscimo cartão de crédito (5%):* +${brl(surcharge)}\n`;
+    }
+    const finalTotal = baseTotal + surcharge;
+    if (hasNumericShipping || surcharge > 0) {
       msg += `💰 *TOTAL FINAL: ${brl(finalTotal)}*\n\n`;
     } else if (appliedCoupon) {
       msg += `💰 *Total com desconto: ${brl(finalTotal)}*\n\n`;

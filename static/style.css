@@ -1499,6 +1499,12 @@ header.site-header {
 .checkout-shipping-row span:first-child span { color: var(--text-dim); font-weight: 600; }
 #checkoutShippingNote.geo-status { margin-top: 12px; margin-bottom: 4px; }
 
+.checkout-surcharge-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 12px; margin-bottom: 14px; font-size: .88rem; font-weight: 700; color: var(--text);
+}
+.checkout-surcharge-row span:first-child { font-weight: 600; color: var(--text-dim); }
+
 .checkout-foot { flex-shrink: 0; padding: 20px 22px; border-top: 1px solid var(--border); background: var(--surface); }
 
 /* ---------- Footer ---------- */
