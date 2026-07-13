@@ -1005,6 +1005,7 @@
     if (pickup) msg += `🏪 *Retirada:* no local\n`;
     else msg += `📍 *Endereço:* ${addressVal}\n`;
     msg += `💳 *Pagamento:* ${paymentVal}\n`;
+    if (byId("custLoyalty").checked) msg += `🎁 *Cartão fidelidade:* sim, quero receber\n`;
     if (notesEl.value.trim()) msg += `📝 *Obs:* ${notesEl.value.trim()}\n`;
     if (!pickup && geoCoords) {
       let mapNote = "";
