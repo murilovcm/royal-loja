@@ -309,6 +309,7 @@
       <button class="tab-btn" data-tab="coupons" type="button">🏷️ Cupons</button>
       <button class="tab-btn" data-tab="shipping" type="button">🗺️ Frete</button>
       <button class="tab-btn" data-tab="identity" type="button">🎨 Identidade Visual</button>
+      <button class="tab-btn" data-tab="social" type="button">📱 Redes Sociais</button>
       {% if is_owner %}<button class="tab-btn" data-tab="employees" type="button">👥 Funcionários</button>{% endif %}
     </div>
 
@@ -747,7 +748,7 @@
 
           <div class="sections-block">
             <div class="sections-head">
-              ⚙️ Configurações Gerais <span class="sections-sub">Nome, contato, redes sociais e SEO da loja</span>
+              ⚙️ Configurações Gerais <span class="sections-sub">Nome, título da aba e SEO da loja — o contato e as redes ficam na aba "Redes Sociais"</span>
             </div>
 
             <div class="pp-row">
@@ -765,19 +766,6 @@
               <label for="cfgPageTitle">Título da aba (navegador)</label>
               <input type="text" id="cfgPageTitle" maxlength="120" value="{{ config.page_title or '' }}" placeholder="Ex: Pods Ilha — Premium Vapes">
               <small class="pp-hint">Aparece na aba do navegador (desktop e celular). Vazio usa "{nome da loja} — Premium Vapes".</small>
-            </div>
-
-            <div class="pp-row">
-              <div class="pp-field">
-                <label for="cfgWhatsapp">WhatsApp</label>
-                <input type="text" id="cfgWhatsapp" inputmode="numeric" maxlength="20" value="{{ config.whatsapp_phone or '' }}" placeholder="5598985086085">
-                <small class="pp-hint">Somente números: país + DDD + número (ex: 5598985086085).</small>
-              </div>
-              <div class="pp-field">
-                <label for="cfgInstagram">Instagram (URL completa)</label>
-                <input type="text" id="cfgInstagram" maxlength="200" value="{{ config.instagram_url or '' }}" placeholder="https://www.instagram.com/sua_loja/">
-                <small class="pp-hint">Vazio oculta o botão do Instagram no site.</small>
-              </div>
             </div>
 
             <div class="pp-field">
@@ -857,6 +845,60 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="admin-tab-panel" data-tab-panel="social">
+      {% if not is_owner %}<div class="readonly-banner">🔒 Somente leitura — apenas o dono da loja pode alterar as redes sociais.</div>{% endif %}
+      <div class="{{ 'readonly-lock' if not is_owner }}">
+        <div class="sections-block">
+          <div class="sections-head">
+            📱 Contato e redes <span class="sections-sub">Número do WhatsApp e link do Instagram usados nos botões da loja</span>
+          </div>
+
+          <div class="pp-row">
+            <div class="pp-field">
+              <label for="cfgWhatsapp">WhatsApp</label>
+              <input type="text" id="cfgWhatsapp" inputmode="numeric" maxlength="20" value="{{ config.whatsapp_phone or '' }}" placeholder="5598985086085">
+              <small class="pp-hint">Somente números: país + DDD + número (ex: 5598985086085). É o número que recebe todos os pedidos e mensagens.</small>
+            </div>
+            <div class="pp-field">
+              <label for="cfgInstagram">Instagram (URL completa)</label>
+              <input type="text" id="cfgInstagram" maxlength="200" value="{{ config.instagram_url or '' }}" placeholder="https://www.instagram.com/sua_loja/">
+              <small class="pp-hint">Vazio oculta o botão do Instagram no site.</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="sections-block">
+          <div class="sections-head">
+            💬 Mensagens dos botões de WhatsApp <span class="sections-sub">O texto que já vem escrito quando o cliente clica em cada botão e abre o WhatsApp</span>
+          </div>
+
+          <div class="pp-field">
+            <label for="cfgWaMsgHeader">Botão de WhatsApp do topo (cabeçalho)</label>
+            <input type="text" id="cfgWaMsgHeader" maxlength="300" value="{{ config.wa_msg_header or '' }}" placeholder="Olá! Vim pelo site e quero fazer um pedido.">
+            <small class="pp-hint">Ícone de WhatsApp no canto superior do site.</small>
+          </div>
+
+          <div class="pp-field">
+            <label for="cfgWaMsgHero">Botão "Falar no WhatsApp" (destaque da página)</label>
+            <input type="text" id="cfgWaMsgHero" maxlength="300" value="{{ config.wa_msg_hero or '' }}" placeholder="Olá! Vim pelo site e quero saber mais sobre os produtos.">
+            <small class="pp-hint">Botão verde grande logo abaixo do título principal.</small>
+          </div>
+
+          <div class="pp-field">
+            <label for="cfgWaMsgAttendant">Link "Falar com atendente" (menu lateral)</label>
+            <input type="text" id="cfgWaMsgAttendant" maxlength="300" value="{{ config.wa_msg_attendant or '' }}" placeholder="Olá! Vim pelo site e preciso de atendimento.">
+            <small class="pp-hint">Item do menu que abre pelos três pontinhos.</small>
+          </div>
+
+          <small class="pp-hint">💡 Deixe em branco para usar o texto padrão da loja.</small>
+        </div>
+
+        <div class="identity-save-row">
+          <button class="mini-btn primary" id="saveSocialBtn" onclick="saveSocialSettings()">Salvar Redes Sociais</button>
         </div>
       </div>
     </div>
@@ -1417,14 +1459,9 @@
       const originalLabel = btn.textContent;
       btn.textContent = "Salvando...";
       try {
-        // WhatsApp: mantém apenas dígitos (o link wa.me não aceita máscara).
-        const waEl = document.getElementById('cfgWhatsapp');
-        waEl.value = waEl.value.replace(/\D/g, '');
         const fields = {
           store_name: document.getElementById('cfgStoreName').value.trim(),
           store_city: document.getElementById('cfgStoreCity').value.trim(),
-          whatsapp_phone: waEl.value,
-          instagram_url: document.getElementById('cfgInstagram').value.trim(),
           page_title: document.getElementById('cfgPageTitle').value.trim(),
           meta_description: document.getElementById('cfgMetaDesc').value.trim(),
           meta_keywords: document.getElementById('cfgMetaKeywords').value.trim(),
@@ -1438,6 +1475,36 @@
         toast(allOk ? "Configurações salvas com sucesso ✓" : "Algumas configurações não foram salvas");
       } catch (e) {
         toast("Erro ao salvar configurações");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
+    }
+
+    async function saveSocialSettings() {
+      const btn = document.getElementById('saveSocialBtn');
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = "Salvando...";
+      try {
+        // WhatsApp: mantém apenas dígitos (o link wa.me não aceita máscara).
+        const waEl = document.getElementById('cfgWhatsapp');
+        waEl.value = waEl.value.replace(/\D/g, '');
+        const fields = {
+          whatsapp_phone: waEl.value,
+          instagram_url: document.getElementById('cfgInstagram').value.trim(),
+          wa_msg_header: document.getElementById('cfgWaMsgHeader').value.trim(),
+          wa_msg_hero: document.getElementById('cfgWaMsgHero').value.trim(),
+          wa_msg_attendant: document.getElementById('cfgWaMsgAttendant').value.trim(),
+        };
+        let allOk = true;
+        for (const [key, value] of Object.entries(fields)) {
+          const res = await api('/api/update_config', 'POST', { key, value });
+          if (!res || !res.ok) allOk = false;
+        }
+        toast(allOk ? "Redes sociais salvas com sucesso ✓" : "Algumas alterações não foram salvas");
+      } catch (e) {
+        toast("Erro ao salvar redes sociais");
       } finally {
         btn.disabled = false;
         btn.textContent = originalLabel;

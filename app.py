@@ -554,6 +554,12 @@ def init_db():
         "meta_description": os.environ.get("META_DESCRIPTION", ""),
         "meta_keywords": os.environ.get("META_KEYWORDS", ""),
         "instagram_url": os.environ.get("INSTAGRAM_URL", ""),
+        # Mensagens pré-preenchidas nos links do WhatsApp (aba "Redes Sociais"
+        # do painel). Cada botão da loja abre o WhatsApp já com um texto — todos
+        # editáveis aqui. Vazio faz o index.html cair no texto padrão do template.
+        "wa_msg_header": "Olá! Vim pelo site e quero fazer um pedido.",
+        "wa_msg_attendant": "Olá! Vim pelo site e preciso de atendimento.",
+        "wa_msg_hero": "Olá! Vim pelo site e quero saber mais sobre os produtos.",
         # Pop-up de promoção do site (gerenciado na aba Cupons do painel).
         "promo_popup_enabled": "0",
         "promo_popup_badge": "OFERTA ESPECIAL",
