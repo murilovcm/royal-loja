@@ -573,15 +573,26 @@
     return cart.reduce((s, it) => s + it.price * it.qty, 0);
   }
 
-  function computeDiscount(coupon, total) {
+  // Subtotal sobre o qual o cupom incide. Cupom sem restrição (productIds nulo)
+  // vale para o carrinho inteiro; cupom restrito só conta os itens cujos sabores
+  // pertencem aos modelos permitidos (productIds vem da rota /api/coupon/apply).
+  function couponBase(coupon) {
     if (!coupon) return 0;
-    if (coupon.type === "percent") return total * (coupon.value / 100);
-    return Math.min(coupon.value, total);
+    if (!coupon.productIds) return cartTotal();
+    const allowed = new Set(coupon.productIds);
+    return cart.reduce((s, it) => (allowed.has(it.flavor_id) ? s + it.price * it.qty : s), 0);
+  }
+
+  function computeDiscount(coupon) {
+    if (!coupon) return 0;
+    const base = couponBase(coupon);
+    if (coupon.type === "percent") return base * (coupon.value / 100);
+    return Math.min(coupon.value, base);
   }
 
   function updateTotals() {
     const total = cartTotal();
-    const discount = computeDiscount(appliedCoupon, total);
+    const discount = computeDiscount(appliedCoupon);
     const discountedTotal = Math.max(total - discount, 0);
     const showDiscount = !!(appliedCoupon && discount > 0);
 
@@ -666,12 +677,16 @@
       const r = await fetch("/api/coupon/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, total: cartTotal() }),
+        body: JSON.stringify({
+          code,
+          total: cartTotal(),
+          items: cart.map((it) => ({ flavor_id: it.flavor_id, price: it.price, qty: it.qty })),
+        }),
       });
       const data = await r.json();
       if (data.ok) {
-        appliedCoupon = { code: data.code, type: data.type, value: data.value };
-        const discount = computeDiscount(appliedCoupon, cartTotal());
+        appliedCoupon = { code: data.code, type: data.type, value: data.value, productIds: data.product_ids || null };
+        const discount = computeDiscount(appliedCoupon);
         setCouponFeedback(
           appliedCoupon.type === "percent"
             ? `Cupom aplicado! -${appliedCoupon.value}%`
@@ -969,10 +984,16 @@
       msg += `   💰 Subtotal: ${brl(sub)}\n\n`;
     });
     msg += `━━━━━━━━━━━━━━━\n`;
-    const discount = appliedCoupon ? computeDiscount(appliedCoupon, total) : 0;
+    const discount = appliedCoupon ? computeDiscount(appliedCoupon) : 0;
     if (appliedCoupon) {
+      // Cupom restrito: o "-X%" sozinho engana (incide só sobre parte do carrinho),
+      // então mostramos também o valor real descontado.
+      const pct = "-" + appliedCoupon.value + "%";
+      const discountLabel = appliedCoupon.type === "percent"
+        ? (appliedCoupon.productIds ? `${pct} (${brl(discount)})` : pct)
+        : "-" + brl(discount);
       msg += `🏷️ *Cupom aplicado:* ${appliedCoupon.code}\n`;
-      msg += `💸 *Desconto:* ${appliedCoupon.type === "percent" ? "-" + appliedCoupon.value + "%" : "-" + brl(discount)}\n`;
+      msg += `💸 *Desconto:* ${discountLabel}\n`;
     }
 
     const hasNumericShipping = !pickup && !!(shippingInfo && shippingInfo.ok && typeof shippingInfo.price === "number");

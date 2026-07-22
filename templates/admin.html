@@ -107,6 +107,12 @@
     .coupon-status-badge.on { background:rgba(37,211,102,.15); color:var(--green); }
     .coupon-status-badge.off { background:rgba(255,90,90,.12); color:#ff5a5a; }
     #newCouponCode { text-transform:uppercase; }
+    .coupon-models-panel { flex-basis:100%; margin-top:6px; background:var(--bg-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; max-height:220px; overflow-y:auto; }
+    .cmp-hint { font-size:.78rem; color:var(--text-dim); margin-bottom:6px; }
+    .cmp-brand { font-size:.7rem; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim); font-weight:700; margin:8px 0 4px; }
+    .cmp-models { display:flex; flex-wrap:wrap; gap:6px 14px; }
+    .cmp-item { display:inline-flex; align-items:center; gap:6px; font-size:.85rem; color:var(--text); cursor:pointer; }
+    .cmp-scope-cell { color:var(--text-dim); font-size:.82rem; }
 
     .zone-group-label { font-size:.85rem; font-weight:700; margin-top:14px; margin-bottom:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .zone-table .zone-input {
@@ -405,14 +411,33 @@
             <option value="fixed">Valor fixo (R$)</option>
           </select>
           <input type="number" id="newCouponValue" placeholder="Valor" step="0.01" min="0" style="width:100px" onkeydown="if(event.key==='Enter') submitAddCoupon()">
+          <select id="newCouponScope" onchange="toggleCouponScope()">
+            <option value="all">Todos os produtos</option>
+            <option value="models">Produtos específicos</option>
+          </select>
           <button class="mini-btn primary" onclick="submitAddCoupon()">Criar cupom</button>
           <button class="mini-btn" onclick="toggleAddCouponForm(false)">Cancelar</button>
+          <div id="newCouponModelsPanel" class="coupon-models-panel" style="display:none;">
+            <div class="cmp-hint">Marque os produtos em que este cupom vale:</div>
+            {% for b in tree %}
+              {% if b.models %}
+              <div class="cmp-brand">{{ b.brand.name }}</div>
+              <div class="cmp-models">
+                {% for m in b.models %}
+                <label class="cmp-item"><input type="checkbox" class="newCouponModel" value="{{ m.model.id }}"> {{ m.model.name }}</label>
+                {% endfor %}
+              </div>
+              {% endif %}
+            {% else %}
+              <div class="cmp-hint">Nenhum produto cadastrado ainda — cadastre no Catálogo primeiro.</div>
+            {% endfor %}
+          </div>
         </div>
         {% endif %}
 
         <table class="coupon-table">
           <thead>
-            <tr><th>Código</th><th>Tipo</th><th>Valor</th><th>Status</th><th>Ações</th></tr>
+            <tr><th>Código</th><th>Tipo</th><th>Valor</th><th>Aplica a</th><th>Status</th><th>Ações</th></tr>
           </thead>
           <tbody id="couponTableBody">
             {% for c in coupons %}
@@ -420,6 +445,7 @@
               <td class="cp-code">{{ c.code }}</td>
               <td>{{ 'Porcentagem' if c.type == 'percent' else 'Valor fixo' }}</td>
               <td>{{ c.value_display }}</td>
+              <td class="cmp-scope-cell" title="{{ c.scope_title }}">{{ c.scope_display }}</td>
               <td><span class="coupon-status-badge {{ 'on' if c.active == 1 else 'off' }}">{{ 'Ativo' if c.active == 1 else 'Inativo' }}</span></td>
               <td>
                 <div class="coupon-actions">
@@ -431,7 +457,7 @@
               </td>
             </tr>
             {% else %}
-            <tr id="couponEmptyRow"><td colspan="5" style="color:var(--text-dim); text-align:center; padding:16px;">Nenhum cupom cadastrado ainda.</td></tr>
+            <tr id="couponEmptyRow"><td colspan="6" style="color:var(--text-dim); text-align:center; padding:16px;">Nenhum cupom cadastrado ainda.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -1127,6 +1153,11 @@
     }
 
     // ---- Cupons de desconto ----
+    function toggleCouponScope() {
+      const scope = document.getElementById('newCouponScope').value;
+      document.getElementById('newCouponModelsPanel').style.display = scope === 'models' ? 'block' : 'none';
+    }
+
     function toggleAddCouponForm(show) {
       const el = document.getElementById('addCouponForm');
       el.style.display = show ? 'flex' : 'none';
@@ -1134,6 +1165,9 @@
       else {
         document.getElementById('newCouponCode').value = '';
         document.getElementById('newCouponValue').value = '';
+        document.getElementById('newCouponScope').value = 'all';
+        document.querySelectorAll('.newCouponModel:checked').forEach(el => { el.checked = false; });
+        toggleCouponScope();
       }
     }
     document.getElementById('addCouponBtn')?.addEventListener('click', () => toggleAddCouponForm(true));
@@ -1144,7 +1178,12 @@
       const value = document.getElementById('newCouponValue').value;
       if (!code) { toast("Digite o código do cupom"); return; }
       if (!value || Number(value) <= 0) { toast("Digite um valor válido"); return; }
-      const res = await api('/api/coupon', 'POST', { code, type, value });
+      let model_ids = [];
+      if (document.getElementById('newCouponScope').value === 'models') {
+        model_ids = Array.from(document.querySelectorAll('.newCouponModel:checked')).map(el => Number(el.value));
+        if (model_ids.length === 0) { toast("Selecione ao menos um produto"); return; }
+      }
+      const res = await api('/api/coupon', 'POST', { code, type, value, model_ids });
       if (res.ok) { toast("Cupom criado ✓"); location.reload(); }
       else toast(res.error || "Erro ao criar cupom");
     }

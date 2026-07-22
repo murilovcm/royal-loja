@@ -449,6 +449,17 @@ def init_db():
             active INTEGER NOT NULL DEFAULT 1
         );
 
+        -- Restrição opcional de um cupom a modelos específicos. Um cupom SEM
+        -- nenhuma linha aqui vale para o catálogo inteiro (comportamento padrão);
+        -- com linhas, o desconto só incide sobre os sabores desses modelos.
+        CREATE TABLE IF NOT EXISTS coupon_models (
+            coupon_id INTEGER NOT NULL,
+            model_id  INTEGER NOT NULL,
+            PRIMARY KEY (coupon_id, model_id),
+            FOREIGN KEY (coupon_id) REFERENCES coupons(id) ON DELETE CASCADE,
+            FOREIGN KEY (model_id)  REFERENCES vape_models(id) ON DELETE CASCADE
+        );
+
         CREATE TABLE IF NOT EXISTS shipping_zones (
             id        INTEGER PRIMARY KEY AUTOINCREMENT,
             zone_type TEXT NOT NULL,     -- 'special' ou 'concentric'
@@ -781,8 +792,29 @@ def create_promo_block(duplicate_from=None):
 
 
 def get_coupons():
-    """Lista os cupons com um campo `value_display` já formatado para a tabela do admin."""
-    rows = get_db().execute("SELECT * FROM coupons ORDER BY id DESC").fetchall()
+    """Lista os cupons com um campo `value_display` já formatado para a tabela do admin.
+
+    Cada cupom também traz `model_ids` (lista dos modelos aos quais está restrito)
+    e `scope_display` (rótulo pronto para a coluna "Aplica a"). Cupom sem modelos
+    associados vale para o catálogo inteiro.
+    """
+    db = get_db()
+    rows = db.execute("SELECT * FROM coupons ORDER BY id DESC").fetchall()
+    # Agrupa os modelos de cada cupom em uma só consulta (com nome de marca/modelo
+    # para o rótulo do admin), evitando uma query por cupom.
+    links = db.execute(
+        """
+        SELECT cm.coupon_id, cm.model_id, m.name AS model_name, b.name AS brand_name
+        FROM coupon_models cm
+        JOIN vape_models m ON m.id = cm.model_id
+        JOIN brands b ON b.id = m.brand_id
+        ORDER BY b.name, m.name
+        """
+    ).fetchall()
+    models_by_coupon = {}
+    for l in links:
+        models_by_coupon.setdefault(l["coupon_id"], []).append(l)
+
     coupons = []
     for r in rows:
         c = dict(r)
@@ -791,6 +823,15 @@ def get_coupons():
             c["value_display"] = (f"{v:.0f}%" if v == int(v) else f"{v:.2f}%".replace(".", ","))
         else:
             c["value_display"] = "R$ " + f"{c['value']:.2f}".replace(".", ",")
+        clinks = models_by_coupon.get(c["id"], [])
+        c["model_ids"] = [l["model_id"] for l in clinks]
+        if clinks:
+            names = [f"{l['brand_name']} {l['model_name']}" for l in clinks]
+            c["scope_display"] = names[0] if len(names) == 1 else f"{names[0]} +{len(names) - 1}"
+            c["scope_title"] = ", ".join(names)
+        else:
+            c["scope_display"] = "Todos os produtos"
+            c["scope_title"] = "Vale para o catálogo inteiro"
         coupons.append(c)
     return coupons
 
@@ -1357,6 +1398,38 @@ def _validate_coupon_fields(ctype, value):
     return None
 
 
+def _clean_model_ids(raw):
+    """Normaliza o `model_ids` recebido do painel: mantém só inteiros que
+    correspondem a modelos existentes. Lista vazia = cupom vale para tudo."""
+    if not isinstance(raw, list):
+        return []
+    ids = []
+    for x in raw:
+        try:
+            ids.append(int(x))
+        except (TypeError, ValueError):
+            continue
+    if not ids:
+        return []
+    rows = get_db().execute(
+        "SELECT id FROM vape_models WHERE id IN (%s)" % ",".join("?" * len(ids)), ids
+    ).fetchall()
+    valid = {r["id"] for r in rows}
+    # Preserva a ordem de chegada, sem duplicatas.
+    seen = set()
+    return [i for i in ids if i in valid and not (i in seen or seen.add(i))]
+
+
+def _set_coupon_models(db, coupon_id, model_ids):
+    """Substitui o conjunto de modelos associados a um cupom."""
+    db.execute("DELETE FROM coupon_models WHERE coupon_id = ?", (coupon_id,))
+    if model_ids:
+        db.executemany(
+            "INSERT INTO coupon_models (coupon_id, model_id) VALUES (?, ?)",
+            [(coupon_id, mid) for mid in model_ids],
+        )
+
+
 @app.route("/api/coupon", methods=["POST"])
 @api_coupons_required
 def api_create_coupon():
@@ -1376,6 +1449,7 @@ def api_create_coupon():
         "INSERT INTO coupons (code, type, value, active) VALUES (?,?,?,1)",
         (code, ctype, float(value)),
     )
+    _set_coupon_models(db, cur.lastrowid, _clean_model_ids(d.get("model_ids")))
     db.commit()
     return jsonify({"ok": True, "id": cur.lastrowid})
 
@@ -1412,7 +1486,13 @@ def api_update_coupon(cid):
         vals.append(ctype)
         fields.append("value = ?")
         vals.append(float(value))
+    if "model_ids" in d:
+        _set_coupon_models(db, cid, _clean_model_ids(d.get("model_ids")))
     if not fields:
+        # Só os modelos mudaram — ainda é uma atualização válida.
+        if "model_ids" in d:
+            db.commit()
+            return jsonify({"ok": True})
         return jsonify({"ok": False}), 400
     vals.append(cid)
     db.execute(f"UPDATE coupons SET {', '.join(fields)} WHERE id = ?", vals)
@@ -1433,30 +1513,79 @@ def api_delete_coupon(cid):
 def api_apply_coupon():
     """Valida um cupom digitado no checkout (rota pública, sem login).
 
-    Recebe o total atual do carrinho para poder recusar cupons de valor fixo
-    maiores que o pedido (regra de negócio pedida: cupom fixo não pode
-    ultrapassar o total). O desconto em si é aplicado no front-end.
+    Recebe os itens do carrinho (`items`: lista de {flavor_id, price, qty}) para:
+      - descobrir o subtotal elegível quando o cupom é restrito a modelos
+        específicos (o desconto só incide sobre os sabores desses modelos);
+      - recusar cupons de valor fixo maiores que esse subtotal (cupom fixo não
+        pode ultrapassar o valor sobre o qual ele incide).
+    Devolve `product_ids` (ids dos sabores elegíveis) quando o cupom é restrito,
+    ou null quando vale para o catálogo inteiro. O desconto em si é aplicado no
+    front-end sobre esses itens.
     """
     d = request.get_json(force=True) or {}
     code = (d.get("code") or "").strip().upper()
-    try:
-        order_total = float(d.get("total") or 0)
-    except (TypeError, ValueError):
-        order_total = 0
+    items = d.get("items") if isinstance(d.get("items"), list) else []
 
     generic_error = "Cupom inválido ou inativo"
     if not code:
         return jsonify({"ok": False, "error": generic_error}), 400
 
-    row = get_db().execute(
+    db = get_db()
+    row = db.execute(
         "SELECT * FROM coupons WHERE code = ? AND active = 1", (code,)
     ).fetchone()
     if not row:
         return jsonify({"ok": False, "error": generic_error}), 404
-    if row["type"] == "fixed" and row["value"] > order_total:
+
+    # Sabores permitidos: expande os modelos do cupom para os ids de produto.
+    model_rows = db.execute(
+        "SELECT model_id FROM coupon_models WHERE coupon_id = ?", (row["id"],)
+    ).fetchall()
+    restricted = len(model_rows) > 0
+    allowed_product_ids = None
+    if restricted:
+        model_ids = [r["model_id"] for r in model_rows]
+        prods = db.execute(
+            "SELECT id FROM products WHERE model_id IN (%s)" % ",".join("?" * len(model_ids)),
+            model_ids,
+        ).fetchall()
+        allowed_product_ids = {p["id"] for p in prods}
+
+    # Subtotal elegível a partir dos itens enviados pelo carrinho.
+    def _line_total(it):
+        try:
+            return float(it.get("price") or 0) * float(it.get("qty") or 0)
+        except (TypeError, ValueError, AttributeError):
+            return 0.0
+
+    def _fid(it):
+        try:
+            return int(it.get("flavor_id"))
+        except (TypeError, ValueError, AttributeError):
+            return None
+
+    if restricted:
+        eligible_subtotal = sum(
+            _line_total(it) for it in items if _fid(it) in allowed_product_ids
+        )
+        if eligible_subtotal <= 0:
+            return jsonify({
+                "ok": False,
+                "error": "Este cupom não vale para os produtos do seu carrinho",
+            }), 400
+    else:
+        eligible_subtotal = sum(_line_total(it) for it in items)
+
+    if row["type"] == "fixed" and row["value"] > eligible_subtotal:
         return jsonify({"ok": False, "error": generic_error}), 400
 
-    return jsonify({"ok": True, "code": row["code"], "type": row["type"], "value": row["value"]})
+    return jsonify({
+        "ok": True,
+        "code": row["code"],
+        "type": row["type"],
+        "value": row["value"],
+        "product_ids": sorted(allowed_product_ids) if restricted else None,
+    })
 
 
 @app.route("/api/shipping/calc", methods=["POST"])
