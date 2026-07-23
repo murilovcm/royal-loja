@@ -27,6 +27,10 @@
     .brand-head .b-icon { font-size:1.3rem; }
 
     .model-row { border-top:1px solid var(--border); }
+    /* Modelo esgotado/oculto: some do site, e no painel fica esmaecido com faixa. */
+    .model-row.model-inactive .model-line { opacity:.55; }
+    .model-row.model-inactive { background:repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.02) 10px, rgba(255,255,255,.02) 20px); }
+    .model-active-toggle .model-active-label { min-width:56px; }
     .model-line { display:flex; align-items:center; gap:12px; padding:14px 20px; flex-wrap:wrap; }
     .star-toggle { background:none; font-size:1.4rem; color:var(--border); transition:.2s; line-height:1; }
     .star-toggle.on { color:var(--primary-yellow); filter:drop-shadow(0 0 8px rgba(255,214,10,.5)); }
@@ -348,7 +352,7 @@
 
           {% for item in node.models %}
           {% set m = item.model %}
-          <div class="model-row" data-mid="{{ m.id }}">
+          <div class="model-row {{ '' if m.active else 'model-inactive' }}" data-mid="{{ m.id }}">
             <div class="model-line">
               <button class="star-toggle {{ 'on' if m.is_best_seller }}" onclick="toggleBest({{ m.id }}, this)" title="Mais vendido">★</button>
               <div class="m-photo {{ 'has-img' if m.image_url }}" id="photo-{{ m.id }}" data-mid="{{ m.id }}" onclick="triggerPhotoInput({{ m.id }})" title="Clique ou arraste uma imagem">
@@ -363,6 +367,10 @@
               <input type="text" class="m-name" value="{{ m.name }}" onchange="updateModel({{ m.id }}, 'name', this.value)">
               <input type="text" class="m-puff" value="{{ m.puff_count }}" onchange="updateModel({{ m.id }}, 'puff_count', this.value)">
               <span class="spacer"></span>
+              <span class="stock-toggle model-active-toggle" onclick="toggleModelActive({{ m.id }}, this)" title="Ligado = modelo aparece no site. Desligue quando o modelo esgotar para ocultá-lo sem perder os sabores.">
+                <span class="switch {{ 'on' if m.active }}"></span>
+                <span class="model-active-label">{{ 'No site' if m.active else 'Esgotado' }}</span>
+              </span>
               <button class="expand-btn" onclick="toggleFlavors({{ m.id }}, this)">Sabores ({{ item.flavors|length }}) ▾</button>
               <button class="del-btn" onclick="delModel({{ m.id }})" title="Excluir modelo">🗑</button>
             </div>
@@ -1121,6 +1129,16 @@
       const on = el.classList.toggle('on');
       await api('/api/model/'+id,'POST',{is_best_seller: on ? 1 : 0});
       toast(on ? "Marcado como Mais Vendido ★" : "Removido dos Mais Vendidos");
+    }
+    async function toggleModelActive(id, el) {
+      const sw = el.querySelector('.switch');
+      const on = sw.classList.toggle('on');
+      const row = el.closest('.model-row');
+      if (row) row.classList.toggle('model-inactive', !on);
+      const label = el.querySelector('.model-active-label');
+      if (label) label.textContent = on ? 'No site' : 'Esgotado';
+      await api('/api/model/'+id,'POST',{active: on ? 1 : 0});
+      toast(on ? "Modelo reativado no site" : "Modelo ocultado do site (esgotado)");
     }
     function toggleFlavors(id, el) {
       const box = document.getElementById('flavors-'+id);

@@ -507,6 +507,14 @@ def init_db():
         db.execute("ALTER TABLE products ADD COLUMN color TEXT")
         db.commit()
 
+    # Migração: vape_models ganhou a coluna `active` (permite desativar/ocultar
+    # um modelo esgotado do site sem excluí-lo). Bancos antigos recebem a coluna
+    # com DEFAULT 1, então todo modelo já existente continua visível.
+    model_cols = {row["name"] for row in db.execute("PRAGMA table_info(vape_models)").fetchall()}
+    if "active" not in model_cols:
+        db.execute("ALTER TABLE vape_models ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
+        db.commit()
+
     # Semeia a conta "dono" (acesso completo) só na primeiríssima vez que a
     # loja roda — depois disso, a senha real mora hasheada no banco, e essas
     # variáveis de ambiente não têm mais efeito nenhum sobre o login.
@@ -517,6 +525,17 @@ def init_db():
             "(username, password_hash, role, can_catalog, can_coupons, is_active, created_at) "
             "VALUES (?, ?, 'owner', 1, 1, 1, ?)",
             (ADMIN_USERNAME, generate_password_hash(ADMIN_PASSWORD), time.time()),
+        )
+        db.commit()
+    else:
+        # A loja já existia antes deste boot (o dono já foi semeado num boot
+        # anterior). Marca-a como já-semeada para que o setup_loja.py NÃO
+        # reaplique as env vars por cima de edições feitas no painel a cada
+        # redeploy (era o que fazia o WhatsApp voltar ao valor da env var).
+        # Em loja nova (owner recém-criado acima) a flag NÃO é setada aqui: o
+        # setup_loja aplica as env vars uma vez e então grava a flag.
+        db.execute(
+            "INSERT OR IGNORE INTO site_config (key, value) VALUES ('env_config_seeded', '1')"
         )
         db.commit()
 
@@ -856,6 +875,7 @@ def build_catalog():
         """
         SELECT m.*, b.name AS brand_name
         FROM vape_models m JOIN brands b ON b.id = m.brand_id
+        WHERE m.active = 1
         ORDER BY m.is_best_seller DESC, m.id DESC
         """
     ).fetchall()
@@ -1800,6 +1820,11 @@ def api_update_model(mid):
         if f in d:
             fields.append(f"{f} = ?")
             vals.append(d[f])
+    # `active` controla se o modelo aparece no site (0 = esgotado/oculto).
+    # Normalizado para 0/1 para nunca gravar lixo na coluna.
+    if "active" in d:
+        fields.append("active = ?")
+        vals.append(1 if d["active"] else 0)
     if not fields:
         return jsonify({"ok": False}), 400
     vals.append(mid)
