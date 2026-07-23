@@ -66,19 +66,17 @@
       setTimeout(setAppVvh, 350);
       setTimeout(setAppVvh, 700);
       // Depois que o teclado assenta e o painel encolheu (--app-vvh já
-      // atualizado), traz o campo focado pro meio do corpo rolável. Assim o
-      // cliente vê os campos de cima e de baixo — mantém a "visão geral" em
-      // vez de o campo ficar colado no teclado. "center" só afeta o scroller
-      // interno (.checkout-body/.cart-items), o body está travado.
+      // atualizado), revela o campo focado com o MENOR scroll possível dentro
+      // do corpo rolável (.checkout-body/.cart-items — o body está travado).
+      // Antes usávamos block:"center" + behavior:"smooth", mas num campo alto
+      // (o de endereço, que embute o cartão de GPS + botão) isso empurrava
+      // nome/telefone pra fora da tela; e o scroll suave, disparado enquanto o
+      // teclado ainda anima, às vezes "capturava" o toque e o formulário
+      // parecia travado. "nearest" + instantâneo revela o campo sem esse efeito.
       const control = e.target.closest("input, select, textarea");
       if (control && control.scrollIntoView) {
-        // Depois que o teclado assenta e o painel encolheu (--app-vvh já
-        // atualizado), traz o campo focado pro meio do corpo rolável com
-        // scroll suave. Assim o cliente vê os campos de cima e de baixo —
-        // mantém a "visão geral". "center" só afeta o scroller interno
-        // (.checkout-body/.cart-items), o body está travado.
         setTimeout(() => {
-          try { control.scrollIntoView({ block: "center", behavior: "smooth" }); }
+          try { control.scrollIntoView({ block: "nearest", behavior: "auto" }); }
           catch (_) { control.scrollIntoView(); }
         }, 380);
       }
@@ -86,8 +84,15 @@
   });
   document.addEventListener("focusout", (e) => {
     if (e.target.closest(".cart-sidebar, .checkout-panel")) {
-      setTimeout(setAppVvh, 350);
-      setTimeout(setAppVvh, 700);
+      // Ao sair do campo / fechar o teclado, força a restauração da altura
+      // cheia. Zera o cache (lastVvh/lastVvTop) antes de recalcular para que
+      // setAppVvh reescreva as CSS vars MESMO se algum "resize" do
+      // visualViewport tiver sido perdido no fechamento do teclado — era isso
+      // que deixava o painel "encolhido e travado" com o teclado já fechado.
+      const restore = () => { lastVvh = -1; lastVvTop = -1; setAppVvh(); };
+      restore();
+      setTimeout(restore, 350);
+      setTimeout(restore, 700);
     }
   });
 
@@ -124,6 +129,16 @@
       document.body.style.right = "";
       document.body.style.overflow = "";
       window.scrollTo(0, lockedScrollY);
+      // Painel fechado: garante que --app-vvh volte à altura cheia. Se o painel
+      // foi fechado com o teclado ainda aberto (ex: toque no ✕), o focusout
+      // pode não recalcular a tempo; aqui zeramos o cache e reescrevemos assim
+      // que o teclado fecha, evitando deixar valores "encolhidos" para a
+      // próxima abertura.
+      if (typeof setAppVvh === "function") {
+        lastVvh = -1; lastVvTop = -1;
+        setAppVvh();
+        setTimeout(() => { lastVvh = -1; lastVvTop = -1; setAppVvh(); }, 350);
+      }
     }
   }
 
