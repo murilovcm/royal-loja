@@ -26,10 +26,30 @@
   // position:fixed se ancora) se mexer — sem repassar esse deslocamento,
   // o painel fica ancorado no topo errado e some por trás do teclado.
   let lastVvh = -1, lastVvTop = -1;
+  // O painel só deve SEGUIR o visualViewport enquanto um campo dele está focado
+  // (teclado/seletor aberto). Com o teclado FECHADO, o iOS Safari às vezes deixa
+  // o visualViewport "preso" com a altura e o offsetTop do teclado — se
+  // continuássemos lendo dele, o painel ficaria encolhido e deslocado pra baixo
+  // mesmo sem teclado (o bug do vídeo). Então, sem campo focado, ignoramos o
+  // visualViewport e usamos a viewport de layout cheia (window.innerHeight,
+  // top 0), que é sempre confiável quando não há teclado.
+  function panelFieldFocused() {
+    const ae = document.activeElement;
+    return !!(ae && ae.closest && ae.closest(".cart-sidebar, .checkout-panel") &&
+              /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName));
+  }
   function setAppVvh() {
     const vv = window.visualViewport;
-    const h = Math.round(vv ? vv.height : window.innerHeight);
-    const top = Math.round(vv ? vv.offsetTop : 0);
+    let h, top;
+    if (vv && panelFieldFocused()) {
+      // Campo focado: teclado provavelmente aberto -> acompanha a área visível.
+      h = Math.round(vv.height);
+      top = Math.round(vv.offsetTop);
+    } else {
+      // Nada focado (teclado fechado): viewport cheia, sem deslocamento.
+      h = Math.round(window.innerHeight);
+      top = 0;
+    }
     // Só escreve nas CSS vars se algo mudou de fato: escrever força recálculo
     // de layout, e o evento "scroll" do visualViewport dispara a cada frame
     // enquanto o cliente rola/digita — sem esse guard, era um dos travamentos.
@@ -84,13 +104,20 @@
   });
   document.addEventListener("focusout", (e) => {
     if (e.target.closest(".cart-sidebar, .checkout-panel")) {
-      // Ao sair do campo / fechar o teclado, força a restauração da altura
-      // cheia. Zera o cache (lastVvh/lastVvTop) antes de recalcular para que
-      // setAppVvh reescreva as CSS vars MESMO se algum "resize" do
-      // visualViewport tiver sido perdido no fechamento do teclado — era isso
-      // que deixava o painel "encolhido e travado" com o teclado já fechado.
+      // Ao sair do campo / fechar o teclado, força a restauração da altura.
+      // Zera o cache (lastVvh/lastVvTop) antes de recalcular para reescrever as
+      // CSS vars MESMO se algum "resize" do visualViewport tiver sido perdido no
+      // fechamento do teclado — era isso que deixava o painel "encolhido e
+      // travado" com o teclado já fechado (bug do vídeo).
+      // NÃO recalculamos de forma síncrona aqui: durante o focusout o
+      // document.activeElement pode já ser o <body> mesmo quando o foco está
+      // apenas migrando para OUTRO campo (o teclado continua aberto). Recalcular
+      // agora encheria o painel por 1 frame e ele encolheria de novo (piscada).
+      // Nos timers abaixo, se outro campo foi focado, setAppVvh mantém encolhido;
+      // se não, restaura a altura cheia. setAppVvh agora usa window.innerHeight
+      // quando nenhum campo está focado, então independe de valores presos do iOS.
       const restore = () => { lastVvh = -1; lastVvTop = -1; setAppVvh(); };
-      restore();
+      setTimeout(restore, 60);
       setTimeout(restore, 350);
       setTimeout(restore, 700);
     }
