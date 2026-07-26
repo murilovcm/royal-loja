@@ -248,11 +248,12 @@
     <p class="hero-subhead">Entrega rápida em toda {{ config.store_city or 'São Luís' }}. Produtos originais, pedido direto pelo WhatsApp.</p>
 
     <div class="hero-cta">
-      {# Sem .ring-btn aqui: o anel cônico girava em --ring-rgb, que é a MESMA
-         cor do preenchimento amarelo do botão. Ou seja, uma animação infinita
-         que ninguém via, custando frame em celular fraco. Trocada pelo brilho
-         que atravessa o botão, que é visível e tem intervalo de descanso. #}
-      <a href="#catalogo" class="btn btn-primary hero-btn-main">
+      {# .ring-btn = cometa no contorno (opção F): um ponto de luz percorre a
+         borda por FORA do botão, sobre o fundo escuro do hero. Núcleo branco
+         (lê em qualquer cor) e rastro na cor da marca. Um aro amarelo por
+         DENTRO sumiria no preenchimento amarelo — por isso ele roda por fora.
+         Ver .btn-primary.hero-btn-main.ring-btn::before no style.css. #}
+      <a href="#catalogo" class="btn btn-primary hero-btn-main ring-btn">
         <svg class="ico hero-cta-icon" aria-hidden="true"><use href="#i-grid"></use></svg>
         Ver Catálogo
       </a>
@@ -503,7 +504,7 @@
               <span class="val" id="modalTotal">R$ 0,00</span>
             </div>
           </div>
-          <button class="add-btn ring-btn" id="addBtn" disabled>Selecione um sabor</button>
+          <button class="add-btn sheen-btn" id="addBtn" disabled>Selecione um sabor</button>
         </div>
       </div>
     </div>
@@ -534,7 +535,7 @@
         <span class="lbl">Total</span>
         <span class="val" id="cartTotal">R$ 0,00</span>
       </div>
-      <button class="whatsapp-btn ring-btn" id="whatsappBtn" disabled>
+      <button class="whatsapp-btn sheen-btn" id="whatsappBtn" disabled>
         <span>📱</span> Finalizar Pedido →
       </button>
     </div>
@@ -576,7 +577,7 @@
               <span>Usamos seu GPS só na hora do pedido, apenas para confirmar seu endereço de entrega com precisão. Nada é salvo ou compartilhado.</span>
             </div>
           </div>
-          <button type="button" class="geo-btn ring-btn" id="geoBtn">📍 Usar minha localização atual</button>
+          <button type="button" class="geo-btn sheen-btn" id="geoBtn">📍 Usar minha localização atual</button>
           <div class="geo-status" id="geoStatus"></div>
 
           <textarea id="custAddress" name="custAddress" rows="3" placeholder="Condominio, rua, número, bairro, ponto de referência" autocomplete="street-address"></textarea>
@@ -640,7 +641,7 @@
       </div>
     </div>
     <div class="checkout-foot">
-      <button class="whatsapp-btn ring-btn" id="checkoutConfirmBtn">
+      <button class="whatsapp-btn sheen-btn" id="checkoutConfirmBtn">
         <span>📱</span> Confirmar e Enviar no WhatsApp
       </button>
     </div>

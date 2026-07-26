@@ -1270,18 +1270,44 @@ header.site-header::after {
   box-shadow: 0 8px 28px -12px rgba(var(--bg-rgb),.7);
   transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .25s ease, filter .2s ease;
 }
-/* Brilho que atravessa o botão. Duas decisões fazem ele parecer caro em vez
-   de chamativo:
-     1. O ciclo é de 6s mas a passagem dura ~1,1s. O resto é DESCANSO. Uma
-        animação que roda sem parar vira ruído de fundo e o olho ignora; uma
-        que aparece de vez em quando é notada toda vez.
-     2. Só transform e opacity, num pseudo-elemento. Nada de repaint, então o
-        custo em celular fraco é praticamente zero.
-   O overflow: hidden recorta a faixa na borda arredondada do botão. */
-/* position: relative é obrigatório aqui: quem fornecia o contexto de
-   posicionamento era o .ring-btn, que saiu deste botão. */
-.btn-primary.hero-btn-main { position: relative; overflow: hidden; isolation: isolate; }
-.btn-primary.hero-btn-main::after {
+/* position: relative + isolation dão o contexto do anel (.ring-btn). Sem
+   overflow: hidden: o anel precisa transbordar para brilhar sobre o fundo
+   escuro do hero. */
+.btn-primary.hero-btn-main { position: relative; overflow: visible; isolation: isolate; }
+
+/* ---- Cometa no contorno do Ver Catálogo (opção F) ----
+   Um ponto de luz percorre a borda dando a volta. O preenchimento é amarelo de
+   marca; um aro amarelo por DENTRO sumiria, então o cometa roda por FORA (inset
+   negativo) sobre o fundo escuro, com núcleo branco (lê em qualquer cor) e
+   rastro/glow na cor da marca. Só o giro do ângulo (sem pulso de brilho). */
+.btn-primary.hero-btn-main.ring-btn::before {
+  inset: -2px;
+  padding: 2px;
+  background: conic-gradient(from var(--ring-angle),
+      rgba(var(--ring-rgb, var(--primary-rgb)),0) 0deg,
+      rgba(var(--ring-rgb, var(--primary-rgb)),0) 298deg,
+      rgba(var(--ring-rgb, var(--primary-rgb)),.7) 330deg,
+      rgba(var(--ring-rgb, var(--primary-rgb)),.95) 348deg,
+      #ffffff 354deg,
+      rgba(var(--ring-rgb, var(--primary-rgb)),0) 360deg);
+  filter:
+    drop-shadow(0 0 7px rgba(var(--ring-rgb, var(--primary-rgb)),.9))
+    drop-shadow(0 0 15px rgba(var(--ring-rgb, var(--primary-rgb)),.5));
+  animation: ringAngle 3.4s linear infinite;
+}
+.btn-primary.hero-btn-main.ring-btn:hover::before { animation-duration: 1.8s; }
+.btn-primary.hero-btn-main:hover { filter: brightness(.96); }
+.btn-primary.hero-btn-main:active { transform: scale(.98); }
+
+/* ---- Efeito reutilizável: brilho que atravessa (sheen) ----
+   Uma faixa de luz cruza o botão de tempos em tempos. Ciclo de 6s com passagem
+   de ~1,1s e o resto em DESCANSO: aparece o bastante para ser notada sem virar
+   ruído de fundo. Só transform/opacity num ::after — nada de repaint, custo
+   ~zero no celular. O overflow: hidden recorta a faixa na borda arredondada.
+   Usado nos CTAs de AÇÃO (Adicionar, Finalizar, Confirmar no WhatsApp, Usar
+   localização). Os cards de produto NÃO usam — a setinha/"+" mantém o addSpin. */
+.sheen-btn { position: relative; overflow: hidden; isolation: isolate; }
+.sheen-btn::after {
   content: "";
   position: absolute;
   top: -60%;
@@ -1301,17 +1327,17 @@ header.site-header::after {
   pointer-events: none;
   animation: ctaSheen 6s cubic-bezier(.5,0,.35,1) infinite;
 }
-/* A faixa passa POR CIMA de tudo, ícone e rótulo igual: é luz atravessando o
-   botão. Elevar só o ícone deixaria os dois com tratamento diferente. */
+/* A faixa passa POR CIMA do ícone e do rótulo igual: é luz atravessando o
+   botão, não um brilho atrás dele. */
 @keyframes ctaSheen {
-  0%      { transform: translateX(0) rotate(14deg); }
-  18%     { transform: translateX(560%) rotate(14deg); }
-  100%    { transform: translateX(560%) rotate(14deg); }
+  0%   { transform: translateX(0) rotate(14deg); }
+  18%  { transform: translateX(560%) rotate(14deg); }
+  100% { transform: translateX(560%) rotate(14deg); }
 }
-.btn-primary.hero-btn-main:hover { filter: brightness(.96); }
-.btn-primary.hero-btn-main:active { transform: scale(.98); }
+/* Botão desabilitado não tem por que brilhar. */
+.sheen-btn:disabled::after { opacity: 0; animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  .btn-primary.hero-btn-main::after { animation: none; opacity: 0; }
+  .sheen-btn::after { animation: none; opacity: 0; }
 }
 /* Halo dourado suave derivado da marca (acompanha o color picker ao vivo). */
 @supports (color: color-mix(in srgb, red, blue)) {
