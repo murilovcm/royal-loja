@@ -508,9 +508,9 @@
   }
 
   function openModal(model) {
-    // O cliente escolheu um produto: a faixa de avisos cumpriu o papel dela e
-    // sai de cena. Perseguir com promoção quem já está decidindo o que comprar
-    // só rouba espaço da tela. Vale para a sessão, não fica gravado.
+    // O cliente abriu um produto: a faixa de avisos sai de cena para não roubar
+    // espaço de quem está decidindo. Volta quando ele fecha o produto e retoma a
+    // navegação (ver closeModal) — some enquanto decide, reaparece ao continuar.
     const announceBar = byId("announceBar");
     if (announceBar) announceBar.classList.add("is-done");
 
@@ -545,6 +545,11 @@
   function closeModal() {
     overlay.classList.remove("open");
     document.body.style.overflow = "";
+    // O cliente saiu do produto — seja para ver outro, seja depois de adicionar
+    // ao carrinho (que também passa por aqui). Voltou a navegar, então a faixa
+    // de avisos volta com ele. Reaparece com a própria transição de slide.
+    const announceBar = byId("announceBar");
+    if (announceBar) announceBar.classList.remove("is-done");
   }
 
   function updateModalTotal() {
