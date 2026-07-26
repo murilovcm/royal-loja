@@ -100,6 +100,17 @@
     .tab-btn.active { background:var(--surface); border-color:var(--border); color:var(--primary-yellow); }
     .admin-tab-panel { display:none; }
     .admin-tab-panel.active { display:block; }
+    /* ---- Editor de Q&A (pares pergunta/resposta) ---- */
+    .faq-pair { background:var(--bg-2); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px; }
+    .faq-pair-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .faq-pair-num { font-weight:700; font-size:.82rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; }
+    .faq-pair-del { background:none; border:1px solid var(--border); border-radius:8px; color:var(--text-dim); cursor:pointer; padding:4px 9px; font-size:.85rem; transition:.2s; }
+    .faq-pair-del:hover { color:#ff6b6b; border-color:#ff6b6b; }
+    .faq-pair .faq-q-input { width:100%; margin-bottom:8px; font-weight:600; }
+    .faq-pair .faq-a-input { width:100%; resize:vertical; }
+    .faq-pair-label { display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:4px; }
+    .faq-add-btn { margin-top:2px; }
+    .faq-empty-hint { color:var(--text-dim); font-size:.85rem; padding:6px 2px 10px; }
 
     .coupon-table { width:100%; border-collapse:collapse; margin-top:14px; font-size:.88rem; }
     .coupon-table th { text-align:left; color:var(--text-dim); font-weight:700; font-size:.72rem; text-transform:uppercase; letter-spacing:.5px; padding:8px 10px; border-bottom:1px solid var(--border); }
@@ -320,6 +331,7 @@
       <button class="tab-btn" data-tab="shipping" type="button">🗺️ Frete</button>
       <button class="tab-btn" data-tab="identity" type="button">🎨 Identidade Visual</button>
       <button class="tab-btn" data-tab="social" type="button">📱 Redes Sociais</button>
+      {% if is_owner %}<button class="tab-btn" data-tab="siteinfo" type="button">📢 Informações do site</button>{% endif %}
       {% if is_owner %}<button class="tab-btn" data-tab="employees" type="button">👥 Funcionários</button>{% endif %}
     </div>
 
@@ -797,9 +809,15 @@
             </div>
 
             <div class="pp-field">
+              <label for="cfgStoreTagline">Assinatura da loja</label>
+              <input type="text" id="cfgStoreTagline" maxlength="80" value="{{ config.store_tagline or '' }}" placeholder="Ex: Pods e Vapes">
+              <small class="pp-hint">Complementa o nome da loja no título da aba quando o campo abaixo está vazio.</small>
+            </div>
+
+            <div class="pp-field">
               <label for="cfgPageTitle">Título da aba (navegador)</label>
-              <input type="text" id="cfgPageTitle" maxlength="120" value="{{ config.page_title or '' }}" placeholder="Ex: Pods Ilha — Premium Vapes">
-              <small class="pp-hint">Aparece na aba do navegador (desktop e celular). Vazio usa "{nome da loja} — Premium Vapes".</small>
+              <input type="text" id="cfgPageTitle" maxlength="120" value="{{ config.page_title or '' }}" placeholder="Ex: Pods Ilha | Pods e Vapes">
+              <small class="pp-hint">Aparece na aba do navegador (desktop e celular). Vazio usa "{nome da loja} | {assinatura}".</small>
             </div>
 
             <div class="pp-field">
@@ -821,6 +839,24 @@
               </div>
               <input type="text" id="cfgFavicon" maxlength="300" value="{{ config.favicon_url or '' }}" placeholder="https://.../favicon.png ou envie uma imagem acima">
               <small class="pp-hint">Envie um PNG/JPG/WEBP (será reduzido a 64×64) ou cole uma URL. Vazio usa o favicon padrão da loja.</small>
+            </div>
+
+            <div class="pp-field">
+              <label for="cfgFooterDelivery">Rodapé · Área de entrega</label>
+              <input type="text" id="cfgFooterDelivery" maxlength="200" value="{{ config.footer_delivery_area or '' }}" placeholder="Ex: Entregamos em toda São Luís e região metropolitana.">
+            </div>
+            <div class="pp-field">
+              <label for="cfgFooterHours">Rodapé · Horário de atendimento</label>
+              <input type="text" id="cfgFooterHours" maxlength="200" value="{{ config.footer_hours or '' }}" placeholder="Ex: Todos os dias, das 10h às 23h.">
+            </div>
+            <div class="pp-field">
+              <label for="cfgFooterPayment">Rodapé · Formas de pagamento</label>
+              <input type="text" id="cfgFooterPayment" maxlength="200" value="{{ config.footer_payment or '' }}" placeholder="Ex: Pix, dinheiro, cartão de crédito e débito na entrega.">
+            </div>
+            <div class="pp-field">
+              <label for="cfgFooterExchange">Rodapé · Política de trocas</label>
+              <textarea id="cfgFooterExchange" rows="2" maxlength="300" placeholder="Ex: Troca em até 7 dias para produto com defeito de fábrica.">{{ config.footer_exchange or '' }}</textarea>
+              <small class="pp-hint">Deixe um campo vazio para esconder aquele bloco do rodapé.</small>
             </div>
 
             <div class="identity-save-row">
@@ -938,6 +974,56 @@
     </div>
 
     {% if is_owner %}
+    <div class="admin-tab-panel" data-tab-panel="siteinfo">
+      <div class="sections-block">
+        <div class="sections-head">
+          📢 Mensagens rotativas do topo <span class="sections-sub">A faixa que passa no topo do site, logo abaixo do aviso de idade</span>
+        </div>
+        <div class="pp-field">
+          <label class="pp-switch" style="margin-bottom:10px">
+            <span class="switch {{ 'on' if config.announce_enabled == '1' }}" id="cfgAnnounceSwitch" onclick="this.classList.toggle('on')"></span>
+            <span>Mostrar avisos rotativos no topo do site</span>
+          </label>
+          <label for="cfgAnnounceMsgs">Avisos rotativos</label>
+          <textarea id="cfgAnnounceMsgs" rows="4" maxlength="600" placeholder="Frete grátis nos pedidos acima de R$ 200&#10;Entrega no mesmo dia para toda São Luís">{{ config.announce_messages or '' }}</textarea>
+          <small class="pp-hint">Uma mensagem por linha. O site alterna entre elas a cada 5 segundos, logo abaixo do aviso de idade. Máximo de 6 mensagens: acima disso ninguém lê nenhuma.</small>
+        </div>
+      </div>
+
+      <div class="sections-block">
+        <div class="sections-head">
+          ❓ Perguntas frequentes (Q&A) <span class="sections-sub">A seção de dúvidas que aparece para os clientes no site</span>
+        </div>
+        <div class="pp-field">
+          <label class="pp-switch" style="margin-bottom:10px">
+            <span class="switch {{ 'on' if config.faq_enabled == '1' }}" id="cfgFaqSwitch" onclick="this.classList.toggle('on')"></span>
+            <span>Mostrar perguntas frequentes no site</span>
+          </label>
+          <label for="cfgFaqEyebrow">Chamada acima do título</label>
+          <input type="text" id="cfgFaqEyebrow" maxlength="60" value="{{ config.faq_eyebrow or '' }}" placeholder="Ex: Ficou com dúvida?">
+        </div>
+        <div class="pp-field">
+          <label for="cfgFaqTitle">Título da seção de perguntas</label>
+          <input type="text" id="cfgFaqTitle" maxlength="80" value="{{ config.faq_title or '' }}" placeholder="Ex: Perguntas | frequentes">
+          <small class="pp-hint">A barra <strong>|</strong> marca onde o título passa a usar a cor da loja. "Perguntas | frequentes" deixa a segunda palavra colorida. Sem barra, o título inteiro fica branco.</small>
+        </div>
+        <div class="pp-field">
+          <label>Perguntas e respostas</label>
+          <div id="faqPairs"></div>
+          <button type="button" class="mini-btn faq-add-btn" id="faqAddBtn" onclick="addFaqPair()">＋ Adicionar um Q&A</button>
+          <small class="pp-hint">
+            Uma caixa para a pergunta e outra para a resposta. Deixe um par vazio e ele é ignorado ao salvar.
+            Máximo de 10 perguntas: acima disso a seção vira um manual e ninguém lê.
+          </small>
+        </div>
+        <textarea id="cfgFaqItems" hidden>{{ config.faq_items or '' }}</textarea>
+
+        <div class="identity-save-row">
+          <button class="mini-btn primary" id="saveSiteInfoBtn" onclick="saveSiteInfo()">Salvar Informações do site</button>
+        </div>
+      </div>
+    </div>
+
     <div class="admin-tab-panel" data-tab-panel="employees">
       <div class="sections-block">
         <div class="sections-head">
@@ -1519,6 +1605,11 @@
         const fields = {
           store_name: document.getElementById('cfgStoreName').value.trim(),
           store_city: document.getElementById('cfgStoreCity').value.trim(),
+          store_tagline: document.getElementById('cfgStoreTagline').value.trim(),
+          footer_delivery_area: document.getElementById('cfgFooterDelivery').value.trim(),
+          footer_hours: document.getElementById('cfgFooterHours').value.trim(),
+          footer_payment: document.getElementById('cfgFooterPayment').value.trim(),
+          footer_exchange: document.getElementById('cfgFooterExchange').value.trim(),
           page_title: document.getElementById('cfgPageTitle').value.trim(),
           meta_description: document.getElementById('cfgMetaDesc').value.trim(),
           meta_keywords: document.getElementById('cfgMetaKeywords').value.trim(),
@@ -1532,6 +1623,116 @@
         toast(allOk ? "Configurações salvas com sucesso ✓" : "Algumas configurações não foram salvas");
       } catch (e) {
         toast("Erro ao salvar configurações");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
+    }
+
+    // ---- Editor de Q&A: pares pergunta/resposta ----
+    const FAQ_MAX = 10;
+
+    function faqPairTemplate(q, a) {
+      const wrap = document.createElement('div');
+      wrap.className = 'faq-pair';
+      wrap.innerHTML =
+        '<div class="faq-pair-head">' +
+          '<span class="faq-pair-num"></span>' +
+          '<button type="button" class="faq-pair-del" title="Remover este Q&A" onclick="removeFaqPair(this)">🗑 Remover</button>' +
+        '</div>' +
+        '<label class="faq-pair-label">Pergunta</label>' +
+        '<input type="text" class="faq-q-input" maxlength="200" placeholder="Ex: Quanto tempo leva a entrega?">' +
+        '<label class="faq-pair-label">Resposta</label>' +
+        '<textarea class="faq-a-input" rows="3" maxlength="500" placeholder="Ex: Na maior parte de São Luís entregamos no mesmo dia."></textarea>';
+      wrap.querySelector('.faq-q-input').value = q || '';
+      wrap.querySelector('.faq-a-input').value = a || '';
+      return wrap;
+    }
+
+    function renumberFaqPairs() {
+      const pairs = document.querySelectorAll('#faqPairs .faq-pair');
+      pairs.forEach((p, i) => { p.querySelector('.faq-pair-num').textContent = 'Pergunta ' + (i + 1); });
+      const addBtn = document.getElementById('faqAddBtn');
+      if (addBtn) {
+        const atMax = pairs.length >= FAQ_MAX;
+        addBtn.disabled = atMax;
+        addBtn.textContent = atMax ? 'Limite de ' + FAQ_MAX + ' perguntas atingido' : '＋ Adicionar um Q&A';
+      }
+      const cont = document.getElementById('faqPairs');
+      let hint = cont.querySelector('.faq-empty-hint');
+      if (pairs.length === 0) {
+        if (!hint) {
+          hint = document.createElement('div');
+          hint.className = 'faq-empty-hint';
+          hint.textContent = 'Nenhuma pergunta ainda. Clique em "Adicionar um Q&A" para criar a primeira.';
+          cont.appendChild(hint);
+        }
+      } else if (hint) {
+        hint.remove();
+      }
+    }
+
+    function addFaqPair(q, a) {
+      const cont = document.getElementById('faqPairs');
+      if (cont.querySelectorAll('.faq-pair').length >= FAQ_MAX) return;
+      cont.appendChild(faqPairTemplate(q, a));
+      renumberFaqPairs();
+    }
+
+    function removeFaqPair(btn) {
+      btn.closest('.faq-pair').remove();
+      renumberFaqPairs();
+    }
+
+    function initFaqEditor() {
+      const cont = document.getElementById('faqPairs');
+      if (!cont) return; // funcionário (staff) não tem essa aba
+      const raw = (document.getElementById('cfgFaqItems').value || '');
+      raw.split('\n').forEach((linha) => {
+        const idx = linha.indexOf('|');
+        if (idx === -1) return; // linha sem barra é ignorada, igual ao site
+        const q = linha.slice(0, idx).trim();
+        const a = linha.slice(idx + 1).trim();
+        if (q || a) addFaqPair(q, a);
+      });
+      renumberFaqPairs(); // garante numeração/estado do botão mesmo com 0 itens
+    }
+
+    // Monta a string "Pergunta | Resposta" por linha a partir dos pares.
+    function collectFaqItems() {
+      const linhas = [];
+      document.querySelectorAll('#faqPairs .faq-pair').forEach((p) => {
+        // Pergunta não pode conter "|" (é o separador) nem quebra de linha.
+        const q = p.querySelector('.faq-q-input').value.replace(/[|\n\r]+/g, ' ').trim();
+        // Resposta pode ter "|", mas não quebra de linha (uma linha por Q&A).
+        const a = p.querySelector('.faq-a-input').value.replace(/[\n\r]+/g, ' ').trim();
+        if (q && a) linhas.push(q + ' | ' + a);
+      });
+      return linhas.join('\n');
+    }
+
+    async function saveSiteInfo() {
+      const btn = document.getElementById('saveSiteInfoBtn');
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = "Salvando...";
+      try {
+        const fields = {
+          announce_enabled: document.getElementById('cfgAnnounceSwitch').classList.contains('on') ? '1' : '0',
+          announce_messages: document.getElementById('cfgAnnounceMsgs').value.trim(),
+          faq_enabled: document.getElementById('cfgFaqSwitch').classList.contains('on') ? '1' : '0',
+          faq_eyebrow: document.getElementById('cfgFaqEyebrow').value.trim(),
+          faq_title: document.getElementById('cfgFaqTitle').value.trim(),
+          faq_items: collectFaqItems(),
+        };
+        let allOk = true;
+        for (const [key, value] of Object.entries(fields)) {
+          const res = await api('/api/update_config', 'POST', { key, value });
+          if (!res || !res.ok) allOk = false;
+        }
+        toast(allOk ? "Informações do site salvas com sucesso ✓" : "Algumas informações não foram salvas");
+      } catch (e) {
+        toast("Erro ao salvar informações do site");
       } finally {
         btn.disabled = false;
         btn.textContent = originalLabel;
@@ -1627,6 +1828,10 @@
       if (res.ok) { toast("Funcionário excluído"); location.reload(); }
       else toast(res.error || "Erro ao excluir funcionário");
     }
+
+    // Monta o editor de Q&A a partir do valor salvo (rodar no fim, depois que
+    // FAQ_MAX e as funções auxiliares já foram definidas neste script).
+    initFaqEditor();
   </script>
 </body>
 </html>

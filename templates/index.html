@@ -1,7 +1,34 @@
-{# ---------------- Jinja Macro: Model Card ---------------- #}
-{% macro model_card(m, editor) %}
+{# ---------------- Jinja Macro: Model Card ----------------
+
+   Redesign do card (itens 8 a 13). O que mudou e por quê:
+
+   ANTES eram 9 sinais competindo: badge de puffs, selo TOP, foto, marca, nome,
+   ponto de cor + nome do 1º sabor, "+N sabores", "A PARTIR DE", preço e botão.
+   AGORA são 6 + 1 badge condicional: foto, marca, nome, metadado (puffs e
+   sabores em uma linha só), preço, ação.
+
+   O QUE SAIU: o nome do primeiro sabor (sabor arbitrário não é critério de
+   compra, a variedade é, então ficaram os pontos de cor e a contagem);
+   "A PARTIR DE" como bloco próprio (virou prefixo colado no preço); e o selo
+   TOP dentro da seção "Mais Vendidos", onde a seção inteira já diz isso.
+
+   O QUE FICOU por ser critério de compra neste nicho: contagem de puffs e
+   contagem de sabores. Ambos desceram de badge colorido para metadado neutro.
+
+   TRAVA DE FAMILIARIDADE: o botão de ação continua no MESMO canto (inferior
+   direito) e faz a MESMA coisa (abre o modal de sabores). Ganhou rótulo
+   acessível, ícone explícito e área de toque maior. O card inteiro continua
+   clicável, então o alvo de toque não encolheu e a contagem de toques até o
+   pedido é exatamente a de antes.
+   -------------------------------------------------------- #}
+{% macro model_card(m, editor, eager=false) %}
 {% set palette = ['#a855f7','#22d3ee','#f97316','#ec4899','#4ade80','#eab308','#60a5fa','#f43f5e'] %}
 <article class="model-card"
+         {# Acesso por teclado: invisível na tela, mas sem isto a grade inteira
+            é inalcançável sem mouse ou toque (o clique vive num listener do
+            <article>). Não altera o layout nem o comportamento do ponteiro. #}
+         {% if not editor %}role="button" tabindex="0"
+         aria-label="{{ m.brand_name }} {{ m.name }}, a partir de R$ {{ '%.2f' | format(m.min_price) | replace('.', ',') }}. Ver sabores"{% endif %}
          data-id="{{ m.id }}"
          data-brand="{{ m.brand_id }}"
          data-best="{{ m.is_best_seller }}"
@@ -12,7 +39,13 @@
     {% if m.is_best_seller %}<span class="best-tag">★ TOP</span>{% endif %}
   </div>
   <div class="card-img">
-    {% if m.image_url %}<img src="{{ m.image_url }}" alt="{{ m.name }}">
+    {# alt com marca + modelo, dimensões nominais e lazy abaixo da dobra: tudo
+       invisível na tela, só peso de rede e leitor de tela. As primeiras saem
+       eager, porque lazy acima da dobra atrasaria o LCP no 4G. #}
+    {% if m.image_url %}<img src="{{ m.image_url }}" alt="{{ m.brand_name }} {{ m.name }}"
+         width="400" height="500"
+         loading="{{ 'eager' if eager else 'lazy' }}"
+         {% if eager %}fetchpriority="high"{% endif %} decoding="async">
     {% else %}<span class="ph">{{ m.name[0] }}</span>{% endif %}
   </div>
   <span class="brand-lbl">{{ m.brand_name }}</span>
@@ -28,7 +61,7 @@
       <span class="from">a partir de</span><br>
       <span class="price"><span class="cur">R$</span>{{ '%.2f' | format(m.min_price) | replace('.', ',') }}</span>
     </div>
-    <span class="card-plus" aria-hidden="true"><svg class="plus-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+    <span class="card-plus" aria-hidden="true"><svg class="plus-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
   </div>
 </article>
 {% endmacro %}
@@ -52,10 +85,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#0a0a0c">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>{{ config.page_title or ((config.store_name or 'Royal') ~ ' — Premium Vapes') }}</title>
+  <title>{{ config.page_title or ((config.store_name or 'Loja') ~ ' | ' ~ (config.store_tagline or 'Pods e Vapes')) }}</title>
   {% if config.meta_description %}<meta name="description" content="{{ config.meta_description }}">{% endif %}
   {% if config.meta_keywords %}<meta name="keywords" content="{{ config.meta_keywords }}">{% endif %}
   <link rel="icon" href="{{ config.favicon_url or url_for('static', filename='favicon-64.png') }}">
+  {# Preload só do subset `latin`: é o que toda página em português baixa. Sem
+     isso o navegador só descobre a fonte depois de baixar e parsear o CSS,
+     atrasando a troca do texto em 4G. `crossorigin` é obrigatório em preload
+     de fonte, mesmo sendo mesma origem, senão o browser baixa duas vezes. #}
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="{{ url_for('static', filename='fonts/geist-latin.woff2') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_v }}">
   <style>:root{
     --primary-yellow: {{ config.theme_primary_color or '#FFD60A' }};
@@ -66,6 +104,7 @@
     --btn-grad-angle: {{ config.theme_grad_angle or '120' }}deg;
     --text-on-primary: {{ config.theme_text_on_primary_color or '#000000' }};
     --bg: {{ config.theme_bg_color or '#0d0d1a' }};
+    --bg-rgb: {{ (config.theme_bg_color or '#0d0d1a') | hex_to_rgb }};
     --card-bg: {{ config.theme_card_bg_color or '#1a1a2e' }};
     --text: {{ config.theme_text_color or '#ffffff' }};
     --surface: {{ config.theme_surface_color or '#17151c' }};
@@ -78,16 +117,20 @@
     --arrow-color: {{ config.theme_arrow_color or config.theme_primary_color or '#FFD60A' }};
     --arrow-rgb: {{ (config.theme_arrow_color or config.theme_primary_color or '#FFD60A') | hex_to_rgb }};
     --ring-rgb: {{ (config.theme_ring_color or config.theme_primary_color or '#FFD60A') | hex_to_rgb }};
-    --brand-label-color: {{ config.theme_brand_label_color or config.theme_accent_soft_color or '#a855f7' }};
-    --flavor-more-color: {{ config.theme_flavor_more_color or config.theme_accent_soft_color or '#a855f7' }};
+    {# Injeta a cor CRUA. O style.css clareia por cima (--label-lift) para o
+       contraste passar em AA sem desrespeitar a escolha do painel. #}
+    --brand-label-raw: {{ config.theme_brand_label_color or config.theme_accent_soft_color or '#a855f7' }};
+    --flavor-more-raw: {{ config.theme_flavor_more_color or config.theme_accent_soft_color or '#a855f7' }};
   }</style>
 </head>
 <body class="{{ 'editor-mode' if editor else '' }}">
 
+  {% include "_icons.html" %}
+
   <!-- ============ AGE GATE ============ -->
   <div class="age-gate" id="ageGate" role="dialog" aria-modal="true" aria-labelledby="ageGateTitle">
     <div class="age-gate-card">
-      <img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="age-gate-logo">
+      <img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Loja' }}" class="age-gate-logo">
 
       <div class="age-gate-question" id="ageGateQuestion">
         <span class="age-gate-badge">🔞 Proibido para menores</span>
@@ -112,13 +155,13 @@
   <header class="site-header">
     <div class="container header-inner">
       <span class="header-side" aria-hidden="true"></span>
-      <a href="/" class="logo"><img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}" class="logo-img"></a>
+      <a href="/" class="logo"><img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Loja' }}" class="logo-img"></a>
       <div class="header-actions">
         <a class="nav-icon nav-icon-wa" href="https://wa.me/{{ config.whatsapp_phone or whatsapp }}?text={{ (config.wa_msg_header or 'Olá! Vim pelo site e quero fazer um pedido.') | urlencode }}" target="_blank" rel="noopener" aria-label="Falar no WhatsApp">
-          <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M16 3C9.373 3 4 8.373 4 15c0 2.379.694 4.596 1.888 6.463L4 29l7.75-1.85A11.94 11.94 0 0 0 16 27c6.627 0 12-5.373 12-12S22.627 3 16 3zm0 21.6c-1.98 0-3.828-.58-5.383-1.578l-.385-.242-4.6 1.098 1.128-4.48-.25-.397A9.56 9.56 0 0 1 5.4 15c0-5.85 4.75-10.6 10.6-10.6S26.6 9.15 26.6 15 21.85 24.6 16 24.6zm5.75-7.9c-.313-.157-1.85-.913-2.138-1.017-.288-.105-.497-.157-.706.157-.21.313-.81 1.017-.993 1.226-.183.21-.366.235-.68.078-.313-.157-1.322-.487-2.518-1.552-.93-.83-1.558-1.855-1.741-2.168-.183-.313-.02-.482.137-.638.14-.14.313-.366.47-.548.157-.183.209-.313.313-.522.105-.21.052-.392-.026-.548-.078-.157-.706-1.7-.968-2.33-.255-.613-.514-.53-.706-.54l-.601-.01c-.21 0-.548.078-.836.392-.288.313-1.096 1.07-1.096 2.61s1.122 3.028 1.278 3.237c.157.21 2.208 3.372 5.35 4.73.747.323 1.33.516 1.784.66.75.238 1.432.204 1.972.124.601-.09 1.85-.756 2.11-1.487.26-.73.26-1.356.183-1.487-.078-.13-.288-.209-.6-.366z"/></svg>
+          <svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg>
         </a>
         <button type="button" class="nav-icon nav-icon-menu" id="navToggle" aria-label="Abrir menu" aria-controls="navSidebar" aria-expanded="false">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><line x1="4.5" y1="7" x2="19.5" y2="7"/><line x1="4.5" y1="12" x2="19.5" y2="12"/><line x1="4.5" y1="17" x2="19.5" y2="17"/></svg>
+          <svg class="ico" aria-hidden="true"><use href="#i-menu"></use></svg>
         </button>
       </div>
     </div>
@@ -129,11 +172,11 @@
   <aside class="nav-sidebar" id="navSidebar" aria-hidden="true">
     <div class="nav-side-header">
       <span class="nav-side-title">Menu</span>
-      <button class="nav-side-close" id="navClose" aria-label="Fechar menu">✕</button>
+      <button class="nav-side-close" id="navClose" aria-label="Fechar menu"><svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg></button>
     </div>
     <nav class="nav-side-body">
       <a href="/" class="nav-side-link">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+        <svg class="ico" aria-hidden="true"><use href="#i-home"></use></svg>
         Home
       </a>
       <div class="nav-side-section">Categorias</div>
@@ -142,7 +185,7 @@
       <button type="button" class="nav-side-cat" data-filter="brand-{{ b.id }}">{{ b.name }}</button>
       {% endfor %}
       <a href="https://wa.me/{{ config.whatsapp_phone or whatsapp }}?text={{ (config.wa_msg_attendant or 'Olá! Vim pelo site e preciso de atendimento.') | urlencode }}" target="_blank" rel="noopener" class="nav-side-link nav-side-attend">
-        <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="M16 3C9.373 3 4 8.373 4 15c0 2.379.694 4.596 1.888 6.463L4 29l7.75-1.85A11.94 11.94 0 0 0 16 27c6.627 0 12-5.373 12-12S22.627 3 16 3zm0 21.6c-1.98 0-3.828-.58-5.383-1.578l-.385-.242-4.6 1.098 1.128-4.48-.25-.397A9.56 9.56 0 0 1 5.4 15c0-5.85 4.75-10.6 10.6-10.6S26.6 9.15 26.6 15 21.85 24.6 16 24.6z"/></svg>
+        <svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg>
         Falar com atendente
       </a>
     </nav>
@@ -150,9 +193,34 @@
 
   <!-- Disclaimer legal fixo -->
   <div class="legal-bar">
-    <span class="legal-bar-icon">🔞</span>
-    <span>Venda proibida para menores de 18 anos · Produto contém nicotina</span>
+    {# Ícone INLINE dentro do texto, não como irmão flex: quando o aviso quebra
+       em duas linhas, um irmão flex fica encostado na borda esquerda enquanto
+       o texto centraliza, e a faixa parece quebrada. #}
+    <p class="legal-bar-text">
+      <span class="legal-bar-icon" aria-hidden="true">🔞</span> Venda proibida para menores de 18 anos
+    </p>
+
   </div>
+
+  {# Faixa rotativa de avisos. Fica FORA da barra legal de propósito: é ela que
+     gruda abaixo do header ao rolar, e um sticky só funciona enquanto o pai
+     estiver na tela. Como irmã direta do fluxo da página, acompanha o scroll
+     inteiro.
+     Teto de 6 mensagens: o limite é de composição, não técnico. Uma faixa
+     girando entre dez frases vira ruído e ninguém lê nenhuma. #}
+  {% set announce = (config.announce_messages or '').split('\n') | map('trim') | select | list %}
+  {% if config.announce_enabled == '1' and announce %}
+  <div class="announce-bar" id="announceBar">
+    <div class="container announce{{ ' announce-single' if announce | length == 1 }}" aria-live="polite">
+      <span class="announce-dot" aria-hidden="true"></span>
+      <div class="announce-track">
+        {% for msg in announce[:6] %}
+        <span class="announce-msg{{ ' is-on' if loop.first }}">{{ msg }}</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- Hero -->
   <section class="hero container">
@@ -163,90 +231,73 @@
       {% endfor %}
     </div>
 
+    {# Status da loja: voltou para dentro do hero e com presença. Quando está
+       aberta a pill ganha tinta verde, porque isso é estado semântico real
+       ("dá para pedir agora"), não enfeite. É a primeira coisa que um cliente
+       recorrente procura antes de escolher produto. #}
     <div class="store-status" id="storeStatus">
       <span class="store-status-dot"></span>
       <span class="store-status-text">Verificando horário...</span>
     </div>
 
-    <h1>PODS DE QUALIDADE EM <span class="cidade">{{ config.store_city or 'São Luís' }}</span> VOCÊ ENCONTRA AQUI</h1>
+    {# A pill da cidade dentro do título é a peça que a loja já tinha de mais
+       característico: diz "entregamos AQUI" na cor da marca. O trabalho aqui é
+       dar escala a ela, não substituí-la. #}
+    <h1>Pods de qualidade em <span class="cidade">{{ config.store_city or 'São Luís' }}</span> você encontra aqui</h1>
 
     <p class="hero-subhead">Entrega rápida em toda {{ config.store_city or 'São Luís' }}. Produtos originais, pedido direto pelo WhatsApp.</p>
 
     <div class="hero-cta">
-      <a href="#catalogo" class="btn btn-primary hero-btn-main ring-btn">
-        <svg class="hero-cta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="3" width="7" height="7" rx="1"></rect>
-          <rect x="14" y="3" width="7" height="7" rx="1"></rect>
-          <rect x="3" y="14" width="7" height="7" rx="1"></rect>
-          <rect x="14" y="14" width="7" height="7" rx="1"></rect>
-        </svg>
+      {# Sem .ring-btn aqui: o anel cônico girava em --ring-rgb, que é a MESMA
+         cor do preenchimento amarelo do botão. Ou seja, uma animação infinita
+         que ninguém via, custando frame em celular fraco. Trocada pelo brilho
+         que atravessa o botão, que é visível e tem intervalo de descanso. #}
+      <a href="#catalogo" class="btn btn-primary hero-btn-main">
+        <svg class="ico hero-cta-icon" aria-hidden="true"><use href="#i-grid"></use></svg>
         Ver Catálogo
       </a>
     </div>
 
+    {# Ações secundárias discretas: dois círculos, como na versão que você
+       aprovou. Um botão verde do tamanho do CTA principal disputava a atenção
+       com ele e desequilibrava o bloco inteiro. #}
     <div class="hero-social">
-      <a href="https://wa.me/{{ config.whatsapp_phone or whatsapp }}?text={{ (config.wa_msg_hero or 'Olá! Vim pelo site e quero saber mais sobre os produtos.') | urlencode }}" target="_blank" class="btn btn-whatsapp" aria-label="Falar no WhatsApp">
-        <svg class="btn-whatsapp-icon" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
-          <path d="M16 3C9.373 3 4 8.373 4 15c0 2.379.694 4.596 1.888 6.463L4 29l7.75-1.85A11.94 11.94 0 0 0 16 27c6.627 0 12-5.373 12-12S22.627 3 16 3zm0 21.6c-1.98 0-3.828-.58-5.383-1.578l-.385-.242-4.6 1.098 1.128-4.48-.25-.397A9.56 9.56 0 0 1 5.4 15c0-5.85 4.75-10.6 10.6-10.6S26.6 9.15 26.6 15 21.85 24.6 16 24.6zm5.75-7.9c-.313-.157-1.85-.913-2.138-1.017-.288-.105-.497-.157-.706.157-.21.313-.81 1.017-.993 1.226-.183.21-.366.235-.68.078-.313-.157-1.322-.487-2.518-1.552-.93-.83-1.558-1.855-1.741-2.168-.183-.313-.02-.482.137-.638.14-.14.313-.366.47-.548.157-.183.209-.313.313-.522.105-.21.052-.392-.026-.548-.078-.157-.706-1.7-.968-2.33-.255-.613-.514-.53-.706-.54l-.601-.01c-.21 0-.548.078-.836.392-.288.313-1.096 1.07-1.096 2.61s1.122 3.028 1.278 3.237c.157.21 2.208 3.372 5.35 4.73.747.323 1.33.516 1.784.66.75.238 1.432.204 1.972.124.601-.09 1.85-.756 2.11-1.487.26-.73.26-1.356.183-1.487-.078-.13-.288-.209-.6-.366z"></path>
-        </svg>
-        <span class="btn-whatsapp-text">Falar no WhatsApp</span>
+      <a href="https://wa.me/{{ config.whatsapp_phone or whatsapp }}?text={{ (config.wa_msg_hero or 'Olá! Vim pelo site e quero saber mais sobre os produtos.') | urlencode }}" target="_blank" rel="noopener" class="btn-social btn-social-wa" aria-label="Falar no WhatsApp">
+        <svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg>
       </a>
       {% if config.instagram_url %}
-      <a href="{{ config.instagram_url }}" target="_blank" rel="noopener" class="btn btn-instagram" aria-label="Seguir no Instagram">
-        <svg class="btn-instagram-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="currentColor" stroke-width="1.8"></rect>
-          <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8"></circle>
-          <circle cx="17.3" cy="6.7" r="1.3" fill="currentColor"></circle>
-        </svg>
+      <a href="{{ config.instagram_url }}" target="_blank" rel="noopener" class="btn-social btn-social-ig" aria-label="Seguir no Instagram">
+        <svg class="ico" aria-hidden="true"><use href="#i-instagram"></use></svg>
       </a>
       {% endif %}
     </div>
-
-    <p class="hero-trust">Pedido direto pelo WhatsApp — sem cadastro</p>
-
-    <div class="hero-features">
-      <div class="hero-feature">
-        <span class="hero-feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="1" y="4" width="14" height="12" rx="1.5"></rect>
-            <path d="M15 9h3.6a1.5 1.5 0 0 1 1.2.6l2 2.6a1.5 1.5 0 0 1 .3.9V16h-3.4"></path>
-            <circle cx="6" cy="18.5" r="2"></circle>
-            <circle cx="17.5" cy="18.5" r="2"></circle>
-            <path d="M8 18.5h7.5"></path>
-          </svg>
-        </span>
-        <h3>Entrega Rápida</h3>
-      </div>
-      <div class="hero-feature">
-        <span class="hero-feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 3l7 3v5.2c0 4.6-3 8.7-7 9.8-4-1.1-7-5.2-7-9.8V6l7-3z"></path>
-            <path d="M9 12.2l2.1 2.1L15.5 10"></path>
-          </svg>
-        </span>
-        <h3>Produtos Originais</h3>
-      </div>
-      <div class="hero-feature">
-        <span class="hero-feature-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 11.5a8.5 8.5 0 0 1-11.9 7.8L3 21l1.7-6a8.5 8.5 0 1 1 16.3-3.5z"></path>
-          </svg>
-        </span>
-        <h3>Atendimento Ágil</h3>
-      </div>
-    </div>
   </section>
+
+  {# A faixa de selos (Entrega Rápida / Produtos Originais / Atendimento Ágil)
+     foi removida. As três promessas continuam ditas onde o cliente realmente
+     decide: a entrega e o atendimento no rodapé de confiança, e a procedência
+     na resposta "Os produtos são originais?" das perguntas frequentes.
+     Os ícones i-truck, i-shield e i-message seguem no sprite porque o rodapé
+     usa os três. #}
 
   <!-- Best sellers -->
   {% set best = catalog | selectattr('is_best_seller') | list %}
   {% if best %}
-  <section class="section container" id="best">
+  {# .section-band: a seção ganha superfície e moldura próprias. Sem isso ela
+     é uma grade de cards idêntica ao Catálogo logo abaixo, duas famílias de
+     layout iguais e coladas. A ORDEM das seções e a distribuição dos produtos
+     continuam exatamente as mesmas: a variação é de apresentação. #}
+  <section class="section section-band container" id="best">
     <div class="section-head">
       <h2><span class="bolt ico-bolt"></span> Mais Vendidos</h2>
       
     </div>
     <div class="grid">
-      {% for m in best %}{{ model_card(m, editor) }}{% endfor %}
+      {# in_best_section=true suprime o selo "Mais vendido" nos cards daqui: a
+         seção inteira já diz isso. No catálogo o selo continua, porque lá ele
+         informa de verdade. #}
+      {# Os 2 primeiros são a dobra no celular (grade de 2 colunas): carregam eager. #}
+      {% for m in best %}{{ model_card(m, editor, eager=(loop.index <= 2)) }}{% endfor %}
     </div>
   </section>
   {% endif %}
@@ -257,18 +308,13 @@
   <section class="section container" id="catalogo">
     <div class="section-head">
       <h2>
-        <svg class="catalog-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="7.5" height="7.5" rx="1.6"></rect>
-          <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"></rect>
-          <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"></rect>
-          <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"></rect>
-        </svg>
+        <svg class="ico catalog-icon" aria-hidden="true"><use href="#i-grid"></use></svg>
         Catálogo Completo
       </h2>
       <p id="catalogCount"></p>
     </div>
     <div class="search-wrap">
-      <span class="search-ico">🔍</span>
+      <span class="search-ico"><svg class="ico" aria-hidden="true"><use href="#i-search"></use></svg></span>
       <input type="text" id="searchInput" placeholder="Buscar modelo ou marca...">
     </div>
     <div class="filter-bar" id="filterBar">
@@ -283,7 +329,7 @@
     </div>
   </section>
 
-  <!-- ============ BLOCOS PROMOCIONAIS (ex: Atacado) — replicáveis pelo painel ============ -->
+  <!-- ============ BLOCOS PROMOCIONAIS (ex: Atacado), replicáveis pelo painel ============ -->
   {% for block in promo_blocks %}
   {% if block.active == 1 or editor %}
   <section class="section container promo-block-section" {% if block.active != 1 and editor %}data-hidden="1"{% endif %}>
@@ -311,19 +357,133 @@
   {% endif %}
   {% endfor %}
 
+  {# ============ FIM DA PÁGINA ============
+     Envelope opaco que cobre a malha de linhas e os halos do fundo daqui para
+     baixo. A malha vive num pseudo-elemento FIXO do body, então não dá para
+     "terminá-la" numa posição de rolagem: o jeito é o conteúdo daqui em
+     diante passar por cima com superfície própria. #}
+  <div class="page-end">
+
+  {# ============ PERGUNTAS FREQUENTES ============
+     Accordion, conforme o modelo aprovado. Registro que eu havia argumentado
+     contra accordion aqui (ele esconde a resposta atrás de um toque, e estas
+     são as perguntas que decidem a compra); a decisão do dono da loja mandou.
+
+     <details name="faq"> em vez de JS: o atributo `name` faz o próprio
+     navegador manter só um aberto por vez, e <summary> já vem com papel de
+     botão, foco de teclado e leitura por leitor de tela de graça. Sem esse
+     atributo, os navegadores antigos simplesmente deixam abrir vários, que é
+     uma degradação aceitável.
+
+     Conteúdo do painel: uma por linha, "Pergunta | Resposta". #}
+  {% set faq = [] %}
+  {% for linha in (config.faq_items or '').split('\n') %}
+    {% set partes = linha.split('|') %}
+    {% if partes | length >= 2 and partes[0].strip() and partes[1].strip() %}
+      {% set _ = faq.append({'q': partes[0].strip(), 'a': partes[1:] | join('|') | trim}) %}
+    {% endif %}
+  {% endfor %}
+  {% if config.faq_enabled == '1' and faq %}
+  {% set titulo = (config.faq_title or 'Perguntas | frequentes').split('|') %}
+  <section class="section container faq" id="faq">
+    <div class="faq-head">
+      {% if config.faq_eyebrow %}<p class="faq-eyebrow">{{ config.faq_eyebrow }}</p>{% endif %}
+      <h2 class="faq-title">
+        {{ titulo[0] | trim }}{% if titulo | length > 1 %} <span class="faq-title-accent">{{ titulo[1:] | join('|') | trim }}</span>{% endif %}
+      </h2>
+    </div>
+
+    <div class="faq-list">
+      {% for item in faq[:10] %}
+      <details class="faq-item" name="faq"{% if loop.first %} open{% endif %}>
+        <summary class="faq-q">
+          <span>{{ item.q }}</span>
+          <svg class="ico faq-arrow" aria-hidden="true"><use href="#i-arrow-down"></use></svg>
+        </summary>
+        <div class="faq-a"><p>{{ item.a }}</p></div>
+      </details>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ============ RODAPÉ DE CONFIANÇA ============
+     Antes era só o logo e uma linha. Agora responde as perguntas que um
+     comprador brasileiro faz antes de fechar pedido numa loja que não conhece:
+     até onde entrega, que horas atende, como paga e o que acontece se vier
+     com defeito. Tudo vem do painel.
+     De propósito NÃO é um paredão de links em quatro colunas: nada aqui leva a
+     lugar nenhum além do WhatsApp e do Instagram, então listar links seria
+     inventar navegação que não existe. #}
   <footer class="site-footer">
     <div class="container">
-      <div class="logo footer-logo"><img src="{{ config.logo_footer_url or config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Royal' }}"></div>
-      <p>© 2026 Royal Vapes. Produto destinado exclusivamente a maiores de 18 anos.</p>
+      <div class="footer-top">
+        <div class="footer-brand">
+          <div class="logo footer-logo"><img src="{{ config.logo_footer_url or config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Loja' }}"></div>
+          <div class="footer-contact">
+            <a class="footer-action footer-action-wa" href="https://wa.me/{{ config.whatsapp_phone or whatsapp }}?text={{ (config.wa_msg_attendant or 'Olá! Vim pelo site e preciso de atendimento.') | urlencode }}" target="_blank" rel="noopener">
+              <svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg>
+              Falar no WhatsApp
+            </a>
+            {% if config.instagram_url %}
+            <a class="footer-action footer-action-ig" href="{{ config.instagram_url }}" target="_blank" rel="noopener">
+              <svg class="ico" aria-hidden="true"><use href="#i-instagram"></use></svg>
+              Instagram
+            </a>
+            {% endif %}
+          </div>
+        </div>
+
+        <dl class="footer-info">
+          {% if config.footer_delivery_area %}
+          <div class="footer-info-item">
+            <dt><svg class="ico" aria-hidden="true"><use href="#i-truck"></use></svg> Área de entrega</dt>
+            <dd>{{ config.footer_delivery_area }}</dd>
+          </div>
+          {% endif %}
+          {% if config.footer_hours %}
+          <div class="footer-info-item">
+            <dt><svg class="ico" aria-hidden="true"><use href="#i-message"></use></svg> Atendimento</dt>
+            <dd>{{ config.footer_hours }}</dd>
+          </div>
+          {% endif %}
+          {% if config.footer_payment %}
+          <div class="footer-info-item">
+            <dt><svg class="ico" aria-hidden="true"><use href="#i-ticket"></use></svg> Formas de pagamento</dt>
+            <dd>{{ config.footer_payment }}</dd>
+          </div>
+          {% endif %}
+          {% if config.footer_exchange %}
+          <div class="footer-info-item">
+            <dt><svg class="ico" aria-hidden="true"><use href="#i-shield"></use></svg> Trocas</dt>
+            <dd>{{ config.footer_exchange }}</dd>
+          </div>
+          {% endif %}
+        </dl>
+      </div>
+
+      <div class="footer-legal">
+        <p class="footer-legal-warning">
+          <span aria-hidden="true">🔞</span>
+          Venda proibida para menores de 18 anos · Produto contém nicotina
+        </p>
+        <p class="footer-legal-note">
+          A nicotina causa dependência. Este produto não é recomendado para não fumantes,
+          gestantes, lactantes nem portadores de doenças cardíacas ou respiratórias.
+        </p>
+        <p class="footer-copy">© {{ current_year }} {{ config.store_name or 'Loja' }}. Produto destinado exclusivamente a maiores de 18 anos.</p>
+      </div>
     </div>
   </footer>
+
+  </div>{# /.page-end #}
 
   <!-- ============ MODAL ============ -->
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal" id="modalBox">
       <!-- X fora do .modal-body: dentro dele o iOS Safari (-webkit-overflow-scrolling)
            recorta o botão quando a lista de sabores rola, sumindo com o X. -->
-      <button class="modal-close" id="modalClose">✕</button>
+      <button class="modal-close" id="modalClose" aria-label="Fechar"><svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg></button>
       <div class="modal-img" id="modalImg"></div>
       <div class="modal-body">
         <span class="brand-lbl" id="modalBrand"></span>
@@ -353,19 +513,14 @@
   <div class="cart-overlay" id="cartOverlay"></div>
   <aside class="cart-sidebar" id="cartSidebar">
     <div class="cart-header">
-      <h3><svg class="cart-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Seu Carrinho</h3>
-      <button class="close-cart" id="cartClose">✕</button>
+      <h3><svg class="ico cart-ico" aria-hidden="true"><use href="#i-cart"></use></svg> Seu Carrinho</h3>
+      <button class="close-cart" id="cartClose" aria-label="Fechar carrinho"><svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg></button>
     </div>
     <div class="cart-items" id="cartItems"></div>
     <div class="cart-foot">
       <div class="coupon-box">
         <div class="coupon-input-row">
-          <span class="coupon-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-              <line x1="7" y1="7" x2="7.01" y2="7"></line>
-            </svg>
-          </span>
+          <span class="coupon-icon"><svg class="ico" aria-hidden="true"><use href="#i-ticket"></use></svg></span>
           <input type="text" id="couponInput" placeholder="Digite seu cupom" autocomplete="off">
           <button type="button" class="coupon-apply-btn" id="couponApplyBtn">Aplicar</button>
         </div>
@@ -387,7 +542,7 @@
 
   <!-- Floating cart button (only visible with items in cart) -->
   <button class="cart-fab" id="cartFab" aria-label="Ver carrinho">
-    <svg class="cart-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg><span class="cart-fab-badge" id="cartFabBadge">0</span>
+    <svg class="ico cart-ico" aria-hidden="true"><use href="#i-cart"></use></svg><span class="cart-fab-badge" id="cartFabBadge">0</span>
   </button>
 
   <!-- ============ CHECKOUT PANEL ============ -->
@@ -395,7 +550,7 @@
   <aside class="checkout-panel" id="checkoutPanel">
     <div class="checkout-header">
       <h3>📝 Finalizar Pedido</h3>
-      <button class="close-checkout" id="checkoutClose">✕</button>
+      <button class="close-checkout" id="checkoutClose" aria-label="Fechar"><svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg></button>
     </div>
     <div class="checkout-body" id="checkoutBody">
       <form id="checkoutForm" class="checkout-form" novalidate>
@@ -510,7 +665,7 @@
   <div class="promo-pop" id="promoPop" role="dialog" aria-modal="false" aria-labelledby="promoPopTitle" hidden>
     <div class="promo-pop-backdrop" data-promo-close></div>
     <div class="promo-pop-card" role="document">
-      <button class="promo-pop-close" type="button" data-promo-close aria-label="Fechar">✕</button>
+      <button class="promo-pop-close" type="button" data-promo-close aria-label="Fechar"><svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg></button>
       {% if config.promo_popup_badge %}<span class="promo-pop-badge">{{ config.promo_popup_badge }}</span>{% endif %}
       <h3 class="promo-pop-title" id="promoPopTitle">{{ config.promo_popup_title }}</h3>
       {% if config.promo_popup_message %}<p class="promo-pop-msg">{{ config.promo_popup_message }}</p>{% endif %}
@@ -531,7 +686,7 @@
     window.ROYAL = {
       whatsapp: "{{ config.whatsapp_phone or whatsapp }}",
       editor: {{ 'true' if editor else 'false' }},
-      storeName: "{{ config.store_name or 'Royal' }}"
+      storeName: "{{ config.store_name or 'Loja' }}"
     };
   </script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ asset_v }}"></script>

@@ -1,17 +1,37 @@
 /* ===================================================================
    ROYAL — Premium Dark Vape Store
    =================================================================== */
+/* ===================================================================
+   SISTEMA DE TOKENS
+
+   Três lojas (Royal, Vapor, Pods Ilha) são servidas por ESTE arquivo. Por isso
+   existe uma regra dura aqui: nenhum hex de marca no CSS.
+
+   A cor de marca chega pelo bloco <style>:root{...}</style> que o index.html
+   injeta a partir do site_config. Os valores abaixo são só FALLBACK, para o
+   caso de a injeção não acontecer (é o caso do login.html, que carrega este
+   CSS sem tema). Por isso os fallbacks são NEUTROS: uma loja com config
+   quebrada renderiza monocromática, em vez de vestir a marca de outra.
+
+   Camadas, de baixo para cima:
+     1. marca      -> injetada pelo site_config (nomes preservados)
+     2. semântica  -> o que o CSS deve usar no dia a dia
+     3. escalas    -> tipografia, espaço, raio, sombra, z-index, movimento
+   =================================================================== */
 :root {
-  --primary-yellow: #FFD60A;
-  --yellow-soft: #ffe45e;
-  /* Canais R,G,B da cor primária/destaque (para glows e tints translúcidos via
-     rgba(var(--...-rgb), alpha)). Injetados a partir do painel no index.html,
-     para que TODO glow/sombra acompanhe as cores globais escolhidas. */
-  --primary-rgb: 255, 214, 10;
+  /* ---- 1. CAMADA DE MARCA (injetada pelo painel via site_config) ----
+     Os nomes desta seção são CONTRATO com o index.html e com o color picker do
+     modo editor (app.js). Não renomeie: renomear quebra a injeção do tema. */
+  --primary-yellow: #d8d5e0;          /* fallback neutro, NÃO é cor de marca */
+  --yellow-soft:    #eceaf2;
+  /* Canais R,G,B da cor de marca e do acento, para glows e tints translúcidos
+     via rgba(var(--...-rgb), alpha). Também injetados pelo painel. */
+  --primary-rgb: 216, 213, 224;
   --accent-rgb: 124, 58, 237;
   --accent-soft-rgb: 168, 85, 247;
-  /* Degradê único usado em TODOS os botões de marca. Ângulo e paradas são
-     editáveis pelo painel (Identidade Visual → Gradiente dos botões). */
+  --bg-rgb: 10, 10, 12;               /* usado pelas sombras tingidas */
+  /* Degradê único de TODOS os botões de marca. Ângulo e paradas são editáveis
+     no painel (Identidade Visual, Gradiente dos botões). */
   --btn-grad-angle: 120deg;
   --btn-grad: linear-gradient(var(--btn-grad-angle), var(--primary-yellow), var(--yellow-soft));
   --text-on-primary: #000000;
@@ -26,24 +46,299 @@
   --text: #f5f5f7;
   --text-dim: #9a97a5;
   --border: #29262f;
-  --green: #25D366;
-  --green-soft: #6be3a4;
-  --radius: 18px;
-  --radius-sm: 12px;
-  --radius-pill: 9999px;
-  --shadow: 0 20px 50px rgba(0,0,0,.55);
-  --glow: 0 0 24px rgba(var(--primary-rgb),.25);
-  /* Identidade dourada da hero (refinamento visual) */
-  --gold-light: #F5D67B;
-  --gold-deep:  #C9A227;
-  --gold-grad:  linear-gradient(135deg, #F5D67B 0%, #C9A227 100%);
-  --gold-ink:   #1A1206;
-  /* Glass própria da hero — NÃO sobrescreve --surface (usada no site inteiro) */
-  --hero-surface:  rgba(255,255,255,.04);
-  --border-subtle: rgba(255,255,255,.06);
-  --text-muted:    rgba(255,255,255,.60);
-  --danger:        #FF6B6B;
-  --status-closed: #EF4444;
+  /* Chaves que só existiam no <style> injetado. Declaradas aqui também para o
+     CSS ser autossuficiente em páginas sem tema (login.html). */
+  /* B5: as duas cores de rótulo do card medidas contra a superfície real
+     davam 4,07 ("+N sabores" sobre --surf-2) e 4,52 (nome da marca sobre
+     --surf-1), ou seja, uma reprovava em AA e a outra raspava no limite.
+     Em vez de trocar a cor por branco (que apagaria o seletor do painel),
+     CLAREAMOS a cor que o lojista escolheu. Assim o matiz dele continua
+     mandando, o contraste passa, e vale para as três lojas sem hardcode. */
+  --label-lift: 24%;
+
+  --price-color: var(--primary-yellow);
+  --arrow-color: var(--primary-yellow);
+  --arrow-rgb: var(--primary-rgb);
+  --ring-rgb: var(--primary-rgb);
+  /* *-raw = a cor crua que o painel injeta. *-color = a versão clareada que o
+     CSS realmente usa (ver --label-lift). Separar as duas é o que permite
+     corrigir o contraste sem apagar a escolha do lojista. */
+  --brand-label-raw: var(--purple-soft);
+  --flavor-more-raw: var(--purple-soft);
+  --brand-label-color: var(--brand-label-raw);
+  --flavor-more-color: var(--flavor-more-raw);
+
+  /* ---- 2. COR SEMÂNTICA ----
+     É isto que o CSS novo deve usar. A camada acima pode mudar de nome um dia;
+     esta não.
+
+     DECISÃO DE ACENTO ÚNICO: a cor de marca (--brand) é o único destaque em
+     elemento interativo, preço e ênfase. O roxo (--accent) fica restrito a uso
+     AMBIENTE/ESTRUTURAL: gradiente de fundo da página e tintura de card. Ele
+     não volta a ser cor de texto nem de badge. Para reverter, basta reapontar
+     --brand-label-color e --flavor-more-color para var(--purple-soft). */
+  --brand:        var(--primary-yellow);
+  --brand-2:      var(--yellow-soft);
+  --brand-ink:    var(--text-on-primary);
+  --accent:       var(--purple);
+  --accent-soft:  var(--purple-soft);
+
+  --fg:           var(--text);
+  --fg-muted:     var(--text-dim);
+  --fg-subtle:    rgba(255,255,255,.60);
+
+  /* B3: hairline é BRANCO em alpha baixo, não uma cor de borda própria.
+     Antes vinha de theme_border_color (#29262f), um cinza opaco que sobre
+     superfícies de luminosidade diferente às vezes ficava mais claro que o
+     fundo e às vezes mais escuro. Branco translúcido acompanha o degrau em
+     que a borda está, sempre. Dourado em borda só onde ele tem função de
+     ESTADO, como o chip de filtro ativo. */
+  --line:         rgba(255,255,255,.09);
+  --line-soft:    rgba(255,255,255,.055);
+
+  /* ---- DEGRAUS DE SUPERFÍCIE (A4) ----
+     Três níveis, e só três. Antes existiam CINCO valores de superfície
+     (--bg, --bg-2, --surface, --surface-2, --card-bg) vindos de cinco
+     seletores de cor diferentes do painel, e eles nem pertenciam à mesma
+     família de matiz: --bg e --card-bg puxavam para o azul, --surface e
+     --surface-2 para o roxo-neutro. Por isso o empilhamento lia como
+     "caixas coladas" em vez de camadas.
+
+     Agora os três degraus são DERIVADOS de --bg (que é theme_bg_color, do
+     painel) misturando branco em passos constantes. Consequências:
+       . mesma família de matiz nos três, sempre
+       . passo de luminosidade constante, sempre
+       . nenhum deles usa a cor de destaque
+       . as três lojas herdam o comportamento sem hardcode
+
+     Nomes --surf-* e não --surface-*: --surface-2 já existe como token
+     LEGADO injetado pelo index.html, e redefini-lo aqui seria sobrescrito
+     pela injeção. Ver pendências sobre os seletores de cor que ficam inertes.
+
+     Fallback: navegador sem color-mix cai nos valores do painel. */
+  --surf-0: var(--bg);
+  --surf-1: var(--card-bg);
+  --surf-2: var(--surface-2);
+
+  /* Superfície da foto do produto no modal. Branco de propósito, não
+     off-white: as fotos do catálogo têm fundo branco recortado, então qualquer
+     off-white deixaria uma emenda visível na borda da foto.
+     O CARD usa --card-bg (fundo escuro) e object-fit: cover, que é o modelo
+     que o dono da loja preferiu. Ou seja, o mesmo produto ainda muda de fundo
+     entre a grade e o modal; fica registrado como pendência, não como bug
+     esquecido. Se as fotos de alguma loja tiverem fundo escuro ou
+     transparente, este token é o único lugar a trocar. */
+  --surface-media: #ffffff;
+
+  --ok:           #25D366;   /* verde do WhatsApp: marca de terceiro, não nossa */
+  --ok-soft:      #6be3a4;
+  --warn:         #F5C542;
+  --danger:       #FF6B6B;
+  --danger-strong:#ff5a5a;
+  --status-open:  #22C55E;
+  --status-closed:#EF4444;
+
+  /* ---- 3. ESCALA TIPOGRÁFICA ----
+     Definida aqui; a migração dos tamanhos literais é o item 15 (tipografia),
+     junto com a família self-hosted. */
+  --font-sans: "Geist", "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* Preço e quantidade usam a mesma família com numerais tabulares (todos os
+     dígitos com a mesma largura), então os valores alinham em coluna no grid
+     em vez de dançar. Dispensa uma segunda família só para número. */
+  --font-num:  var(--font-sans);
+
+  --fs-2xs:  .6875rem;   /* 11px, rótulo miúdo */
+  --fs-xs:   .75rem;     /* 12px */
+  --fs-sm:   .8125rem;   /* 13px */
+  --fs-base: .875rem;    /* 14px */
+  --fs-md:   .9375rem;   /* 15px, corpo */
+  --fs-lg:   1.0625rem;  /* 17px */
+  --fs-xl:   1.25rem;    /* 20px, nome do produto */
+  --fs-2xl:  1.6rem;     /* 26px, preço */
+  --fs-3xl:  1.9rem;     /* 30px, título de modal */
+  --fs-display: clamp(30px, 8vw, 40px);
+
+  --lh-tight: 1.15;
+  --lh-snug:  1.3;
+  --lh-base:  1.5;
+  --lh-loose: 1.6;
+
+  --tracking-tight: -.02em;
+  --tracking-wide:   .08em;
+  --tracking-caps:   .12em;
+
+  /* Três pesos no projeto inteiro, e só três. O CSS tinha 500, 600, 700, 800 e
+     900 convivendo, com 32 declarações em 800: por isso tudo gritava junto e
+     nada tinha destaque de verdade. Agora a hierarquia vem de tamanho e cor,
+     não de mais um degrau de peso. */
+  --fw-regular: 400;   /* corpo */
+  --fw-medium:  500;   /* rótulo, chip, subtítulo */
+  --fw-bold:    700;   /* título, preço, botão */
+
+  /* ---- 4. ESCALA DE ESPAÇAMENTO ----
+     Definida aqui; aplicada nos blocos que possuem cada componente (card,
+     hero, acabamento). */
+  --sp-1:   4px;
+  --sp-2:   8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+  --gutter:    20px;   /* padding lateral do .container */
+  --section-y: 40px;   /* respiro vertical de .section */
+
+  /* ---- 5. ESCALA DE RAIO ----
+     Regra documentada, seguida no arquivo inteiro:
+       sm  campo, chip, botão miúdo
+       md  botão, elemento interno de card
+       lg  card, feature, toast
+       xl  modal, painel, age gate, bloco promocional
+       pill  qualquer controle em formato de cápsula
+       50%   só círculo de verdade (avatar, ícone redondo) */
+  --r-sm:   10px;
+  --r-md:   14px;
+  --r-lg:   18px;
+  --r-xl:   22px;
+  --r-pill: 999px;
+
+  /* ---- 6. ESCALA DE SOMBRA ----
+     Tingida com o tom do fundo (--bg-rgb) em vez de preto puro. Definida aqui;
+     a troca das sombras pretas espalhadas pelo arquivo é o item 16. */
+  --shadow-sm:    0 2px  8px  rgba(var(--bg-rgb),.45);
+  --shadow-md:    0 8px  24px rgba(var(--bg-rgb),.50);
+  --shadow-lg:    0 20px 50px rgba(var(--bg-rgb),.55);
+  --shadow-panel: -20px 0 60px rgba(var(--bg-rgb),.60);
+  --glow-brand:   0 0 24px rgba(var(--primary-rgb),.25);
+
+  /* ---- 7. ESCALA DE Z-INDEX ----
+     Antes eram 12 valores avulsos (20, 30, 90, 100, 110, 120, 130, 140, 200,
+     300, 9000, 99999). A ORDEM relativa foi preservada exatamente; só os
+     números ficaram sãos e ganharam nome. */
+  --z-bg:      0;    /* textura fixa do body */
+  --z-content: 1;    /* conteúdo acima da textura */
+  --z-legal:   10;
+  --z-header:  20;
+  --z-fab:     30;
+  --z-modal:   40;
+  --z-cart-overlay:     50;
+  --z-cart-panel:       60;
+  --z-checkout-overlay: 70;
+  --z-checkout-panel:   80;
+  --z-editor:  90;
+  --z-toast:  100;
+  --z-promo:  110;
+  --z-gate:   120;
+
+  /* ---- 8. MOVIMENTO ---- */
+  --dur-fast: 120ms;
+  --dur:      200ms;
+  --dur-slow: 320ms;
+  --ease:     cubic-bezier(.22,1,.36,1);
+  --ease-out: cubic-bezier(.16,1,.3,1);
+
+  /* ---- 9. ALIASES LEGADOS ----
+     Nomes antigos ainda referenciados por regras que serão migradas nos blocos
+     seguintes (--shadow no item 16, o resto nos blocos de card e hero). Ficam
+     apontando para os tokens novos para nada quebrar no meio do caminho.
+     Os aliases de raio (--radius, --radius-sm, --radius-pill) e --hero-surface
+     saíram: não sobrou nenhuma referência a eles. */
+  --shadow:        var(--shadow-lg);
+  --glow:          var(--glow-brand);
+  --green:         var(--ok);
+  --green-soft:    var(--ok-soft);
+  --border-subtle: var(--line-soft);
+  --text-muted:    var(--fg-subtle);
+}
+
+/* Degraus derivados. Fora do :root principal porque dependem de @supports:
+   onde color-mix existe, os três níveis passam a sair de --bg com passo
+   constante; onde não existe, ficam os valores do painel definidos acima.
+   5% e 10% de branco: passo pequeno o suficiente para ler como elevação e
+   não como "outra cor". */
+@supports (color: color-mix(in oklab, red, blue)) {
+  :root {
+    --surf-1: color-mix(in oklab, var(--bg), #ffffff 5%);
+    --surf-2: color-mix(in oklab, var(--bg), #ffffff 10%);
+    /* Ver --label-lift acima. Sem color-mix, ficam as cores cruas do painel:
+       o contraste cai para o limite, mas nada quebra. */
+    --brand-label-color: color-mix(in oklab, var(--brand-label-raw), #ffffff var(--label-lift));
+    --flavor-more-color: color-mix(in oklab, var(--flavor-more-raw), #ffffff var(--label-lift));
+  }
+}
+
+/* ===================================================================
+   TIPOGRAFIA
+
+   Geist (SIL OFL 1.1), self-hosted em static/fonts/. Sem <link> para o Google
+   Fonts: em 4G ruim, cada host novo custa DNS + TLS antes do primeiro byte.
+
+   É a fonte VARIÁVEL (um arquivo cobre 100 a 900), então os três pesos do
+   projeto saem de um download só. Dois subsets: `latin` resolve o português
+   inteiro (os acentos vivem em U+00C0-U+00FF) e é o único que a maioria das
+   páginas baixa; `latin-ext` fica declarado por segurança e só é buscado se
+   algum nome de produto usar um glifo daquele range.
+
+   font-display: swap -> o texto aparece na hora com a fonte do sistema e
+   troca quando a Geist chega. Nunca deixa o cliente olhando tela em branco.
+   =================================================================== */
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/geist-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/geist-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ---------- Ícones ----------
+   Regra ÚNICA de traço do projeto. Os <symbol> em templates/_icons.html não
+   declaram fill nem stroke: essas propriedades são herdáveis em CSS e
+   cascateiam para dentro do shadow DOM do <use>, então mudar o stroke-width
+   aqui muda em todo ícone da loja, e é impossível um ícone novo entrar com
+   traço diferente. Antes conviviam 1.6, 1.8, 1.9, 2 e 2.4. */
+.ico {
+  width: 1.25em;
+  height: 1.25em;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -.22em;
+}
+/* O sprite não deve ocupar espaço nem ser lido: display:none quebraria o <use>
+   em alguns navegadores, então o tiramos do fluxo pelo tamanho. */
+.icon-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* Numerais tabulares em tudo que é valor. Sem isto, "R$ 11,90" e "R$ 89,90"
+   têm larguras diferentes e os preços não alinham entre as duas colunas de
+   cards, o que faz a grade parecer torta mesmo estando certa. */
+.card-foot .price,
+.modal-price .val,
+.cart-total .val,
+.cart-item .ci-info .p,
+.checkout-item .p,
+.checkout-summary-total span:last-child,
+.qty-ctrl .qty-val,
+.ci-qty span,
+.cart-fab-badge,
+.cart-badge {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -51,7 +346,10 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
+  /* Sem negrito sintético: a fonte variável já entrega 500 e 700 de verdade,
+     e o falso-negrito do navegador borra o texto pequeno no celular. */
+  font-synthesis-weight: none;
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
@@ -63,24 +361,76 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
+  /* ---- Malha de fundo ----
+     Três problemas foram corrigidos aqui:
+
+     1. DUAS CORES. As linhas horizontais eram roxas (--accent-soft) e as
+        verticais douradas (--primary). Uma malha com dois matizes nunca lê
+        como malha, lê como interferência, e depois do bloco B ela era a
+        última superfície ainda pintada com cor de destaque. Agora é uma cor
+        só, branco translúcido, igual nos dois eixos.
+
+     2. PASSO ARBITRÁRIO. 44px não correspondia a nada do sistema. Agora é
+        --grid-pitch = 48px, que é exatamente --sp-12, o mesmo passo dos
+        respiros verticais. A malha passa a concordar com o ritmo da página
+        em vez de brigar com ele.
+
+     3. OPACIDADE. 5% e 4% desenhavam a malha; ela competia com o conteúdo.
+        2,2% deixa no limiar do perceptível, que é o papel dela: impedir que
+        o fundo pareça chapado, sem ser notada.
+
+     A linha de 1px é declarada em px e não em fração para não borrar em tela
+     não-retina. */
+  --grid-pitch: 48px;
+  --grid-ink: rgba(255,255,255,.022);
   background:
     radial-gradient(650px circle at 15% -5%, rgba(var(--accent-rgb),.18), transparent 60%),
     radial-gradient(600px circle at 100% 0%, rgba(var(--primary-rgb),.06), transparent 55%),
-    repeating-linear-gradient(0deg, rgba(var(--accent-soft-rgb),.05) 0px, rgba(var(--accent-soft-rgb),.05) 1px, transparent 1px, transparent 44px),
-    repeating-linear-gradient(90deg, rgba(var(--primary-rgb),.04) 0px, rgba(var(--primary-rgb),.04) 1px, transparent 1px, transparent 44px);
+    repeating-linear-gradient(0deg,
+      var(--grid-ink) 0px, var(--grid-ink) 1px,
+      transparent 1px, transparent var(--grid-pitch)),
+    repeating-linear-gradient(90deg,
+      var(--grid-ink) 0px, var(--grid-ink) 1px,
+      transparent 1px, transparent var(--grid-pitch));
   pointer-events: none;
-  z-index: 0;
+  z-index: var(--z-bg);
 }
 
-.container { max-width: 1240px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 1; }
+.container { max-width: 1240px; margin: 0 auto; padding: 0 20px; position: relative; z-index: var(--z-content); }
 
 a { color: inherit; text-decoration: none; }
 img { display: block; max-width: 100%; }
 button { font-family: inherit; cursor: pointer; border: none; }
 
-/* Raio (bolt) desenhado por SVG mascarado: usa currentColor, então acompanha
-   a cor do elemento (as cores globais do painel). Um emoji ⚡ não pode ser
-   recolorido por CSS — por isso trocamos o emoji por este ícone. */
+/* ---------- Foco de teclado ----------
+   Antes só o card de produto tinha anel de foco; o resto da loja (botões,
+   links, chips, campos, ícones do header) era navegável por teclado mas
+   INVISÍVEL: a pessoa tabulava sem saber onde estava.
+
+   :focus-visible, não :focus, é o que importa aqui: o anel aparece para quem
+   navega por teclado e NÃO aparece no clique de mouse, então não polui a
+   experiência de toque, que é 90% do público desta loja.
+
+   Duas camadas no outline (cor de marca + halo do fundo) para o anel ficar
+   legível tanto sobre superfície escura quanto sobre a foto branca do produto
+   ou o card promocional claro. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+/* Elementos que já são redondos mantêm o anel redondo. */
+:where(.nav-icon, .btn-social, .card-plus, .qty-ctrl button, .ci-qty button):focus-visible {
+  border-radius: 50%;
+}
+:where(.btn, .hero-chip, .pill, .flavor-pill, .announce-msg, .coupon-apply-btn):focus-visible {
+  border-radius: var(--r-pill);
+}
+
+/* Raio (bolt) do badge de puffs e do modal. É uma forma PREENCHIDA via máscara
+   CSS, não um ícone de traço, então fica fora da regra de stroke-width único
+   do projeto (que vale para o sprite em templates/_icons.html). Usa
+   currentColor, então acompanha as cores globais do painel. */
 .ico-bolt {
   display: inline-block; width: 1em; height: 1em; vertical-align: -.14em; flex-shrink: 0;
   background: currentColor;
@@ -94,7 +444,7 @@ html:not(.age-ok) #ageGate ~ * { visibility: hidden !important; }
 .age-gate {
   position: fixed;
   inset: 0;
-  z-index: 99999;
+  z-index: var(--z-gate);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -127,10 +477,10 @@ html.age-ok .age-gate,
   width: 100%;
   max-width: 440px;
   background:
-    linear-gradient(160deg, var(--surface-2), var(--surface) 60%),
+    linear-gradient(160deg, var(--surf-2), var(--surf-1) 60%),
     radial-gradient(130% 100% at 100% 0%, rgba(var(--accent-rgb),.32), transparent 60%);
-  border: 1px solid var(--border);
-  border-radius: 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
   padding: 42px 34px 32px;
   text-align: center;
   box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.06), 0 0 90px rgba(var(--accent-rgb),.16);
@@ -160,19 +510,19 @@ html.age-ok .age-gate-card,
   align-items: center;
   gap: 6px;
   font-size: .68rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 1.6px;
   text-transform: uppercase;
-  color: var(--primary-yellow);
-  background: rgba(var(--primary-rgb),.08);
-  border: 1px solid rgba(var(--primary-rgb),.22);
+  color: var(--brand);
+  background: var(--surf-2);
+  border: 1px solid rgba(var(--primary-rgb),.42);
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   margin-bottom: 18px;
 }
 .age-gate-card h2 {
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -.4px;
   margin-bottom: 14px;
 }
@@ -187,10 +537,10 @@ html.age-ok .age-gate-card,
 .age-gate-yes {
   width: 100%;
   padding: 17px;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--btn-grad);
   color: var(--text-on-primary);
-  font-weight: 800;
+  font-weight: 700;
   font-size: .92rem;
   letter-spacing: .3px;
   box-shadow: var(--glow);
@@ -201,15 +551,15 @@ html.age-ok .age-gate-card,
 .age-gate-no {
   width: 100%;
   padding: 15px;
-  border-radius: 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surf-1);
+  border: 1px solid var(--line);
   color: var(--text-dim);
   font-weight: 700;
   font-size: .88rem;
   transition: border-color .22s ease-out, color .22s ease-out, background .22s ease-out;
 }
-.age-gate-no:hover { border-color: var(--purple-soft); color: var(--text); background: var(--surface-2); }
+.age-gate-no:hover { border-color: var(--purple-soft); color: var(--text); background: var(--surf-2); }
 .age-gate-no:active { transform: scale(.98); }
 .age-gate-legal {
   font-size: .72rem;
@@ -227,7 +577,7 @@ html.age-ok .age-gate-card,
 .age-gate-denied-msg {
   color: var(--text);
   font-size: .95rem;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.6;
   margin-bottom: 18px;
 }
@@ -243,31 +593,175 @@ html.age-ok .age-gate-card,
 .age-gate-exit:hover { color: var(--primary-yellow); }
 
 /* ---------- Disclaimer legal fixo ---------- */
+/* Faixa de informação do topo. Junta o status da loja e o aviso legal numa
+   linha só. Não é fixa: rola junto com a página e aparece uma vez, como o
+   item 4 pede. O texto legal está preservado palavra por palavra. */
 .legal-bar {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 8px 16px;
-  text-align: center;
+  background: var(--surf-1);
+  border-bottom: 1px solid var(--line-soft);
+  padding: 6px 16px;
   position: relative;
-  z-index: 20;
+  z-index: var(--z-legal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 14px;
 }
-.legal-bar span {
-  font-size: .74rem;
+/* O aviso legal cabe em UMA linha. Antes o max-width de 46ch o estrangulava em
+   327px quando havia 366px disponíveis, e o text-wrap: balance então dividia
+   em duas linhas equilibradas, quebrando "menores de" / "18 anos". A escala
+   fluida garante a linha única de 360px para cima sem encolher o texto no
+   desktop. Nenhuma palavra do aviso mudou. */
+.legal-bar-text {
+  font-size: clamp(.58rem, 2.6vw, .7rem);
   font-weight: 600;
-  letter-spacing: .3px;
+  /* Caixa-alta com tracking: lê como um selo de conformidade oficial, não
+     como um rodapé perdido. É texto legal — o all-caps aqui tem função. */
+  letter-spacing: .08em;
+  text-transform: uppercase;
   color: var(--text-dim);
+  line-height: 1.5;
+  text-align: center;
 }
-.legal-bar-icon { margin-right: 6px; filter: grayscale(.15); }
+.legal-bar-icon {
+  filter: grayscale(.15);
+  /* O 🔞 mantém o tamanho original; não sobe junto com o uppercase do texto. */
+  text-transform: none;
+  font-size: .95em;
+}
+
+/* ---- Faixa rotativa de avisos ----
+   GRUDA abaixo do header ao rolar. --header-h é medido em app.js com um
+   ResizeObserver, porque a altura do header muda com o breakpoint e com o
+   tamanho do logo que cada loja configura; um valor fixo aqui dessincronizaria
+   em alguma das três. */
+.announce-bar {
+  position: sticky;
+  top: var(--header-h, 71px);
+  z-index: var(--z-legal);
+  /* Sólida e ESCURA, na mesma família do resto da página. O amarelo cheio
+     competia com o preço dos cards e com o CTA, que são os dois lugares onde a
+     cor de marca precisa mandar. Aqui a marca aparece só no texto: destaque
+     suficiente para a promoção, sem virar um terceiro ponto gritando.
+     Continua opaca, porque a faixa passa por cima dos produtos ao rolar. */
+  /* Halo radial da cor de marca atrás do texto, sobre a superfície escura:
+     dá profundidade ao ticker sem virar um fundo cheio que competiria com o
+     preço dos cards. O glow é sutil e some nas bordas. */
+  background:
+    radial-gradient(120% 180% at 50% -40%, rgba(var(--primary-rgb),.13), transparent 60%),
+    var(--surf-1);
+  /* Hairlines douradas em cima e embaixo emolduram a faixa como um filete
+     metálico, em vez de uma única borda cinza. */
+  border-top: 1px solid rgba(var(--primary-rgb),.14);
+  border-bottom: 1px solid rgba(var(--primary-rgb),.24);
+  box-shadow: var(--shadow-md);
+  padding: 9px 0;
+  /* Nasce recolhida quando o cliente já escolheu um produto (ver .is-done). */
+  transition: opacity .3s var(--ease-out), transform .3s var(--ease-out);
+}
+/* Cliente abriu um produto: a promoção cumpriu o papel dela e sai de cena,
+   em vez de perseguir a pessoa que já está decidindo o que comprar. */
+.announce-bar.is-done {
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+
+/* Linha do ticker: ponto pulsante + trilha das mensagens, centralizados
+   juntos. O ponto sinaliza "promoções ativas" — pequeno detalhe que faz a
+   faixa parecer viva em vez de uma tarja estática. */
+.announce {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.announce-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: 0 0 10px rgba(var(--primary-rgb),.6);
+  animation: announcePulse 2.4s var(--ease-out) infinite;
+}
+@keyframes announcePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(var(--primary-rgb),.5), 0 0 10px rgba(var(--primary-rgb),.6); }
+  70%  { box-shadow: 0 0 0 7px rgba(var(--primary-rgb),0), 0 0 10px rgba(var(--primary-rgb),.6); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb),0), 0 0 10px rgba(var(--primary-rgb),.6); }
+}
+/* Empilhada em grid: todas as mensagens ocupam a MESMA célula, então a faixa
+   tem altura fixa e a troca não empurra a página (zero CLS). A que sai e a que
+   entra se cruzam em opacidade e um deslize curto de 6px. */
+.announce-track {
+  display: grid;
+  align-items: center;
+  justify-items: center;
+  min-height: 1.35em;
+}
+.announce-msg {
+  grid-area: 1 / 1;
+  font-size: clamp(.78rem, 3.4vw, .92rem);
+  font-weight: var(--fw-bold);
+  letter-spacing: .015em;
+  line-height: 1.35;
+  /* Brilho de marca sutil sob o texto: profundidade premium sem borrar. */
+  text-shadow: 0 0 18px rgba(var(--primary-rgb),.18);
+  /* A cor de marca vive no TEXTO, não no fundo. Sobre a superfície escura ela
+     tem contraste alto nas três paletas, porque toda cor de destaque de loja é
+     clara por definição (precisa funcionar sobre este mesmo fundo escuro no
+     preço dos cards). */
+  color: var(--brand);
+  text-align: center;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity .45s var(--ease-out), transform .45s var(--ease-out);
+  pointer-events: none;
+}
+.announce-msg.is-on { opacity: 1; transform: none; }
+/* Mensagem única: sem transição de entrada, aparece e fica. */
+.announce-single .announce-msg { transition: none; }
+/* Acessibilidade: quem pede menos movimento não vê o ponto pulsando. */
+@media (prefers-reduced-motion: reduce) {
+  .announce-dot { animation: none; }
+}
 
 /* ---------- Header ---------- */
 header.site-header {
   position: sticky;
   top: 0;
-  z-index: 30;
-  background: rgba(10,10,12,.82);
+  z-index: var(--z-header);
+  /* Derivado de --bg: antes era rgba(10,10,12,.82) fixo, então uma loja com
+     fundo mais claro ganhava um header mais escuro que a própria página.
+     Um leve gradiente de marca no topo dá profundidade em vez de banda chapada. */
+  background:
+    linear-gradient(to bottom, rgba(var(--primary-rgb),.045), transparent 72%),
+    rgba(var(--bg-rgb),.82);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
+}
+/* Reflexo de vidro: filete claro no topo, como a aresta de um vidro polido. */
+header.site-header::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.10), transparent);
+  pointer-events: none;
+}
+/* Hairline dourada com brilho no centro, sobre a borda inferior neutra:
+   emoldura o header como um filete metálico em vez de uma linha cinza reta. */
+header.site-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(var(--primary-rgb),.42), transparent);
+  pointer-events: none;
 }
 /* Em telas touch, o header fixo com backdrop-filter re-borra o conteúdo
    atrás a cada frame de scroll — principal fonte de travamento no mobile.
@@ -275,7 +769,7 @@ header.site-header {
    frame). O efeito vidro fica só no desktop, onde não pesa. */
 @media (hover: none), (pointer: coarse) {
   header.site-header {
-    background: rgba(9,9,11,.96);
+    background: rgba(var(--bg-rgb),.96);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
@@ -295,19 +789,22 @@ header.site-header {
   width: 44px; height: 44px; border-radius: 50%;
   display: grid; place-items: center;
   background: rgba(255,255,255,.05);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   color: var(--text);
   transition: transform .2s cubic-bezier(.22,1,.36,1), background .2s, border-color .2s, color .2s, box-shadow .2s;
 }
 .nav-icon svg { width: 22px; height: 22px; display: block; }
-.nav-icon:hover { transform: translateY(-2px); border-color: rgba(var(--primary-rgb),.5); background: rgba(var(--primary-rgb),.1); }
+.nav-icon:hover { transform: translateY(-2px); border-color: var(--line); background: var(--surf-2); }
 .nav-icon:active { transform: scale(.94); }
 .nav-icon-wa { color: var(--green); }
 .nav-icon-wa:hover { border-color: rgba(37,211,102,.55); background: rgba(37,211,102,.12); box-shadow: 0 6px 18px rgba(37,211,102,.28); }
+/* Menu ganha hover na cor da marca — simétrico ao verde do WhatsApp, para os
+   dois ícones do header terem presença própria em vez de um cinza genérico. */
+.nav-icon-menu:hover { color: var(--brand); border-color: rgba(var(--primary-rgb),.5); background: rgba(var(--primary-rgb),.1); box-shadow: 0 6px 18px rgba(var(--primary-rgb),.22); }
 
 /* ---- Barra lateral de navegação (menu 3 pontinhos) ---- */
 .nav-overlay {
-  position: fixed; inset: 0; z-index: 110;
+  position: fixed; inset: 0; z-index: var(--z-cart-overlay);
   background: rgba(0,0,0,.6);
   backdrop-filter: blur(3px);
   opacity: 0; visibility: hidden;
@@ -315,11 +812,11 @@ header.site-header {
 }
 .nav-overlay.open { opacity: 1; visibility: visible; transition: opacity .3s cubic-bezier(.22,1,.36,1), visibility 0s linear 0s; }
 .nav-sidebar {
-  position: fixed; top: 0; top: var(--app-vv-top, 0px); right: 0; z-index: 120;
+  position: fixed; top: 0; top: var(--app-vv-top, 0px); right: 0; z-index: var(--z-cart-panel);
   height: 100dvh; height: var(--app-vvh, 100dvh);
   width: 320px; max-width: 84vw;
-  background: var(--bg-2);
-  border-left: 1px solid var(--border);
+  background: var(--surf-1);
+  border-left: 1px solid var(--line);
   display: flex; flex-direction: column;
   opacity: 0; visibility: hidden; pointer-events: none;
   transform: translateX(100%);
@@ -332,12 +829,12 @@ header.site-header {
 .nav-side-header {
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 22px; border-bottom: 1px solid var(--border);
+  padding: 22px; border-bottom: 1px solid var(--line);
 }
-.nav-side-title { font-size: 1.2rem; font-weight: 800; }
+.nav-side-title { font-size: 1.2rem; font-weight: 700; }
 .nav-side-close {
-  width: 36px; height: 36px; border-radius: 10px;
-  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  width: 36px; height: 36px; border-radius: var(--r-sm);
+  background: var(--surf-1); color: var(--text); border: 1px solid var(--line);
   display: grid; place-items: center; transition: .2s;
 }
 .nav-side-close:hover { color: var(--primary-yellow); }
@@ -345,14 +842,14 @@ header.site-header {
 .nav-side-link, .nav-side-cat {
   display: flex; align-items: center; gap: 12px;
   width: 100%; text-align: left;
-  padding: 13px 14px; border-radius: 12px;
-  font-size: .95rem; font-weight: 600; color: var(--text);
+  padding: 13px 14px; border-radius: var(--r-sm);
+  font-size: .95rem; font-weight: 500; color: var(--text);
   background: transparent; border: 1px solid transparent;
   transition: background .18s, border-color .18s, transform .12s, color .18s;
 }
 .nav-side-link svg { width: 20px; height: 20px; flex-shrink: 0; }
 .nav-side-cat { padding-left: 16px; font-weight: 500; color: var(--text-dim); }
-.nav-side-link:hover, .nav-side-cat:hover { background: rgba(var(--primary-rgb),.09); border-color: rgba(var(--primary-rgb),.22); color: var(--text); }
+.nav-side-link:hover, .nav-side-cat:hover { background: var(--surf-2); border-color: var(--line); color: var(--text); }
 .nav-side-link:active, .nav-side-cat:active { transform: scale(.98); }
 .nav-side-section {
   font-size: .68rem; text-transform: uppercase; letter-spacing: 1.4px;
@@ -362,7 +859,7 @@ header.site-header {
 .nav-side-attend:hover { color: var(--green); background: rgba(37,211,102,.14); border-color: rgba(37,211,102,.45); }
 .logo {
   font-size: 1.6rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 1px;
   display: flex;
   align-items: center;
@@ -398,30 +895,37 @@ header.site-header {
 .search-wrap input {
   width: 100%;
   padding: 12px 18px 12px 46px;
-  background: linear-gradient(180deg, var(--surface-2), var(--surface));
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  background: linear-gradient(180deg, var(--surf-2), var(--surf-1));
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
   color: var(--text);
   font-size: 16px; /* >=16px sempre: evita zoom automático do iOS Safari ao focar, em qualquer largura/orientação */
   outline: none;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,.35);
+  box-shadow: inset 0 1px 3px rgba(var(--bg-rgb),.55);
   transition: border .2s, box-shadow .2s, background .2s;
 }
 .search-wrap input::placeholder { color: var(--text-dim); }
 .search-wrap input:hover { border-color: rgba(var(--accent-rgb),.4); }
 .search-wrap input:focus {
   border-color: var(--primary-yellow);
-  box-shadow: 0 0 0 3px rgba(var(--primary-rgb),.14), inset 0 1px 3px rgba(0,0,0,.35);
-  background: var(--surface-2);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb),.14), inset 0 1px 3px rgba(var(--bg-rgb),.55);
+  background: var(--surf-2);
 }
-.search-wrap .search-ico { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--purple-soft); font-size: 1rem; }
+/* Era o emoji 🔍, que não aceita recolorização por CSS e não combinava com
+   nenhum outro ícone da loja. Agora é o mesmo sprite do resto. */
+.search-wrap .search-ico {
+  position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center;
+  color: var(--fg-muted); pointer-events: none;
+}
+.search-wrap .search-ico .ico { width: 18px; height: 18px; vertical-align: 0; }
 
 .cart-btn {
   position: relative;
   background: var(--btn-grad);
   border: none;
   width: 48px; height: 48px;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   display: grid; place-items: center;
   color: var(--text-on-primary);
   font-size: 1.15rem;
@@ -435,9 +939,9 @@ header.site-header {
   position: absolute; top: -7px; right: -7px;
   background: var(--purple);
   color: #fff;
-  font-size: .68rem; font-weight: 800;
+  font-size: .68rem; font-weight: 700;
   min-width: 21px; height: 21px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   display: grid; place-items: center;
   padding: 0 5px;
   border: 2px solid var(--bg);
@@ -448,26 +952,63 @@ header.site-header {
 .cart-badge.show { transform: scale(1); }
 
 /* ---------- Hero ---------- */
+/* ---------- Hero ----------
+   Composição CENTRADA e generosa. A tentativa alinhada à esquerda e compacta
+   foi descartada: o hero é o único momento da página em que a loja fala antes
+   de mostrar produto, e apertá-lo tirou a presença sem ganhar nada que o
+   cliente use. Aqui o espaço é o material.
+
+   Ritmo vertical (celular), do topo para baixo:
+     chips  -> status    22px
+     status -> título    22px
+     título -> subtítulo 16px
+     subt.  -> CTA       28px
+     CTA    -> sociais   18px
+   Os degraus crescem antes do CTA de propósito: é a pausa que faz o botão
+   parecer a conclusão do bloco, e não mais um item da pilha. */
 .hero {
-  padding-top: 70px;
-  padding-bottom: 64px;
-  padding-inline: max(24px, env(safe-area-inset-left)) max(24px, env(safe-area-inset-right));
+  padding-top: 40px;
+  padding-bottom: 44px;
+  text-align: center;
+  /* 20px = mesmo padding do .container, para o hero cair na MESMA margem
+     esquerda das outras seções. Com 24px ele ficava 4px para dentro no
+     desktop, e o texto do hero não batia com os títulos de seção abaixo.
+     O max() preserva a área segura em celular com notch na horizontal. */
+  padding-inline: max(20px, env(safe-area-inset-left)) max(20px, env(safe-area-inset-right));
   box-sizing: border-box;
   width: 100%;
-  text-align: center;
   position: relative;
   overflow: hidden;
 }
+/* Halo de marca atrás do título. Dá profundidade a um hero sem imagem, e a cor
+   vem de --primary-rgb, então funciona nas três lojas sem ajuste. Opacidade
+   baixa de propósito: é atmosfera, não um glow neon. */
+.hero::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 12%;
+  width: min(620px, 130%);
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(var(--primary-rgb),.07), transparent 62%);
+  pointer-events: none;
+  z-index: 0;
+}
 .hero * { box-sizing: border-box; max-width: 100%; }
-.hero > * { position: relative; z-index: 1; }
+.hero > * { position: relative; z-index: var(--z-content); }
 
+/* Atalho de categorias do topo. A régua de filtro DE VERDADE é a .filter-bar
+   dentro de #catalogo; esta aqui só delega para ela e rola até o catálogo, então
+   é deliberadamente mais leve: menor, sem preenchimento de marca e sem estado
+   ativo gritante, para não competir com a barra que guarda o estado real. */
 .hero-chips {
   display: flex;
   flex-wrap: nowrap;
   overflow-x: auto;
   justify-content: flex-start;
-  gap: 8px;
-  margin: 0 auto 32px;
+  gap: 6px;
+  margin: 0 auto 22px;
   max-width: 760px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -476,99 +1017,184 @@ header.site-header {
 .hero-chip {
   flex: 0 0 auto;
   display: inline-flex; align-items: center;
-  min-height: 40px;
-  font-size: 13px; font-weight: 600; color: var(--text-muted);
-  background: var(--hero-surface); border: 1px solid var(--border-subtle);
-  padding: 10px 16px; border-radius: 999px;
+  min-height: 34px;
+  font-size: 12.5px; font-weight: 500; color: var(--text-muted);
+  background: transparent; border: 1px solid var(--border-subtle);
+  padding: 7px 14px; border-radius: var(--r-pill);
   transition: border-color .2s, color .2s, background .2s;
 }
-.hero-chip:hover { border-color: var(--gold-deep); color: var(--gold-light); background: rgba(201,162,39,.08); }
+/* Cor de marca via --primary-rgb (vem do site_config): funciona com o amarelo do
+   Royal e com qualquer paleta que Vapor e Pods Ilha usem. O texto nunca fica
+   SOBRE a cor de marca aqui, então o contraste não depende do tom escolhido. */
+/* Superfície neutra nos dois estados. O dourado fica só na BORDA do estado
+   ativo, que é o único lugar deste componente onde ele carrega informação
+   (B3: dourado em borda só com função de estado). */
+.hero-chip:hover {
+  border-color: var(--line);
+  color: var(--text);
+  background: var(--surf-2);
+}
 .hero-chip.active {
-  background: rgba(201,162,39,.10);
-  border: 1px solid var(--gold-deep);
-  color: var(--gold-light);
-  font-weight: 600;
+  background: var(--surf-2);
+  border-color: rgba(var(--primary-rgb),.55);
+  color: var(--text);
+  font-weight: 500;
 }
 
-.hero-logo-wrap { display: flex; justify-content: center; margin-bottom: 24px; }
-.hero-logo {
-  height: 88px;
-  width: auto;
-  filter: drop-shadow(0 0 28px rgba(var(--primary-rgb),.35)) drop-shadow(0 0 60px rgba(var(--accent-rgb),.18));
-}
+/* .hero-logo-wrap / .hero-logo saíram: eram CSS morto, sem nenhum elemento
+   correspondente no template (o logo do hero foi removido em alguma versão
+   anterior e o estilo ficou). */
 
+/* Item 6: o título ocupava TRÊS linhas (134px medidos em 390px). Duas causas,
+   as duas resolvidas sem tocar no padding e sem cortar copy:
+     1. text-transform: uppercase custava ~15% a mais de largura pelo mesmo
+        texto. Saiu, e a copy ficou palavra por palavra igual.
+     2. a escala começava em 30px num viewport de 390px. Agora acompanha a
+        largura de verdade e tem teto menor.
+   text-wrap: balance distribui as duas linhas em vez de deixar uma órfã. */
+/* Título em escala de display de verdade. Três ajustes fazem o acabamento,
+   e o mais importante NÃO é o tamanho:
+     1. line-height 1.05. Estava em 1.25, que é entrelinha de parágrafo. Em
+        caixa alta e corpo grande isso abre buracos entre as linhas e é o que
+        fazia o título parecer solto em vez de sólido.
+     2. letter-spacing -0.03em. Tipo grande precisa de tracking negativo; o
+        espacejamento desenhado para 16px fica largo demais em 40px.
+     3. text-wrap: balance, para as linhas terem comprimentos parecidos em vez
+        de uma cheia e uma órfã. */
 .hero h1 {
-  font-size: clamp(30px, 8vw, 40px);
-  font-weight: 800;
-  line-height: 1.25;
-  letter-spacing: -0.02em;
-  text-align: center;
+  /* 8.6vw em 390px = 33,5px. Nessa escala cabem ~17 caracteres por linha, e a
+     copy tem 47: fecha em 3 linhas, como na versão que você aprovou. Com
+     9,4vw ia para 4 linhas e o bloco perdia a forma. */
+  font-size: clamp(32px, 8.6vw, 58px);
+  font-weight: 700;
+  /* 1.13, não 1.05: um respiro a mais entre as linhas. Continua bem abaixo do
+     1.25 original (que é entrelinha de parágrafo e deixava o bloco solto), mas
+     as três linhas param de se tocar, e a pill da cidade ganha ar em volta. */
+  line-height: 1.13;
+  letter-spacing: -0.03em;
   text-transform: uppercase;
   text-wrap: balance;
   color: var(--text);
-  max-width: 100%;
+  /* 18ch só entra em cena no desktop, onde a fonte trava em 58px. No celular
+     é o viewport que manda; um cap menor estrangulava a linha e criava a
+     quarta quebra. */
+  max-width: 18ch;
   margin: 0 auto 16px;
 }
 /* Keyword highlight: a cidade vira uma pill de dourado sólido — único uso do
    dourado no headline. Cor vem de --primary-yellow (editável no painel). */
+/* A pill da cidade: único uso da cor de marca sólida no título, e a peça que
+   dá identidade ao hero. Padding em em (não px) para ela crescer junto com o
+   título em vez de virar uma etiqueta apertada em telas grandes. O realce
+   interno de 1px imita a borda iluminada de uma etiqueta impressa. */
 .hero h1 .cidade {
   display: inline-block;
   background: var(--primary-yellow);
   color: var(--text-on-primary);
-  border-radius: var(--radius-pill);
-  padding: 2px 14px;
-  line-height: 1.15;
+  border-radius: var(--r-pill);
+  /* Padding ASSIMÉTRICO, e de propósito. Em caixa alta com acento (SÃO LUÍS),
+     o til e o agudo sobem acima da altura de maiúscula, enquanto embaixo não
+     há descendente nenhuma. Um padding igual em cima e embaixo faz o acento
+     encostar na borda e o texto parecer solto na base. O topo maior devolve o
+     ar aos acentos E deixa o bloco opticamente centrado.
+     line-height: 1 para a caixa da pill acompanhar o texto de forma previsível
+     em vez de herdar a entrelinha do título. */
+  /* Padding CALCULADO a partir da métrica medida da fonte, não estimado.
+     Com line-height: 1, em corpo de 33,5px:
+       a tinta do acento começa 2,7px ACIMA do topo da caixa de texto
+       a caixa sobra 4,5px ABAIXO da linha de base (espaço de descendente,
+       que caixa alta não usa)
+     Logo, para um respiro alvo R de cada lado:
+       padding-top    = R + 2,7px
+       padding-bottom = R - 4,5px
+     Com R = 5px daria 7,7px e 0,5px. O meio pixel a mais no topo (0.245em vs
+     0.23em) é ajuste ÓPTICO: a massa da caixa alta fica embaixo, então um fio
+     a mais de ar em cima é o que o olho lê como centrado. Medido: 5,5px acima
+     e 5,0px abaixo. A assimetria no código é a compensação da métrica; o que
+     renderiza é simétrico. */
+  padding: 0.245em 0.36em 0;
+  margin-inline: 0.04em;
+  line-height: 1;
   white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
 }
 .hero-subhead {
-  font-size: 15px;
+  font-size: 15.5px;
   line-height: 1.6;
   color: var(--text-muted);
-  max-width: 340px;
-  margin: 0 auto 24px;
+  /* 38ch: medida curta o bastante para o subtítulo ler como uma frase só,
+     em vez de virar um bloco de parágrafo debaixo do título. */
+  max-width: 38ch;
+  margin: 0 auto 28px;
+  text-wrap: pretty;
 }
 
-/* Badge de status: pill discreta acima do headline. Fundo glass constante;
-   apenas o dot muda de cor (verde aberto / vermelho fechado). */
+/* Status da loja: a pill INTEIRA muda de estado, não só o ponto. "Dá para
+   pedir agora" é a primeira pergunta de um cliente recorrente, então merece
+   ler de longe. É estado semântico real, o único lugar da página onde uma cor
+   fora da paleta da marca se justifica. */
 .store-status {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.08);
-  font-size: 13px;
-  font-weight: 600;
-  margin: 0 auto 20px;
+  gap: 9px;
+  padding: 9px 18px;
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(255,255,255,.10);
+  font-size: 13.5px;
+  font-weight: var(--fw-medium);
+  letter-spacing: .01em;
+  margin: 0 auto 22px;
+  transition: background .3s ease-out, border-color .3s ease-out;
+}
+.store-status.open {
+  background: rgba(34,197,94,.09);
+  border-color: rgba(34,197,94,.30);
+}
+.store-status.open .store-status-text { color: var(--status-open); }
+.store-status.closed {
+  background: rgba(239,68,68,.07);
+  border-color: rgba(239,68,68,.26);
 }
 .store-status-dot {
+  position: relative;
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--text-muted);
   flex-shrink: 0;
 }
+/* Respiro do ponto: um anel que nasce nele, cresce e some. Animado em
+   transform e opacity (não em box-shadow, que repinta a cada frame), então
+   roda na GPU e não custa nada no celular fraco. Ciclo longo, de 2,6s: é um
+   sinal de vida, não um alarme. */
+.store-status-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+}
+.store-status.open .store-status-dot::after {
+  color: var(--status-open);
+  animation: statusBreath 2.6s cubic-bezier(.22,1,.36,1) infinite;
+}
+@keyframes statusBreath {
+  0%   { transform: scale(1);   opacity: .55; }
+  70%  { transform: scale(3.2); opacity: 0; }
+  100% { transform: scale(3.2); opacity: 0; }
+}
 .store-status-text { color: var(--text); }
-.store-status.open .store-status-dot {
-  background: #22C55E;
-  box-shadow: 0 0 0 3px rgba(34,197,94,.18);
-  animation: store-status-pulse 2s ease-in-out infinite;
-}
-.store-status.closed .store-status-dot {
-  background: var(--status-closed);
-  box-shadow: 0 0 0 3px rgba(239,68,68,.16);
-}
-@keyframes store-status-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
-  50% { box-shadow: 0 0 0 6px rgba(34,197,94,.05); }
-}
+.store-status.open .store-status-dot { background: var(--status-open); }
+.store-status.closed .store-status-dot { background: var(--status-closed); }
 @media (prefers-reduced-motion: reduce) {
-  .store-status.open .store-status-dot { animation: none; }
+  .store-status.open .store-status-dot::after { animation: none; opacity: 0; }
 }
 
 .hero-cta { display: flex; justify-content: center; margin: 0; }
 .btn {
   padding: 14px 30px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-weight: 700;
   font-size: .95rem;
   transition: transform .18s cubic-bezier(.22,1,.36,1), box-shadow .22s ease-out, background .2s;
@@ -630,22 +1256,63 @@ header.site-header {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  width: 90%;
-  max-width: 420px;
-  min-height: 56px;
+  width: 100%;
+  max-width: 380px;
+  min-height: 58px;
   padding: 0 24px;
   border: none;
-  border-radius: var(--radius-pill);
+  border-radius: var(--r-pill);
   background: var(--primary-yellow);
   color: var(--text-on-primary);
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0;
-  box-shadow: 0 8px 28px -12px rgba(0,0,0,.5);
+  box-shadow: 0 8px 28px -12px rgba(var(--bg-rgb),.7);
   transition: transform .2s cubic-bezier(.16,1,.3,1), box-shadow .25s ease, filter .2s ease;
+}
+/* Brilho que atravessa o botão. Duas decisões fazem ele parecer caro em vez
+   de chamativo:
+     1. O ciclo é de 6s mas a passagem dura ~1,1s. O resto é DESCANSO. Uma
+        animação que roda sem parar vira ruído de fundo e o olho ignora; uma
+        que aparece de vez em quando é notada toda vez.
+     2. Só transform e opacity, num pseudo-elemento. Nada de repaint, então o
+        custo em celular fraco é praticamente zero.
+   O overflow: hidden recorta a faixa na borda arredondada do botão. */
+/* position: relative é obrigatório aqui: quem fornecia o contexto de
+   posicionamento era o .ring-btn, que saiu deste botão. */
+.btn-primary.hero-btn-main { position: relative; overflow: hidden; isolation: isolate; }
+.btn-primary.hero-btn-main::after {
+  content: "";
+  position: absolute;
+  top: -60%;
+  left: -60%;
+  width: 40%;
+  height: 220%;
+  z-index: 1;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    rgba(255,255,255,.55) 45%,
+    rgba(255,255,255,.75) 50%,
+    rgba(255,255,255,.55) 55%,
+    transparent
+  );
+  transform: translateX(0) rotate(14deg);
+  pointer-events: none;
+  animation: ctaSheen 6s cubic-bezier(.5,0,.35,1) infinite;
+}
+/* A faixa passa POR CIMA de tudo, ícone e rótulo igual: é luz atravessando o
+   botão. Elevar só o ícone deixaria os dois com tratamento diferente. */
+@keyframes ctaSheen {
+  0%      { transform: translateX(0) rotate(14deg); }
+  18%     { transform: translateX(560%) rotate(14deg); }
+  100%    { transform: translateX(560%) rotate(14deg); }
 }
 .btn-primary.hero-btn-main:hover { filter: brightness(.96); }
 .btn-primary.hero-btn-main:active { transform: scale(.98); }
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary.hero-btn-main::after { animation: none; opacity: 0; }
+}
 /* Halo dourado suave derivado da marca (acompanha o color picker ao vivo). */
 @supports (color: color-mix(in srgb, red, blue)) {
   .btn-primary.hero-btn-main {
@@ -654,106 +1321,112 @@ header.site-header {
 }
 .hero-cta-icon { width: 20px; height: 20px; flex-shrink: 0; }
 
-/* Ações sociais secundárias: ícones circulares discretos, abaixo do CTA. */
-.hero-social { display: flex; justify-content: center; gap: 12px; margin-top: 14px; }
-.btn-whatsapp, .btn-instagram {
+/* Ações secundárias: dois círculos discretos abaixo do CTA. Presentes sem
+   competir. Um botão do tamanho do CTA principal ao lado dele criava dois
+   pesos iguais, e o olho não sabia qual era a ação da loja. */
+.hero-social {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+.btn-social {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
   width: 48px; height: 48px;
-  padding: 0;
   border-radius: 50%;
   background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.08);
-  color: rgba(255,255,255,.85);
+  border: 1px solid rgba(255,255,255,.09);
+  color: var(--text-muted);
   transition: transform .18s cubic-bezier(.22,1,.36,1), border-color .2s, background .2s, color .2s;
 }
-.btn-whatsapp:hover, .btn-instagram:hover {
+.btn-social .ico { width: 21px; height: 21px; vertical-align: 0; }
+.btn-social:hover {
+  transform: translateY(-2px);
   border-color: rgba(255,255,255,.2);
   background: rgba(255,255,255,.07);
-  color: #fff;
+  color: var(--text);
 }
-.btn-whatsapp-text { display: none; }
-.btn-whatsapp-icon { display: block; width: 20px; height: 20px; flex-shrink: 0; }
-.btn-instagram-icon { width: 20px; height: 20px; flex-shrink: 0; }
-
-/* Trust note abaixo das ações. */
-.hero-trust {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-muted);
-  text-align: center;
-  margin: 12px auto 0;
+.btn-social:active { transform: scale(.95); }
+/* Cada rede usa a cor da PRÓPRIA marca. São marcas de terceiros, reconhecidas
+   pela cor, então isso não briga com a regra de acento único da loja (que vale
+   para a identidade dela: preço, CTA, badges). */
+.btn-social-wa { color: var(--ok); border-color: rgba(37,211,102,.28); }
+.btn-social-wa:hover {
+  color: var(--ok);
+  border-color: rgba(37,211,102,.6);
+  background: rgba(37,211,102,.12);
+}
+/* Instagram: estava em cinza neutro, parecendo desligado ao lado do WhatsApp
+   verde. O ícone recebe o magenta da marca (#E1306C) e o hover traz o degradê
+   real dela, do amarelo ao roxo. */
+.btn-social-ig { color: #E1306C; border-color: rgba(225,48,108,.30); }
+.btn-social-ig:hover {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(45deg, #F9CE34 0%, #EE2A7B 52%, #6228D7 100%);
 }
 .btn-ghost {
-  background: var(--surface);
+  background: var(--surf-1);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
 }
 .btn-ghost:hover { border-color: var(--purple-soft); }
 
-.hero-features {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  max-width: 920px;
-  margin: 28px auto 0;
-  text-align: center;
-}
-/* Cards flat: superfície do tema, borda hairline, sem sombra. */
-.hero-feature {
-  background: var(--surface);
-  border: 1px solid rgba(255,255,255,.06);
-  border-radius: 14px;
-  padding: 16px 10px;
-  min-width: 0;
-  box-shadow: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transition: border-color .2s;
-}
-.hero-feature:hover { border-color: rgba(255,255,255,.12); }
-.hero-feature-icon {
-  margin: 0 auto 8px;
-  display: grid; place-items: center;
-  color: var(--text-muted);
-}
-.hero-feature-icon svg { width: 22px; height: 22px; }
-.hero-feature h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.01em; line-height: 1.3; color: var(--text-muted); margin: 0; }
+/* A faixa de selos foi REMOVIDA a pedido do dono da loja. As tres promessas
+   (entrega, procedencia, atendimento) continuam ditas onde o cliente decide:
+   entrega e atendimento no rodape de confianca, procedencia na resposta
+   "Os produtos sao originais?" das perguntas frequentes.
+   .trust-strip / .hero-features / .hero-feature sairam junto. */
 
-/* Entrada escalonada: chips -> badge -> título -> subhead -> CTA -> social ->
-   trust -> cards, ligada ao reveal-visible que o IntersectionObserver aplica. */
-.hero-chips, .hero-logo-wrap, .store-status, .hero h1, .hero-subhead,
-.hero-cta, .hero-social, .hero-trust, .hero-features {
+/* Entrada escalonada: chips -> status -> título -> subtítulo -> CTA -> sociais.
+   Uma sequência só, na ordem de leitura, em vez de efeitos espalhados. */
+.hero-chips, .store-status, .hero h1, .hero-subhead, .hero-cta, .hero-social {
   opacity: 0;
   transform: translateY(14px);
   transition: opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1);
 }
-.hero.reveal-visible .hero-chips     { opacity: 1; transform: none; transition-delay: .05s; }
-.hero.reveal-visible .hero-logo-wrap { opacity: 1; transform: none; transition-delay: .12s; }
-.hero.reveal-visible .store-status   { opacity: 1; transform: none; transition-delay: .12s; }
-.hero.reveal-visible h1              { opacity: 1; transform: none; transition-delay: .19s; }
-.hero.reveal-visible .hero-subhead   { opacity: 1; transform: none; transition-delay: .24s; }
-.hero.reveal-visible .hero-cta       { opacity: 1; transform: none; transition-delay: .30s; }
-.hero.reveal-visible .hero-social    { opacity: 1; transform: none; transition-delay: .34s; }
-.hero.reveal-visible .hero-trust     { opacity: 1; transform: none; transition-delay: .38s; }
-.hero.reveal-visible .hero-features  { opacity: 1; transform: none; transition-delay: .42s; }
+.hero.reveal-visible .hero-chips   { opacity: 1; transform: none; transition-delay: .04s; }
+.hero.reveal-visible .store-status { opacity: 1; transform: none; transition-delay: .10s; }
+.hero.reveal-visible h1            { opacity: 1; transform: none; transition-delay: .16s; }
+.hero.reveal-visible .hero-subhead { opacity: 1; transform: none; transition-delay: .23s; }
+.hero.reveal-visible .hero-cta     { opacity: 1; transform: none; transition-delay: .29s; }
+.hero.reveal-visible .hero-social  { opacity: 1; transform: none; transition-delay: .34s; }
 
 /* ---------- Section titles ---------- */
-.section { padding: 40px 0; }
+/* padding-block, não `padding: 40px 0`: a forma curta zerava o padding
+   HORIZONTAL que o .container define, então toda seção ficava 20px à esquerda
+   do hero no desktop. Bug antigo, que só ficou visível quando o hero passou a
+   ser alinhado à esquerda e deu com que comparar. */
+.section { padding-block: 40px; }
 .section-head { display: flex; align-items: end; justify-content: space-between; margin-bottom: 26px; gap: 12px; flex-wrap: wrap; }
 .section-head h2 {
   font-size: 1.7rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -.5px;
   display: flex; align-items: center; gap: 10px;
 }
 .section-head h2 .bolt { color: var(--primary-yellow); }
 .section-head h2 .catalog-icon { width: 22px; height: 22px; color: var(--primary-yellow); flex-shrink: 0; }
 .section-head p { color: var(--text-dim); font-size: .9rem; }
+
+/* Faixa de destaque: dá corpo à seção "Mais Vendidos" para ela não ser uma
+   segunda grade solta idêntica à do catálogo. O fundo é um degradê curtíssimo
+   da cor de marca (3% a 0%), o suficiente para o olho registrar uma área
+   diferente sem virar mais um bloco colorido. */
+.section-band {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  /* Superfície neutra: a faixa se distingue do catálogo por ESTAR num degrau
+     acima do fundo da página, não por ter tinta de marca. */
+  background: var(--surf-1);
+  padding-inline: 16px;
+  padding-block: 26px 28px;
+}
+/* O título da faixa herda a cor de marca no ícone, já feito por .bolt. */
+.section-band .section-head { margin-bottom: 20px; }
 
 .section-divider {
   max-width: 1240px;
@@ -775,12 +1448,12 @@ header.site-header {
 .pill {
   flex-shrink: 0;
   padding: 9px 20px;
-  border-radius: 999px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surf-1);
+  border: 1px solid var(--line);
   color: var(--text-dim);
   font-size: .85rem;
-  font-weight: 600;
+  font-weight: 500;
   transition: .18s;
   white-space: nowrap;
 }
@@ -799,11 +1472,14 @@ header.site-header {
   gap: 20px;
 }
 .model-card {
-  background:
-    linear-gradient(160deg, var(--surface-2), var(--card-bg) 55%),
-    radial-gradient(140% 90% at 100% 0%, rgba(var(--accent-rgb),.28), transparent 60%);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  /* Superfície NEUTRA e chapada (B1). Antes eram duas camadas: um degradê
+     entre dois níveis de cinza mais uma tintura radial do acento roxo a 28%.
+     A tintura era cor de destaque usada como preenchimento, exatamente o que
+     o bloco B proíbe, e ela deixava o canto superior direito de cada card
+     puxando para o roxo. */
+  background: var(--surf-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -814,7 +1490,7 @@ header.site-header {
   overflow: hidden;
   /* Reveal de scroll (mobile): sobe e aparece com curva premium e duração
      generosa pra fluir suave. O hover do desktop tem transição própria, mais
-     rápida, definida no @media (hover) abaixo — assim a elevação não fica lenta. */
+     rápida, definida no @media (hover) abaixo, assim a elevação não fica lenta. */
   transition: opacity .62s cubic-bezier(.22,1,.36,1),
               transform .62s cubic-bezier(.22,1,.36,1),
               border-color .2s ease-out, box-shadow .25s ease-out;
@@ -823,6 +1499,12 @@ header.site-header {
   will-change: opacity, transform;
 }
 .model-card.reveal-visible { opacity: 1; transform: none; will-change: auto; }
+/* O card é o controle (role="button" + tabindex no template). Sem isto o foco
+   de teclado seria invisível. Não muda nada para quem usa toque ou mouse. */
+.model-card:focus-visible {
+  outline: 2px solid var(--primary-yellow);
+  outline-offset: 3px;
+}
 @media (hover: hover) and (pointer: fine) {
   /* Desktop: hover ágil (a curva longa do reveal atrasaria a elevação). */
   .model-card {
@@ -848,7 +1530,7 @@ header.site-header {
 }
 /* :active depois do hover na cascata para "vencer" o lift quando os dois se aplicam ao mesmo tempo (clique) */
 .model-card:active { transform: scale(.97); }
-/* Faixa fixa do topo: badge de puffs (esq.) + selo TOP (dir.) — fora da foto */
+/* Faixa fixa do topo: badge de puffs (esq.) + selo TOP (dir.), fora da foto */
 .model-card .card-top {
   width: 100%;
   display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -859,26 +1541,32 @@ header.site-header {
 .model-card .best-tag {
   background: var(--primary-yellow);
   color: var(--text-on-primary);
-  font-size: .66rem; font-weight: 800;
+  font-size: .66rem; font-weight: 700;
   padding: 5px 11px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   letter-spacing: .5px;
   display: inline-flex; align-items: center; gap: 4px;
   white-space: nowrap; flex-shrink: 0;
 }
+/* B2: contorno dourado sobre superfície NEUTRA. Antes era pílula de dourado
+   translúcido a 9%, que sobre fundo escuro não vira dourado suave: vira
+   marrom-oliva. E o texto dourado por cima dessa mesma tinta perdia contraste.
+   Agora o dourado está só na borda e no texto, em opacidade cheia. */
 .model-card .puff-badge {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: .8rem; font-weight: 700; color: var(--primary-yellow);
-  background: rgba(var(--primary-rgb),.09);
-  border: 1px solid rgba(var(--primary-rgb),.24);
-  padding: 6px 13px; border-radius: 999px;
+  font-size: .8rem; font-weight: 700; color: var(--brand);
+  background: var(--surf-2);
+  border: 1px solid rgba(var(--primary-rgb),.42);
+  padding: 6px 13px; border-radius: var(--r-pill);
   letter-spacing: .2px; white-space: nowrap;
 }
 .model-card .card-img {
   aspect-ratio: 4/5;
   width: 100%;
-  border-radius: var(--radius);
-  background: #1a1a2e;
+  border-radius: var(--r-lg);
+  /* Um degrau ABAIXO do card (surf-0 dentro de surf-1): a caixa da foto lê
+     como recesso, e não como mais um retângulo do mesmo valor colado no card. */
+  background: var(--surf-0);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -886,16 +1574,66 @@ header.site-header {
   overflow: hidden;
   position: relative;
 }
-.model-card .card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.model-card .card-img .ph { color: var(--border); font-size: 3rem; font-weight: 800; }
+/* Skeleton da foto: um brilho varre a caixa ENQUANTO a imagem baixa, e some
+   sozinho quando ela pinta (a própria <img> cobre o fundo). Em 4G ruim é a
+   diferença entre uma grade de buracos escuros e uma grade que parece estar
+   carregando. Não precisa de JS: o fundo animado fica no container e a imagem
+   é desenhada por cima.
+   Só transform, então não repinta. */
+.model-card .card-img::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg,
+    transparent 20%,
+    rgba(255,255,255,.05) 50%,
+    transparent 80%);
+  transform: translateX(-100%);
+  animation: cardSkeleton 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+/* Imagem já pronta: nada de brilho por baixo dela. */
+.model-card .card-img:has(img.is-loaded)::before,
+.model-card .card-img:has(.ph)::before { animation: none; opacity: 0; }
+@keyframes cardSkeleton {
+  to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .model-card .card-img::before { animation: none; opacity: 0; }
+}
+.model-card .card-img img {
+  position: relative;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity .35s ease-out;
+}
+.model-card .card-img img.is-loaded { opacity: 1; }
+/* Marca de "produto sem foto". Dimensionada em unidade de CONTAINER, não em
+   rem: a caixa tem proporção 4/5, então a altura é 1,25x a largura, e
+   `26cqw` trava a letra em ~16% da altura do container em QUALQUER
+   breakpoint. Com rem, a mesma regra dava 27% no celular e 23% no desktop,
+   ou seja, o teto dependia da tela.
+   Menor e com opacidade baixa, ela para de disputar atenção com o nome do
+   produto e passa a ler como estado vazio, que é o que ela é. */
+.model-card .card-img { container-type: inline-size; }
+.model-card .card-img .ph {
+  color: var(--text-dim);
+  opacity: .22;
+  font-size: 26cqw;
+  line-height: 1;
+  font-weight: var(--fw-bold);
+  user-select: none;
+}
 .model-card .brand-lbl { font-size: .85rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--brand-label-color); font-weight: 700; }
-.model-card h3 { font-size: 1.25rem; font-weight: 800; margin: 2px 0 6px; letter-spacing: -.3px; }
+.model-card h3 { font-size: 1.25rem; font-weight: 700; margin: 2px 0 6px; letter-spacing: -.3px; }
 .model-card .puffs {
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: .82rem; color: var(--primary-yellow);
-  background: rgba(var(--primary-rgb),.08);
-  border: 1px solid rgba(var(--primary-rgb),.18);
-  padding: 6px 14px; border-radius: 999px;
+  font-size: .82rem; color: var(--brand);
+  background: var(--surf-2);
+  border: 1px solid rgba(var(--primary-rgb),.42);
+  padding: 6px 14px; border-radius: var(--r-pill);
   width: fit-content;
   margin-bottom: 10px;
 }
@@ -903,16 +1641,19 @@ header.site-header {
 .flavor-badge {
   display: inline-block; max-width: 100%; text-align: center;
   font-size: .8rem; font-weight: 500; color: var(--text-dim);
-  background: rgba(255,255,255,.045);
-  border: 1px solid var(--border);
-  padding: 6px 14px; border-radius: 14px; line-height: 1.4;
+  /* --surf-2 em vez de branco a 4,5%: o chip é elemento SOBREPOSTO ao card,
+     então pertence ao terceiro degrau. Branco translúcido dava um valor que
+     dependia do que estava atrás, em vez de um nível fixo do sistema. */
+  background: var(--surf-2);
+  border: 1px solid var(--line);
+  padding: 6px 14px; border-radius: var(--r-md); line-height: 1.4;
 }
 .flavor-badge .dot {
   display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   vertical-align: middle; margin-right: 6px; box-shadow: 0 0 0 2px rgba(255,255,255,.06);
 }
 .flavor-badge .fn { vertical-align: middle; }
-.flavor-badge .more { color: var(--flavor-more-color); font-weight: 600; margin-left: 6px; white-space: nowrap; vertical-align: middle; }
+.flavor-badge .more { color: var(--flavor-more-color); font-weight: 500; margin-left: 6px; white-space: nowrap; vertical-align: middle; }
 .card-foot {
   margin-top: auto;
   padding: 13px 2px 2px;
@@ -924,10 +1665,10 @@ header.site-header {
 .card-foot .price-wrap { text-align: center; flex: 1 1 auto; padding-left: 10px; }
 .card-foot .from {
   font-size: .58rem; text-transform: uppercase; letter-spacing: 1.2px;
-  color: var(--text-dim); font-weight: 600;
+  color: var(--text-dim); font-weight: 500;
 }
 .card-foot .price {
-  font-size: 1.6rem; font-weight: 800; color: var(--price-color);
+  font-size: 1.6rem; font-weight: 700; color: var(--price-color);
   line-height: 1.15; letter-spacing: -.5px;
 }
 .card-foot .price .cur {
@@ -948,7 +1689,7 @@ header.site-header {
   transition: transform .4s cubic-bezier(.34,1.56,.64,1), background .25s ease-out,
               border-color .25s ease-out, box-shadow .3s ease-out;
 }
-/* Anel de gradiente giratório — só a borda, via mask-composite. */
+/* Anel de gradiente giratório: só a borda, via mask-composite. */
 .card-foot .card-plus::before {
   content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: 1;
   padding: 2px;
@@ -982,11 +1723,49 @@ header.site-header {
   .card-foot .card-plus::before { animation: none; }
 }
 
-.empty-msg { text-align: center; color: var(--text-dim); padding: 50px 0; grid-column: 1/-1; }
+/* Estado vazio: não é um aviso de erro, é um convite a agir. Por isso tem
+   título, causa provável e uma saída clicável, em vez de uma frase solta. */
+.empty-msg {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  padding: 48px 20px 52px;
+}
+.empty-msg-title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--text);
+  line-height: var(--lh-snug);
+  text-wrap: balance;
+}
+.empty-msg-title strong { color: var(--brand); font-weight: var(--fw-bold); }
+.empty-msg-hint {
+  font-size: var(--fs-base);
+  color: var(--text-dim);
+  line-height: var(--lh-base);
+  max-width: 38ch;
+  text-wrap: pretty;
+}
+.empty-msg-reset {
+  margin-top: 8px;
+  padding: 11px 22px;
+  border-radius: var(--r-pill);
+  background: transparent;
+  border: 1px solid rgba(var(--primary-rgb),.4);
+  color: var(--brand);
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  transition: background var(--dur) ease-out, border-color var(--dur) ease-out;
+}
+.empty-msg-reset:hover { background: var(--surf-2); border-color: var(--brand); }
+.empty-msg-reset:active { transform: scale(.98); }
 
 /* ---------- Modal ---------- */
 .modal-overlay {
-  position: fixed; inset: 0; z-index: 100;
+  position: fixed; inset: 0; z-index: var(--z-modal);
   background: rgba(0,0,0,.78);
   backdrop-filter: blur(6px);
   display: flex;
@@ -1006,9 +1785,9 @@ header.site-header {
               visibility 0s linear 0s;
 }
 .modal {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 22px;
+  background: var(--surf-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
   width: 100%;
   max-width: 920px;
   max-height: 92vh;
@@ -1033,7 +1812,7 @@ header.site-header {
   /* Fundo branco: as fotos de produto têm fundo branco, então a margem ao
      redor da imagem (object-fit: contain + padding) funde com a foto em vez
      de deixar bordas escuras. */
-  background: #ffffff;
+  background: var(--surface-media);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1044,12 +1823,12 @@ header.site-header {
   flex-shrink: 0;
 }
 .modal-img img { width: 100%; height: 100%; object-fit: contain; padding: 30px; }
-.modal-img .ph { color: var(--border); font-size: 5rem; font-weight: 800; }
+.modal-img .ph { color: var(--line); font-size: 5rem; font-weight: 700; }
 .modal-close {
   position: absolute; top: 12px; right: 12px; z-index: 10;
   width: 38px; height: 38px; border-radius: 50%;
   background: rgba(0,0,0,.5); color: #fff;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   display: grid; place-items: center;
   transition: .2s;
 }
@@ -1057,20 +1836,20 @@ header.site-header {
 /* padding-bottom fica no .modal-foot (sticky) pra o fundo dele cobrir a base,
    senão os sabores vazam por baixo do botão na faixa da safe-area do iPhone. */
 .modal-body { padding: 32px 32px 0; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
-.modal-body .brand-lbl { font-size: .72rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--purple-soft); font-weight: 700; }
-.modal-body h2 { font-size: 1.9rem; font-weight: 800; letter-spacing: -.5px; margin: 4px 0 12px; }
+.modal-body .brand-lbl { font-size: var(--fs-2xs); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--brand-label-color); font-weight: var(--fw-medium); }
+.modal-body h2 { font-size: 1.9rem; font-weight: 700; letter-spacing: -.5px; margin: 4px 0 12px; }
 .modal-body .puffs {
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: .82rem; color: var(--primary-yellow);
-  background: rgba(var(--primary-rgb),.08); border: 1px solid rgba(var(--primary-rgb),.18);
-  padding: 6px 14px; border-radius: 999px; width: fit-content; margin-bottom: 22px;
+  font-size: .82rem; color: var(--brand);
+  background: var(--surf-2); border: 1px solid rgba(var(--primary-rgb),.42);
+  padding: 6px 14px; border-radius: var(--r-pill); width: fit-content; margin-bottom: 22px;
 }
-.modal-label { font-size: .8rem; color: var(--text-dim); font-weight: 600; margin-bottom: 10px; }
+.modal-label { font-size: .8rem; color: var(--text-dim); font-weight: 500; margin-bottom: 10px; }
 .flavor-grid { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 26px; }
 .flavor-pill {
-  padding: 9px 16px; border-radius: 999px;
-  background: var(--surface-2); border: 1px solid var(--border);
-  color: var(--text); font-size: .82rem; font-weight: 600;
+  padding: 9px 16px; border-radius: var(--r-pill);
+  background: var(--surf-2); border: 1px solid var(--line);
+  color: var(--text); font-size: .82rem; font-weight: 500;
   transition: .16s; display: inline-flex; align-items: center; gap: 7px;
 }
 .flavor-pill:hover { border-color: var(--purple-soft); }
@@ -1085,7 +1864,7 @@ header.site-header {
   position: sticky;
   bottom: 0;
   z-index: 2;
-  background: var(--surface);
+  background: var(--surf-1);
   padding-top: 8px;
   padding-bottom: 32px;
 }
@@ -1096,37 +1875,37 @@ header.site-header {
   position: absolute;
   left: 0; right: 0; top: -24px;
   height: 24px;
-  background: linear-gradient(to top, var(--surface), transparent);
+  background: linear-gradient(to top, var(--surf-1), transparent);
   pointer-events: none;
 }
 .qty-row { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; margin-bottom: 18px; }
-.qty-ctrl { display: flex; align-items: center; gap: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px; }
+.qty-ctrl { display: flex; align-items: center; gap: 4px; background: var(--surf-2); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 4px; }
 .qty-ctrl button {
   width: 34px; height: 34px; border-radius: 50%;
   background: transparent; color: var(--text); font-size: 1.2rem; font-weight: 700;
   display: grid; place-items: center; transition: .16s;
 }
-.qty-ctrl button:hover { background: var(--surface); color: var(--primary-yellow); }
-.qty-ctrl .qty-val { min-width: 36px; text-align: center; font-weight: 800; font-size: 1.05rem; }
+.qty-ctrl button:hover { background: var(--surf-1); color: var(--primary-yellow); }
+.qty-ctrl .qty-val { min-width: 36px; text-align: center; font-weight: 700; font-size: 1.05rem; }
 .modal-price { text-align: right; }
 .modal-price .lbl { font-size: .7rem; color: var(--text-dim); display: block; }
-.modal-price .val { font-size: 1.7rem; font-weight: 800; color: var(--price-color); }
+.modal-price .val { font-size: 1.7rem; font-weight: 700; color: var(--price-color); }
 .add-btn {
   width: 100%;
   padding: 16px;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--btn-grad);
-  color: var(--text-on-primary); font-weight: 800; font-size: 1rem;
+  color: var(--text-on-primary); font-weight: 700; font-size: 1rem;
   display: flex; align-items: center; justify-content: center; gap: 8px;
   transition: transform .18s cubic-bezier(.22,1,.36,1), box-shadow .2s, background .2s;
 }
-.add-btn:disabled { background: var(--surface-2); color: var(--text-dim); cursor: not-allowed; box-shadow: none; }
+.add-btn:disabled { background: var(--surf-2); color: var(--text-dim); cursor: not-allowed; box-shadow: none; }
 .add-btn:not(:disabled):hover { box-shadow: 0 0 30px rgba(var(--primary-rgb),.4); transform: translateY(-2px); }
 .add-btn:not(:disabled):active { transform: scale(.97); }
 
 /* ---------- Cart sidebar ---------- */
 .cart-overlay {
-  position: fixed; inset: 0; z-index: 110;
+  position: fixed; inset: 0; z-index: var(--z-cart-overlay);
   background: rgba(0,0,0,.6);
   backdrop-filter: blur(3px);
   opacity: 0; visibility: hidden;
@@ -1139,11 +1918,11 @@ header.site-header {
               visibility 0s linear 0s;
 }
 .cart-sidebar {
-  position: fixed; top: 0; top: var(--app-vv-top, 0px); right: 0; z-index: 120;
+  position: fixed; top: 0; top: var(--app-vv-top, 0px); right: 0; z-index: var(--z-cart-panel);
   height: 100dvh; height: var(--app-vvh, 100dvh); /* acompanha o viewport visual no mobile, ver setAppVvh() em app.js */
   width: 420px; max-width: 90vw;
-  background: var(--bg-2);
-  border-left: 1px solid var(--border);
+  background: var(--surf-1);
+  border-left: 1px solid var(--line);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -1157,7 +1936,7 @@ header.site-header {
      pedido/finalizar nunca some atrás do teclado. */
   display: flex; flex-direction: column;
   overflow: hidden;
-  box-shadow: -20px 0 60px rgba(0,0,0,.6);
+  box-shadow: var(--shadow-panel);
 }
 .cart-sidebar.open {
   opacity: 1;
@@ -1171,11 +1950,11 @@ header.site-header {
 .cart-header {
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 22px; border-bottom: 1px solid var(--border);
-  background: var(--bg-2);
+  padding: 22px; border-bottom: 1px solid var(--line);
+  background: var(--surf-1);
 }
-.cart-header h3 { font-size: 1.2rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
-.cart-header .close-cart { width: 36px; height: 36px; border-radius: 10px; background: var(--surface); color: var(--text); display: grid; place-items: center; border: 1px solid var(--border); transition: .2s; }
+.cart-header h3 { font-size: 1.2rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.cart-header .close-cart { width: 36px; height: 36px; border-radius: var(--r-sm); background: var(--surf-1); color: var(--text); display: grid; place-items: center; border: 1px solid var(--line); transition: .2s; }
 .cart-header .close-cart:hover { color: var(--primary-yellow); }
 .cart-items {
   flex: 1; min-height: 0;
@@ -1184,10 +1963,16 @@ header.site-header {
   padding: 16px 22px;
 }
 .cart-empty { text-align: center; color: var(--text-dim); padding: 60px 0; }
-.cart-empty .big { font-size: 3rem; margin-bottom: 10px; }
+.cart-empty .big {
+  /* display:block já tira o ícone do fluxo de linha, então o vertical-align
+     que a classe .ico traz não tem efeito nenhum aqui. Removido. */
+  width: 44px; height: 44px;
+  display: block; margin: 0 auto 12px;
+  opacity: .5;
+}
 .cart-item {
   display: flex; gap: 12px; padding: 14px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
   overflow: hidden;
   transition: max-height .32s cubic-bezier(.4,0,.2,1),
               opacity .22s ease-out,
@@ -1199,31 +1984,31 @@ header.site-header {
   pointer-events: none;
 }
 .cart-item .ci-img {
-  width: 64px; height: 64px; border-radius: 12px; flex-shrink: 0;
-  background: radial-gradient(circle, rgba(var(--accent-rgb),.25), transparent), var(--surface);
+  width: 64px; height: 64px; border-radius: var(--r-sm); flex-shrink: 0;
+  background: radial-gradient(circle, rgba(var(--accent-rgb),.25), transparent), var(--surf-1);
   display: grid; place-items: center; overflow: hidden;
 }
 .cart-item .ci-img img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
-.cart-item .ci-img .ph { color: var(--border); font-weight: 800; }
+.cart-item .ci-img .ph { color: var(--line); font-weight: 700; }
 .cart-item .ci-info { flex: 1; min-width: 0; }
 .cart-item .ci-info .m { font-weight: 700; font-size: .92rem; }
 .cart-item .ci-info .f { font-size: .78rem; color: var(--purple-soft); margin-bottom: 6px; }
 .cart-item .ci-info .p { font-size: .85rem; color: var(--primary-yellow); font-weight: 700; }
 .cart-item .ci-right { display: flex; flex-direction: column; align-items: end; justify-content: space-between; }
 .cart-item .rm { color: var(--text-dim); background: none; font-size: 1.1rem; transition: .2s; }
-.cart-item .rm:hover { color: #ff5a5a; }
-.ci-qty { display: flex; align-items: center; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 2px; }
+.cart-item .rm:hover { color: var(--danger-strong); }
+.ci-qty { display: flex; align-items: center; gap: 2px; background: var(--surf-1); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 2px; }
 .ci-qty button { width: 26px; height: 26px; border-radius: 50%; background: none; color: var(--text); transition: .16s; }
 .ci-qty button:hover { color: var(--primary-yellow); }
 .ci-qty span { min-width: 24px; text-align: center; font-weight: 700; font-size: .85rem; }
-.cart-foot { flex-shrink: 0; padding: 22px; border-top: 1px solid var(--border); background: var(--surface); }
+.cart-foot { flex-shrink: 0; padding: 22px; border-top: 1px solid var(--line); background: var(--surf-1); }
 .cart-total { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .cart-total .lbl { color: var(--text-dim); }
-.cart-total .val { font-size: 1.6rem; font-weight: 800; color: var(--primary-yellow); }
+.cart-total .val { font-size: 1.6rem; font-weight: 700; color: var(--primary-yellow); }
 .whatsapp-btn {
-  width: 100%; padding: 16px; border-radius: 14px;
+  width: 100%; padding: 16px; border-radius: var(--r-md);
   background: var(--green); color: #fff;
-  font-weight: 800; font-size: 1rem;
+  font-weight: 700; font-size: 1rem;
   display: flex; align-items: center; justify-content: center; gap: 10px;
   transition: transform .18s cubic-bezier(.22,1,.36,1), box-shadow .2s;
 }
@@ -1233,7 +2018,7 @@ header.site-header {
 
 /* ---------- Cart floating button ---------- */
 .cart-fab {
-  position: fixed; bottom: 24px; right: 24px; z-index: 90;
+  position: fixed; bottom: 24px; right: 24px; z-index: var(--z-fab);
   width: 58px; height: 58px; border-radius: 50%;
   background: var(--btn-grad);
   color: var(--text-on-primary); font-size: 1.5rem;
@@ -1252,9 +2037,9 @@ header.site-header {
 .cart-fab-badge {
   position: absolute; top: -6px; right: -6px;
   background: var(--purple); color: #fff;
-  font-size: .68rem; font-weight: 800;
+  font-size: .68rem; font-weight: 700;
   min-width: 22px; height: 22px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   display: grid; place-items: center;
   padding: 0 5px;
   border: 2px solid var(--bg);
@@ -1263,7 +2048,7 @@ header.site-header {
 
 /* ---------- Checkout panel ---------- */
 .checkout-overlay {
-  position: fixed; inset: 0; z-index: 130;
+  position: fixed; inset: 0; z-index: var(--z-checkout-overlay);
   background: rgba(0,0,0,.6);
   backdrop-filter: blur(3px);
   opacity: 0; visibility: hidden;
@@ -1276,11 +2061,11 @@ header.site-header {
               visibility 0s linear 0s;
 }
 .checkout-panel {
-  position: fixed; top: 0; top: var(--app-vv-top, 0px); right: 0; z-index: 140;
+  position: fixed; top: 0; top: var(--app-vv-top, 0px); right: 0; z-index: var(--z-checkout-panel);
   height: 100dvh; height: var(--app-vvh, 100dvh); /* acompanha o viewport visual no mobile, ver setAppVvh() em app.js */
   width: 460px; max-width: 92vw;
-  background: var(--bg-2);
-  border-left: 1px solid var(--border);
+  background: var(--surf-1);
+  border-left: 1px solid var(--line);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -1296,7 +2081,7 @@ header.site-header {
      iOS parecia zoom e escondia os campos restantes). */
   display: flex; flex-direction: column;
   overflow: hidden;
-  box-shadow: -20px 0 60px rgba(0,0,0,.6);
+  box-shadow: var(--shadow-panel);
 }
 .checkout-panel.open {
   opacity: 1;
@@ -1310,11 +2095,11 @@ header.site-header {
 .checkout-header {
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 22px; border-bottom: 1px solid var(--border);
-  background: var(--bg-2);
+  padding: 22px; border-bottom: 1px solid var(--line);
+  background: var(--surf-1);
 }
-.checkout-header h3 { font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
-.close-checkout { width: 36px; height: 36px; border-radius: 10px; background: var(--surface); color: var(--text); display: grid; place-items: center; border: 1px solid var(--border); transition: .2s; }
+.checkout-header h3 { font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.close-checkout { width: 36px; height: 36px; border-radius: var(--r-sm); background: var(--surf-1); color: var(--text); display: grid; place-items: center; border: 1px solid var(--line); transition: .2s; }
 .close-checkout:hover { color: var(--primary-yellow); }
 .checkout-body {
   flex: 1; min-height: 0; /* min-height:0 deixa o flex encolher e ativar o scroll interno */
@@ -1326,7 +2111,7 @@ header.site-header {
 .checkout-summary {
   /* Resumo fica no FIM do formulário (ver index.html): separa-se dos campos
      acima com borda no topo, logo acima do botão de confirmar. */
-  margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);
+  margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line);
 }
 .checkout-summary h4 { font-size: .82rem; color: var(--text-dim); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; }
 .checkout-item {
@@ -1340,20 +2125,20 @@ header.site-header {
 .checkout-item .p { font-weight: 700; color: var(--primary-yellow); flex-shrink: 0; }
 .checkout-summary-total {
   display: flex; justify-content: space-between; align-items: center;
-  margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border);
-  font-weight: 800;
+  margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line);
+  font-weight: 700;
 }
 .checkout-summary-total span:last-child { font-size: 1.25rem; color: var(--primary-yellow); }
 
 .checkout-form { display: flex; flex-direction: column; gap: 16px; }
 .field { display: flex; flex-direction: column; gap: 6px; scroll-margin: 16px 0; /* folga ao ser rolado pra vista quando o teclado abre */ }
-.field-label { font-size: .82rem; font-weight: 600; color: var(--text-dim); }
+.field-label { font-size: .82rem; font-weight: 500; color: var(--text-dim); }
 .field input, .field select, .field textarea {
   width: 100%;
   padding: 12px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--surf-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
   color: var(--text);
   font-size: 16px; /* >=16px sempre: evita zoom automático do iOS Safari ao focar, em qualquer largura/orientação */
   font-family: inherit;
@@ -1366,11 +2151,11 @@ header.site-header {
 .field input:focus, .field select:focus, .field textarea:focus {
   border-color: var(--primary-yellow);
   box-shadow: 0 0 0 3px rgba(var(--primary-rgb),.14);
-  background: var(--surface-2);
+  background: var(--surf-2);
 }
 .field select { appearance: none; }
-.field input.invalid, .field select.invalid, .field textarea.invalid { border-color: #ff5a5a; }
-.field-error { display: none; font-size: .76rem; color: #ff5a5a; }
+.field input.invalid, .field select.invalid, .field textarea.invalid { border-color: var(--danger-strong); }
+.field-error { display: none; font-size: .76rem; color: var(--danger-strong); }
 .field-error.show { display: block; }
 
 .geo-card {
@@ -1379,9 +2164,9 @@ header.site-header {
   gap: 12px;
   margin-top: 12px;
   padding: 12px 14px;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, rgba(var(--accent-soft-rgb),.16), rgba(var(--primary-rgb),.06));
-  border: 1px solid rgba(var(--accent-soft-rgb),.35);
+  border-radius: var(--r-sm);
+  background: var(--surf-2);
+  border: 1px solid var(--line);
 }
 .geo-card-icon {
   flex-shrink: 0;
@@ -1400,8 +2185,8 @@ header.site-header {
   margin-top: 10px;
   background: var(--btn-grad);
   border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-on-primary); font-weight: 800; font-size: .92rem;
+  border-radius: var(--r-sm);
+  color: var(--text-on-primary); font-weight: 700; font-size: .92rem;
   box-shadow: 0 4px 18px rgba(var(--primary-rgb),.2);
   transition: transform .18s cubic-bezier(.22,1,.36,1), box-shadow .2s;
   animation: geoPulse 1.5s ease-in-out infinite;
@@ -1413,7 +2198,7 @@ header.site-header {
 /* Cliente tentou finalizar sem pressionar a localização: destaque urgente
    (borda + pulso vermelho) até ele tocar o botão (app.js remove a classe). */
 .geo-btn.geo-required {
-  outline: 2px solid #ff5a5a; outline-offset: 2px;
+  outline: 2px solid var(--danger-strong); outline-offset: 2px;
   animation: geoRequired 1s ease-in-out infinite;
 }
 @keyframes geoRequired {
@@ -1431,14 +2216,14 @@ header.site-header {
 .geo-status.show { display: block; }
 .geo-status.ok { color: var(--green); }
 .geo-status.warn { color: var(--primary-yellow); }
-.geo-status.danger { color: #ff5a5a; }
+.geo-status.danger { color: var(--danger-strong); }
 
 .pickup-field {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--surf-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
   cursor: pointer;
   transition: border .2s, background .2s;
 }
@@ -1448,15 +2233,15 @@ header.site-header {
   accent-color: var(--primary-yellow);
   cursor: pointer;
 }
-.pickup-text { font-size: .88rem; font-weight: 600; color: var(--text); }
+.pickup-text { font-size: .88rem; font-weight: 500; color: var(--text); }
 .pickup-text em { font-style: normal; font-weight: 500; color: var(--text-dim); }
 
 .coupon-box {
   margin-bottom: 14px;
   padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surf-2);
 }
 .coupon-input-row { display: flex; align-items: center; gap: 10px; }
 .coupon-icon { flex-shrink: 0; width: 20px; height: 20px; color: var(--primary-yellow); }
@@ -1476,15 +2261,15 @@ header.site-header {
   font-weight: 700;
   font-size: .82rem;
   padding: 9px 16px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   transition: transform .18s cubic-bezier(.22,1,.36,1), box-shadow .2s;
 }
 .coupon-apply-btn:hover { box-shadow: 0 0 16px rgba(var(--primary-rgb),.4); transform: translateY(-1px); }
 .coupon-apply-btn:disabled { opacity: .55; cursor: not-allowed; }
-.coupon-feedback { font-size: .8rem; margin-top: 8px; display: none; font-weight: 600; }
+.coupon-feedback { font-size: .8rem; margin-top: 8px; display: none; font-weight: 500; }
 .coupon-feedback.show { display: block; }
 .coupon-feedback.success { color: var(--green); }
-.coupon-feedback.error { color: #ff5a5a; }
+.coupon-feedback.error { color: var(--danger-strong); }
 
 .checkout-discount-row, .cart-discount-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -1495,52 +2280,255 @@ header.site-header {
   display: flex; justify-content: space-between; align-items: center;
   margin-top: 12px; margin-bottom: 14px; font-size: .88rem; font-weight: 700; color: var(--text);
 }
-.checkout-shipping-row span:first-child { font-weight: 600; color: var(--text-dim); }
-.checkout-shipping-row span:first-child span { color: var(--text-dim); font-weight: 600; }
+.checkout-shipping-row span:first-child { font-weight: 500; color: var(--text-dim); }
+.checkout-shipping-row span:first-child span { color: var(--text-dim); font-weight: 500; }
 #checkoutShippingNote.geo-status { margin-top: 12px; margin-bottom: 4px; }
 
 .checkout-surcharge-row {
   display: flex; justify-content: space-between; align-items: center;
   margin-top: 12px; margin-bottom: 14px; font-size: .88rem; font-weight: 700; color: var(--text);
 }
-.checkout-surcharge-row span:first-child { font-weight: 600; color: var(--text-dim); }
+.checkout-surcharge-row span:first-child { font-weight: 500; color: var(--text-dim); }
 
-.checkout-foot { flex-shrink: 0; padding: 20px 22px; border-top: 1px solid var(--border); background: var(--surface); }
+.checkout-foot { flex-shrink: 0; padding: 20px 22px; border-top: 1px solid var(--line); background: var(--surf-1); }
 
-/* ---------- Footer ---------- */
+/* ---------- Fim da página ----------
+   Superfície opaca que cobre a malha de linhas e os halos radiais do fundo
+   daqui para baixo. A malha vive num pseudo-elemento FIXO do body, então não
+   existe "parar" ela numa posição de rolagem; o que funciona é o conteúdo
+   final passar por cima com fundo próprio. Mesma cor do fundo da página, de
+   modo que só a textura desaparece, não o tom. */
+.page-end {
+  position: relative;
+  z-index: var(--z-content);
+  background: var(--surf-0);
+}
+
+/* ---------- Perguntas frequentes ---------- */
+.faq-head { margin-bottom: 22px; }
+.faq-eyebrow {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+/* Título em caixa alta e escala de display, como no modelo. tracking negativo
+   porque o espacejamento desenhado para corpo de texto fica largo demais
+   nesse tamanho. */
+.faq-title {
+  font-size: clamp(28px, 7.4vw, 46px);
+  font-weight: var(--fw-bold);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-wrap: balance;
+}
+.faq-title-accent { color: var(--brand); }
+
+.faq-list { display: flex; flex-direction: column; gap: 10px; }
+
+.faq-item {
+  background: var(--surf-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  transition: border-color var(--dur) ease-out, background var(--dur) ease-out;
+}
+/* Aberto: contorno na cor de marca. É o único dourado do bloco, e ele carrega
+   estado real (qual pergunta está aberta), que é o critério do B3. */
+.faq-item[open] {
+  border-color: rgba(var(--primary-rgb),.55);
+  background: var(--surf-1);
+}
+.faq-item:not([open]):hover { border-color: rgba(255,255,255,.16); }
+
+.faq-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  color: var(--text);
+  line-height: var(--lh-snug);
+  /* Alvo de toque confortável mesmo com pergunta de uma linha só. */
+  min-height: 56px;
+}
+/* Some com o triângulo nativo do <summary> nos dois motores. */
+.faq-q::-webkit-details-marker { display: none; }
+.faq-q::marker { content: ""; }
+.faq-q:focus-visible { outline: 2px solid var(--brand); outline-offset: -3px; }
+
+.faq-arrow {
+  width: 20px; height: 20px;
+  flex-shrink: 0;
+  color: var(--text-dim);
+  vertical-align: 0;
+  transition: transform var(--dur-slow) var(--ease), color var(--dur) ease-out;
+}
+/* Uma seta só no sprite: o estado aberto gira 180°, em vez de trocar o
+   símbolo. A rotação ainda comunica a transição e o sprite fica menor. */
+.faq-item[open] .faq-arrow { transform: rotate(180deg); color: var(--brand); }
+
+.faq-a {
+  padding: 0 18px 18px;
+  /* A resposta desliza e aparece. `animation` e não `transition` de propósito:
+     <details> troca o display de none para block, e transição não dispara
+     nessa troca; animação sim, porque roda quando o elemento passa a existir
+     na renderização. */
+  animation: faqAbre .28s var(--ease-out) both;
+}
+.faq-a p {
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  color: var(--text-dim);
+  max-width: 68ch;
+  text-wrap: pretty;
+}
+@keyframes faqAbre {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .faq-a { animation: none; }
+  .faq-arrow { transition: none; }
+}
+
+/* ---------- Rodapé de confiança ----------
+   Quarta família de layout da página: duas colunas assimétricas (marca à
+   esquerda, informação à direita) que viram pilha no celular, mais uma barra
+   legal embaixo. Nada de paredão de links em quatro colunas: esta loja não
+   tem outras páginas, então links seriam navegação inventada. */
 footer.site-footer {
-  border-top: 1px solid var(--border);
-  padding: 40px 0;
-  margin-top: 40px;
-  text-align: center;
+  border-top: 1px solid var(--line);
+  padding: 40px 0 32px;
+  margin-top: 48px;
   color: var(--text-dim);
   font-size: .82rem;
 }
-footer.site-footer .logo { justify-content: center; margin-bottom: 12px; font-size: 1.3rem; }
+.footer-top {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  gap: 36px 48px;
+  align-items: start;
+  padding-bottom: 30px;
+}
+/* Marca centralizada na própria coluna. O logo alinhado à esquerda ficava
+   pendurado num canto com muito ar à direita, porque a coluna dele é mais
+   larga que a arte. Centralizado, ele e os dois botões passam a ler como um
+   bloco só, com o mesmo eixo. */
+.footer-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+footer.site-footer .logo { justify-content: center; margin: 0; font-size: 1.3rem; }
+.footer-logo img { height: 96px; margin: 0 auto; }
+.footer-brand .footer-contact { justify-content: center; }
+
+.footer-contact { display: flex; flex-wrap: wrap; gap: 10px; }
+.footer-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  color: var(--text-muted);
+  transition: border-color var(--dur), color var(--dur), background var(--dur);
+}
+.footer-action .ico { width: 18px; height: 18px; vertical-align: 0; }
+.footer-action-wa { color: var(--ok); border-color: rgba(37,211,102,.28); }
+.footer-action-wa:hover { border-color: rgba(37,211,102,.6); background: rgba(37,211,102,.1); }
+.footer-action-ig { color: #E1306C; border-color: rgba(225,48,108,.28); }
+.footer-action-ig:hover { border-color: rgba(225,48,108,.6); background: rgba(225,48,108,.1); }
+
+/* Lista de definição de verdade: cada item é "pergunta -> resposta". A
+   semântica <dl>/<dt>/<dd> é a correta e ajuda leitor de tela. */
+.footer-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 22px 32px;
+  margin: 0;
+}
+.footer-info-item { min-width: 0; }
+.footer-info dt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 7px;
+}
+.footer-info dt .ico { width: 16px; height: 16px; color: var(--brand); vertical-align: 0; }
+.footer-info dd {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  color: var(--text-dim);
+  text-wrap: pretty;
+}
+
+.footer-legal {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.footer-legal-warning {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-muted);
+  letter-spacing: .2px;
+}
+.footer-legal-note {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-dim);
+  max-width: 78ch;
+  text-wrap: pretty;
+}
+.footer-copy { font-size: var(--fs-xs); color: var(--text-dim); opacity: .8; }
 
 /* ---------- Live Editor UI ---------- */
 .editor-bar {
   position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-  z-index: 200;
-  background: var(--surface-2); border: 1px solid var(--purple-soft);
-  border-radius: 999px; padding: 10px 18px;
+  z-index: var(--z-editor);
+  background: var(--surf-2); border: 1px solid var(--purple-soft);
+  border-radius: var(--r-pill); padding: 10px 18px;
   display: flex; align-items: center; gap: 16px;
   box-shadow: 0 10px 40px rgba(var(--accent-rgb),.4);
   font-size: .85rem;
 }
 .editor-bar .dot-live { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); }
 .editor-bar label { display: flex; align-items: center; gap: 8px; color: var(--text-dim); }
-.editor-bar input[type=color] { width: 34px; height: 34px; border: none; background: none; border-radius: 8px; cursor: pointer; }
+.editor-bar input[type=color] { width: 34px; height: 34px; border: none; background: none; border-radius: var(--r-sm); cursor: pointer; }
 .editor-bar a.exit { color: var(--purple-soft); font-weight: 700; }
-[contenteditable="true"] { outline: none; border-radius: 6px; transition: box-shadow .2s; }
+[contenteditable="true"] { outline: none; border-radius: var(--r-sm); transition: box-shadow .2s; }
 body.editor-mode [contenteditable="true"]:hover { box-shadow: 0 0 0 2px var(--purple-soft); cursor: text; }
 body.editor-mode [contenteditable="true"]:focus { box-shadow: 0 0 0 2px var(--primary-yellow); background: rgba(var(--primary-rgb),.05); }
 body.editor-mode .model-card { cursor: default; }
 .model-card.drag-over { border-color: var(--primary-yellow) !important; box-shadow: 0 0 0 3px rgba(var(--primary-rgb),.3) !important; }
 .editor-hint {
-  position: fixed; top: 90px; right: 20px; z-index: 200;
+  position: fixed; top: 90px; right: 20px; z-index: var(--z-editor);
   background: var(--purple-deep); border: 1px solid var(--purple-soft);
-  padding: 12px 16px; border-radius: 12px; font-size: .78rem; max-width: 240px;
+  padding: 12px 16px; border-radius: var(--r-sm); font-size: .78rem; max-width: 240px;
   color: var(--text-dim);
 }
 
@@ -1549,18 +2537,18 @@ body.editor-mode .model-card { cursor: default; }
   position: fixed;
   bottom: max(24px, calc(env(safe-area-inset-bottom) + 14px));
   left: max(24px, calc(env(safe-area-inset-left) + 14px));
-  z-index: 300;
+  z-index: var(--z-toast);
   display: flex;
   align-items: center;
   gap: 12px;
   max-width: min(360px, calc(100vw - 48px));
-  background: linear-gradient(160deg, var(--surface-2), var(--surface) 65%);
-  border: 1px solid var(--border);
+  background: linear-gradient(160deg, var(--surf-2), var(--surf-1) 65%);
+  border: 1px solid var(--line);
   color: var(--text);
   padding: 14px 18px;
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   font-size: .88rem;
-  font-weight: 600;
+  font-weight: 500;
   box-shadow: var(--shadow);
   opacity: 0;
   visibility: hidden;
@@ -1578,14 +2566,14 @@ body.editor-mode .model-card { cursor: default; }
   width: 34px; height: 34px;
   border-radius: 50%;
   display: grid; place-items: center;
-  font-size: 1rem; font-weight: 800;
+  font-size: 1rem; font-weight: 700;
   background: var(--green);
   color: #06210f;
   box-shadow: 0 0 0 4px rgba(37,211,102,.14);
 }
 .toast-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .toast-body strong {
-  font-size: .9rem; font-weight: 800; color: var(--text);
+  font-size: .9rem; font-weight: 700; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .toast-body span {
@@ -1616,8 +2604,8 @@ body.editor-mode .model-card { cursor: default; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero, .section:not([data-hidden]), .model-card,
-  .hero-chips, .hero-logo-wrap, .store-status, .hero h1, .hero-subhead,
-  .hero-cta, .hero-social, .hero-trust, .hero-features {
+  .hero-chips, .store-status, .hero h1, .hero-subhead, .hero-cta,
+  .hero-social {
     opacity: 1 !important;
     transform: none !important;
   }
@@ -1639,7 +2627,7 @@ body.editor-mode .model-card { cursor: default; }
 .atacado-card {
   position: relative;
   background: var(--btn-grad);
-  border-radius: 26px;
+  border-radius: var(--r-xl);
   padding: 46px 48px;
   overflow: hidden;
   isolation: isolate;
@@ -1650,7 +2638,7 @@ body.editor-mode .model-card { cursor: default; }
   top: 50%;
   transform: translateY(-50%);
   font-size: clamp(5rem, 16vw, 13rem);
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -4px;
   color: rgba(0,0,0,.07);
   z-index: -1;
@@ -1669,14 +2657,14 @@ body.editor-mode .model-card { cursor: default; }
 .atacado-eyebrow {
   display: inline-block;
   font-size: .75rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 2px;
   color: rgba(0,0,0,.55);
   margin-bottom: 12px;
 }
 .atacado-title {
   font-size: clamp(1.8rem, 4vw, 2.9rem);
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.02;
   letter-spacing: -1px;
   color: #0a0a0c;
@@ -1686,7 +2674,7 @@ body.editor-mode .model-card { cursor: default; }
 .atacado-subtitle {
   font-size: 1rem;
   color: rgba(0,0,0,.75);
-  font-weight: 600;
+  font-weight: 500;
   max-width: 440px;
   margin-bottom: 22px;
 }
@@ -1714,8 +2702,8 @@ body.editor-mode .model-card { cursor: default; }
 .atacado-btn-primary,
 .atacado-btn-secondary {
   padding: 16px 30px;
-  border-radius: 999px;
-  font-weight: 800;
+  border-radius: var(--r-pill);
+  font-weight: 700;
   font-size: .95rem;
   text-align: center;
   white-space: nowrap;
@@ -1724,6 +2712,9 @@ body.editor-mode .model-card { cursor: default; }
 .atacado-btn-primary {
   background: var(--ac-btn-bg, #fff);
   color: var(--ac-btn-text, #0a0a0c);
+  /* Preto de propósito: este botão vive sobre o card promocional, que tem
+     fundo CLARO definido no painel. É a única sombra da página que não é
+     tingida com --bg-rgb, porque aqui o fundo não é o da página. */
   box-shadow: 0 8px 24px rgba(0,0,0,.18);
 }
 .atacado-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,.28); }
@@ -1745,12 +2736,12 @@ body.editor-mode .model-card { cursor: default; }
 .atacado-card[data-theme="dark"] .atacado-btn-secondary:hover { background: rgba(255,255,255,.12); }
 
 /* Aparência quando a seção está desligada mas visível no editor */
-.promo-block-section[data-hidden="1"] { opacity: .45; outline: 2px dashed var(--purple-soft); outline-offset: 8px; border-radius: 26px; position: relative; }
+.promo-block-section[data-hidden="1"] { opacity: .45; outline: 2px dashed var(--purple-soft); outline-offset: 8px; border-radius: var(--r-xl); position: relative; }
 .promo-block-section[data-hidden="1"]::before {
   content: "Seção DESLIGADA (visível só no editor)";
   position: absolute; top: -14px; left: 20px; z-index: 5;
   background: var(--purple); color: #fff; font-size: .7rem; font-weight: 700;
-  padding: 3px 12px; border-radius: 999px;
+  padding: 3px 12px; border-radius: var(--r-pill);
 }
 
 
@@ -1769,20 +2760,19 @@ body.editor-mode .model-card { cursor: default; }
   /* Header em uma linha limpa: logo | espaço | carrinho, busca embaixo */
   .header-inner { flex-wrap: wrap; gap: 12px; padding-block: 12px; }
   .logo { font-size: 1.4rem; }
-  .logo-img { height: 80px; }
+  /* O logo era 80px aqui e 84px no celular, num header STICKY: sozinho ele
+     comia 109px de tela de forma permanente, ~13% do viewport. A arte do logo
+     não mudou, só a altura de exibição. */
+  .logo-img { height: 50px; }
   .footer-logo img { height: 112px; }
   .search-wrap { max-width: none; }
   .search-wrap input { padding: 12px 16px 12px 42px; }
 
-  .hero { padding-block: 44px 34px; }
-  .hero-logo { height: 76px; }
-  .hero-chips { gap: 8px; margin-bottom: 20px; }
+  .hero { padding-block: 36px 40px; }
+  .hero-chips { gap: 8px; margin-bottom: 22px; }
   .hero-chip { font-size: 13px; padding: 8px 14px; }
-  .hero-features { grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .hero-feature { padding: 16px 8px; }
-  .hero-feature h3 { font-size: 12px; }
 
-  .section { padding: 30px 0; }
+  .section { padding-block: 30px; }
   .section-head { margin-bottom: 18px; }
   .section-head h2 { font-size: 1.35rem; }
   .section-head p { display: none; }
@@ -1798,21 +2788,20 @@ body.editor-mode .model-card { cursor: default; }
      dos ícones (soma-se ao padding horizontal do container). */
   .header-actions { padding-right: 8px; }
   .logo { font-size: 1.3rem; gap: 6px; }
-  .logo-img { height: 84px; }
+  .logo-img { height: 46px; }
   .footer-logo img { height: 112px; }
-  .legal-bar { padding: 7px 12px; }
-  .legal-bar span { font-size: .66rem; }
+  .legal-bar { padding: 6px 12px; }
+  .legal-bar-text { font-size: .66rem; }
 
   /* --- Hero --- */
-  .hero { padding-block: 34px 26px; }
-  .hero-chips { gap: 8px; margin-bottom: 20px; }
-  .hero-chip { font-size: 13px; padding: 10px 14px; }
-  .hero-logo-wrap { margin-bottom: 18px; }
-  .hero-logo { height: 64px; }
-  .store-status { margin-bottom: 20px; }
-  .hero-features { gap: 10px; }
-  .hero-feature { padding: 12px 6px; }
-  .hero-feature h3 { font-size: 12px; }
+  .hero { padding-block: 30px 36px; }
+  .hero-chips { gap: 6px; margin-bottom: 20px; }
+  .hero-chip { font-size: 12.5px; padding: 8px 13px; }
+  .store-status { font-size: 12.5px; padding: 8px 16px; margin-bottom: 20px; }
+  .hero-subhead { font-size: 14.5px; margin-bottom: 26px; }
+  .btn-primary.hero-btn-main { min-height: 56px; }
+  .hero-social { margin-top: 16px; gap: 10px; }
+  .btn-social { width: 46px; height: 46px; }
 
   /* --- Filtros: pistas de rolagem nas bordas --- */
   .filter-bar { gap: 8px; padding: 4px 12px 12px; margin: 0 -12px 20px; }
@@ -1822,12 +2811,13 @@ body.editor-mode .model-card { cursor: default; }
   .grid { grid-template-columns: repeat(2, 1fr); gap: 11px; }
 
   /* --- Card compacto e refinado --- */
-  .model-card { padding: 10px; border-radius: 15px; }
+  .model-card { padding: 10px; border-radius: var(--r-lg); }
   .model-card .card-top { min-height: 28px; margin-bottom: 10px; gap: 6px; }
   .model-card .best-tag { font-size: .58rem; padding: 4px 9px; }
   .model-card .puff-badge { font-size: .74rem; padding: 5px 11px; }
-  .model-card .card-img { aspect-ratio: 4/5; margin-bottom: 10px; border-radius: 15px; }
-  .model-card .card-img .ph { font-size: 2.2rem; }
+  .model-card .card-img { aspect-ratio: 4/5; margin-bottom: 10px; border-radius: var(--r-lg); }
+  /* Sem override de tamanho aqui: 26cqw já escala sozinho com a largura do
+     card, então o valor por breakpoint virou redundante. */
   .model-card .brand-lbl { font-size: .8rem; letter-spacing: 1px; }
   .model-card h3 { font-size: 1.15rem; margin: 2px 0 8px; }
 
@@ -1844,7 +2834,7 @@ body.editor-mode .model-card { cursor: default; }
   /* --- Modal ocupa a tela como uma folha vinda de baixo --- */
   .modal-overlay { padding: 0; align-items: flex-end; }
   .modal {
-    border-radius: 22px 22px 0 0;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
     max-width: 100%;
     /* Altura FIXA pra padronizar: o modal sempre enche a tela, mesmo com poucos
        sabores (antes com max-height ele encolhia até o conteúdo). Usa dvh
@@ -1908,7 +2898,7 @@ body.editor-mode .model-card { cursor: default; }
   .toast-body span { font-size: .74rem; }
 
   /* --- Age Gate mobile --- */
-  .age-gate-card { padding: 34px 22px 26px; border-radius: 22px; }
+  .age-gate-card { padding: 34px 22px 26px; border-radius: var(--r-xl); }
   .age-gate-logo { height: 50px; margin-bottom: 16px; }
   .age-gate-badge { font-size: .62rem; padding: 5px 12px; margin-bottom: 16px; }
   .age-gate-card h2 { font-size: 1.25rem; }
@@ -1917,14 +2907,20 @@ body.editor-mode .model-card { cursor: default; }
   .age-gate-no { padding: 14px; }
 
   /* Atacado no mobile */
-  .atacado-card { padding: 30px 22px; border-radius: 20px; }
+  .atacado-card { padding: 30px 22px; border-radius: var(--r-xl); }
   .atacado-content { flex-direction: column; align-items: stretch; gap: 24px; }
   .atacado-items { grid-template-columns: 1fr; gap: 8px; }
   .atacado-right { width: 100%; }
   .atacado-btn-primary, .atacado-btn-secondary { width: 100%; }
   .atacado-bg-word { font-size: 7rem; opacity: .5; }
 
-  footer.site-footer { padding: 30px 0; font-size: .78rem; }
+  /* Rodapé vira pilha: as duas colunas não cabem lado a lado em 2 colunas de
+     ~170px sem quebrar palavra. */
+  footer.site-footer { padding: 32px 0 26px; margin-top: 36px; font-size: .78rem; }
+  .footer-top { grid-template-columns: 1fr; gap: 26px; padding-bottom: 24px; }
+  .footer-logo img { height: 78px; }
+  .footer-info { grid-template-columns: 1fr; gap: 18px; }
+  .footer-action { flex: 1 1 auto; justify-content: center; }
 }
 
 /* -------- Celulares muito pequenos -------- */
@@ -1942,10 +2938,8 @@ body.editor-mode .model-card { cursor: default; }
    Encolhe os respiros verticais do herói e o bloco de benefícios pra o primeiro
    produto aparecer mais cedo em phones curtos / paisagem. */
 @media (max-height: 700px) {
-  .hero { padding-top: 28px; padding-bottom: 20px; }
-  .hero-logo-wrap { margin-bottom: 14px; }
-  .hero-chips { margin-bottom: 16px; }
-  .hero-feature { padding: 12px 8px; }
+  .hero { padding-top: 20px; padding-bottom: 18px; }
+  .hero-chips { margin-bottom: 12px; }
 }
 
 /* Rolagem suave e sem "trava" em iOS para áreas roláveis */
@@ -1955,7 +2949,7 @@ body.editor-mode .model-card { cursor: default; }
 .promo-pop {
   position: fixed;
   inset: 0;
-  z-index: 9000;
+  z-index: var(--z-promo);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1978,10 +2972,10 @@ body.editor-mode .model-card { cursor: default; }
   max-width: 380px;
   padding: 32px 26px 24px;
   text-align: center;
-  border-radius: 22px;
-  background: linear-gradient(165deg, var(--surface-2), var(--surface) 72%);
-  border: 1px solid var(--border);
-  box-shadow: 0 30px 70px rgba(0,0,0,.6);
+  border-radius: var(--r-xl);
+  background: linear-gradient(165deg, var(--surf-2), var(--surf-1) 72%);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
   opacity: 0;
   transform: translateY(14px) scale(.96);
   transition: opacity .34s cubic-bezier(.16,1,.3,1), transform .34s cubic-bezier(.16,1,.3,1);
@@ -2010,7 +3004,7 @@ body.editor-mode .model-card { cursor: default; }
   width: 32px; height: 32px;
   border-radius: 50%;
   background: rgba(255,255,255,.05);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   color: var(--text-dim);
   font-size: .82rem;
   display: grid; place-items: center;
@@ -2019,23 +3013,17 @@ body.editor-mode .model-card { cursor: default; }
 .promo-pop-close:hover { color: var(--text); background: rgba(255,255,255,.1); }
 .promo-pop-badge {
   display: inline-block;
-  font-size: .64rem; font-weight: 800;
+  font-size: .64rem; font-weight: 700;
   letter-spacing: 1.5px; text-transform: uppercase;
   padding: 6px 14px;
-  border-radius: 999px;
-  color: var(--primary-yellow);
-  background: rgba(var(--primary-rgb),.1);
-  border: 1px solid rgba(var(--primary-rgb),.32);
+  border-radius: var(--r-pill);
+  color: var(--brand);
+  background: var(--surf-2);
+  border: 1px solid rgba(var(--primary-rgb),.42);
   margin-bottom: 16px;
 }
-@supports (color: color-mix(in srgb, red, blue)) {
-  .promo-pop-badge {
-    background: color-mix(in srgb, var(--primary-yellow) 12%, transparent);
-    border-color: color-mix(in srgb, var(--primary-yellow) 34%, transparent);
-  }
-}
 .promo-pop-title {
-  font-size: 1.4rem; font-weight: 800;
+  font-size: 1.4rem; font-weight: 700;
   line-height: 1.2; letter-spacing: -.02em;
   color: var(--text);
   margin-bottom: 10px;
@@ -2049,21 +3037,15 @@ body.editor-mode .model-card { cursor: default; }
   display: flex; align-items: stretch;
   max-width: 280px;
   margin: 0 auto 22px;
-  border: 1px dashed rgba(var(--primary-rgb),.45);
-  border-radius: 12px;
+  border: 1px dashed rgba(var(--primary-rgb),.5);
+  border-radius: var(--r-sm);
   overflow: hidden;
-  background: rgba(var(--primary-rgb),.06);
-}
-@supports (color: color-mix(in srgb, red, blue)) {
-  .promo-pop-coupon {
-    border-color: color-mix(in srgb, var(--primary-yellow) 45%, transparent);
-    background: color-mix(in srgb, var(--primary-yellow) 6%, transparent);
-  }
+  background: var(--surf-2);
 }
 .promo-pop-coupon-code {
   flex: 1;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 800; letter-spacing: 1.5px; font-size: 1rem;
+  font-weight: 700; letter-spacing: 1.5px; font-size: 1rem;
   color: var(--primary-yellow);
   padding: 12px 10px;
   user-select: all;
@@ -2083,7 +3065,7 @@ body.editor-mode .model-card { cursor: default; }
   display: inline-flex; align-items: center; justify-content: center;
   width: 100%;
   min-height: 52px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--primary-yellow);
   color: var(--text-on-primary);
   font-weight: 700; font-size: .98rem;

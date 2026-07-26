@@ -6,7 +6,7 @@ import sqlite3
 import time
 import uuid
 import xml.etree.ElementTree as ET
-from datetime import timedelta
+from datetime import datetime, timedelta
 from functools import wraps
 from defusedxml import ElementTree as DefusedET
 from defusedxml.common import DefusedXmlException
@@ -195,7 +195,10 @@ ASSET_VERSION = str(int(max(
 
 @app.context_processor
 def inject_asset_version():
-    return {"asset_v": ASSET_VERSION}
+    # current_year alimenta o "©" do rodapé. Antes o ano estava escrito à mão no
+    # template (junto do nome de marca fixo), então envelhecia sozinho a cada
+    # virada de ano em todas as lojas.
+    return {"asset_v": ASSET_VERSION, "current_year": datetime.now().year}
 
 
 @app.context_processor
@@ -565,6 +568,8 @@ def init_db():
         "theme_ring_color": "#FFD60A",
         # Cor do nome da marca (ex: "LOST MARY") e do "+x sabores" nos cards.
         # Padrão = destaque suave (roxo), para não mudar lojas já publicadas.
+        # Para deixar o card com uma cor de destaque só (a do preço), basta
+        # apontar as duas para um cinza neutro no painel.
         "theme_brand_label_color": "#a855f7",
         "theme_flavor_more_color": "#a855f7",
         "logo_main_url": "",
@@ -573,6 +578,10 @@ def init_db():
         "hero_subtitle": "Os melhores pods descartáveis com a curadoria mais premium do Brasil.",
         "store_name": "Royal",
         "store_city": "São Luís",
+        # Complemento do título da aba quando `page_title` está vazio. Antes o
+        # texto "Premium Vapes" estava fixo no index.html, então as três lojas
+        # herdavam a mesma assinatura. Agora cada uma edita a sua no painel.
+        "store_tagline": "Pods e Vapes",
         # Número do WhatsApp usado no checkout / links wa.me. Fica editável no
         # painel; o valor inicial vem da env var WHATSAPP_PHONE.
         "whatsapp_phone": os.environ.get("WHATSAPP_PHONE", ""),
@@ -590,6 +599,46 @@ def init_db():
         "wa_msg_header": "Olá! Vim pelo site e quero fazer um pedido.",
         "wa_msg_attendant": "Olá! Vim pelo site e preciso de atendimento.",
         "wa_msg_hero": "Olá! Vim pelo site e quero saber mais sobre os produtos.",
+        # Perguntas frequentes. Uma por linha, no formato "Pergunta | Resposta".
+        # O pipe foi escolhido como separador por não aparecer em texto corrido
+        # em português, então o funcionário não precisa escapar nada.
+        "faq_enabled": "1",
+        # A barra separa a parte branca da parte na cor da marca no título.
+        # Sem barra, o título inteiro sai branco.
+        "faq_eyebrow": "Ficou com dúvida?",
+        "faq_title": "Perguntas | frequentes",
+        "faq_items": (
+            "Quanto tempo leva a entrega? | Na maior parte de São Luís entregamos no mesmo dia. "
+            "O prazo exato a gente confirma no WhatsApp assim que o pedido chega.\n"
+            "Como faço o pedido? | Escolha os produtos, toque em finalizar e o pedido vai montado "
+            "para o nosso WhatsApp. Não precisa criar cadastro nem cartão no site.\n"
+            "Os produtos são originais? | Sim. Trabalhamos apenas com produtos lacrados e originais, "
+            "comprados de distribuidores autorizados.\n"
+            "Posso pagar na entrega? | Pode. Aceitamos Pix, dinheiro e cartão na hora da entrega. "
+            "No cartão de crédito há acréscimo de 5%.\n"
+            "E se o produto vier com defeito? | Chame no WhatsApp em até 7 dias. Produto com defeito "
+            "de fábrica, sem sinal de uso e na embalagem original, a gente troca."
+        ),
+        # Rodapé de confiança. São as perguntas que um comprador brasileiro faz
+        # antes de fechar pedido em loja que não conhece: até onde entrega, que
+        # horas atende, como paga e o que acontece se vier errado. Tudo
+        # editável em "Configurações Gerais".
+        "footer_delivery_area": "Entregamos em toda São Luís e região metropolitana.",
+        "footer_hours": "Todos os dias, das 10h às 23h.",
+        "footer_payment": "Pix, dinheiro, cartão de crédito e débito na entrega.",
+        "footer_exchange": (
+            "Troca em até 7 dias para produto com defeito de fábrica, "
+            "sem sinal de uso e na embalagem original."
+        ),
+        # Linha de avisos rotativos na faixa do topo, logo abaixo do aviso
+        # legal. Uma mensagem por linha; o site alterna entre elas. Editável
+        # pelos funcionários em "Configurações Gerais".
+        "announce_enabled": "1",
+        "announce_messages": (
+            "Frete grátis nos pedidos acima de R$ 200\n"
+            "Entrega no mesmo dia para toda São Luís\n"
+            "Pague no Pix, cartão ou dinheiro na entrega"
+        ),
         # Pop-up de promoção do site (gerenciado na aba Cupons do painel).
         "promo_popup_enabled": "0",
         "promo_popup_badge": "OFERTA ESPECIAL",

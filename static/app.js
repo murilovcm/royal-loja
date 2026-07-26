@@ -290,6 +290,56 @@
   })();
 
   // ---------------------------------------------------------------
+  // SUBLINHA ROTATIVA DE AVISOS (faixa do topo)
+  // ---------------------------------------------------------------
+  // As mensagens vêm do painel (site_config.announce_messages, uma por linha)
+  // e já chegam renderizadas empilhadas na mesma célula de grid. Aqui só
+  // trocamos qual está com a classe .is-on; a transição é 100% CSS.
+  // --header-h alimenta o `top` da faixa grudada. Medido, não fixo: a altura
+  // do header muda com o breakpoint e com o tamanho do logo que cada loja
+  // configura, então um valor cravado no CSS dessincronizaria em alguma das
+  // três lojas e a faixa ficaria flutuando ou escondida atrás do header.
+  (function trackHeaderHeight() {
+    const header = document.querySelector("header.site-header");
+    if (!header) return;
+    const apply = () => {
+      document.documentElement.style.setProperty(
+        "--header-h", Math.round(header.getBoundingClientRect().height) + "px"
+      );
+    };
+    apply();
+    if ("ResizeObserver" in window) new ResizeObserver(apply).observe(header);
+    else window.addEventListener("resize", apply, { passive: true });
+  })();
+
+  (function initAnnounce() {
+    const bar = byId("announceBar");
+    if (!bar) return;
+    const msgs = Array.from(bar.querySelectorAll(".announce-msg"));
+    // Uma mensagem só não gira: ficaria piscando sem motivo.
+    if (msgs.length < 2) return;
+    // Respeita quem pediu menos movimento: mostra a primeira e para por aí.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const HOLD_MS = 4800;
+    let i = 0;
+    let timer = setInterval(next, HOLD_MS);
+
+    function next() {
+      msgs[i].classList.remove("is-on");
+      i = (i + 1) % msgs.length;
+      msgs[i].classList.add("is-on");
+    }
+
+    // Aba em segundo plano não precisa girar: economiza bateria no celular e
+    // evita a fila de trocas acumuladas ao voltar.
+    document.addEventListener("visibilitychange", () => {
+      clearInterval(timer);
+      if (!document.hidden) timer = setInterval(next, HOLD_MS);
+    });
+  })();
+
+  // ---------------------------------------------------------------
   // STORE STATUS (aberta/fechada) — todos os dias, 10h às 23h (Brasília)
   // ---------------------------------------------------------------
   (function () {
@@ -367,13 +417,55 @@
       if (show) visible++;
     });
     byId("catalogCount").textContent = visible + " modelo" + (visible !== 1 ? "s" : "");
+
+    // Estado vazio: diz O QUE não foi achado e dá a saída. Antes era um
+    // "Nenhum modelo encontrado 🔍" genérico, que deixava o cliente sem saber
+    // se errou a busca ou se o filtro estava atrapalhando.
     let empty = grid.querySelector(".empty-msg");
     if (visible === 0) {
       if (!empty) {
         empty = document.createElement("div");
         empty.className = "empty-msg";
-        empty.textContent = "Nenhum modelo encontrado 🔍";
         grid.appendChild(empty);
+      }
+      const termo = (byId("searchInput").value || "").trim();
+      const filtrando = activeFilter !== "all";
+      empty.innerHTML = "";
+
+      const titulo = document.createElement("p");
+      titulo.className = "empty-msg-title";
+      if (termo) {
+        // Nome do produto entra como nó de texto, nunca via innerHTML.
+        titulo.append("Nenhum produto encontrado para ");
+        const forte = document.createElement("strong");
+        forte.textContent = "“" + termo + "”";
+        titulo.append(forte);
+      } else {
+        titulo.textContent = "Nenhum produto nesta categoria";
+      }
+      empty.appendChild(titulo);
+
+      const dica = document.createElement("p");
+      dica.className = "empty-msg-hint";
+      dica.textContent = filtrando && termo
+        ? "Talvez o produto esteja em outra marca. Toque abaixo para buscar no catálogo inteiro."
+        : filtrando
+          ? "Esta marca está sem produtos no momento."
+          : "Confira a grafia ou tente pelo nome da marca.";
+      empty.appendChild(dica);
+
+      if (filtrando || termo) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "empty-msg-reset";
+        btn.textContent = "Ver todos os produtos";
+        btn.addEventListener("click", () => {
+          byId("searchInput").value = "";
+          const todos = byId("filterBar").querySelector('.pill[data-filter="all"]');
+          if (todos) todos.click();
+          else applyFilter();
+        });
+        empty.appendChild(btn);
       }
     } else if (empty) empty.remove();
   }
@@ -408,11 +500,20 @@
   let modalState = { model: null, flavor: null, qty: 1 };
 
   function imgHTML(model, phSize) {
-    if (model.image_url) return `<img src="${model.image_url}" alt="${model.name}">`;
-    return `<span class="ph">${model.name[0]}</span>`;
+    // alt descritivo: marca + modelo, igual ao card. Antes era só o modelo.
+    if (model.image_url) {
+      return `<img src="${model.image_url}" alt="${escapeHtml(model.brand_name)} ${escapeHtml(model.name)}" decoding="async">`;
+    }
+    return `<span class="ph">${escapeHtml(model.name[0])}</span>`;
   }
 
   function openModal(model) {
+    // O cliente escolheu um produto: a faixa de avisos cumpriu o papel dela e
+    // sai de cena. Perseguir com promoção quem já está decidindo o que comprar
+    // só rouba espaço da tela. Vale para a sessão, não fica gravado.
+    const announceBar = byId("announceBar");
+    if (announceBar) announceBar.classList.add("is-done");
+
     modalState = { model, flavor: null, qty: 1 };
     byId("modalImg").innerHTML = imgHTML(model);
     byId("modalBrand").textContent = model.brand_name;
@@ -420,6 +521,8 @@
     // Ícone de raio temável (segue currentColor) + texto como nó de texto
     // (nunca innerHTML com dado do produto — evita injeção de HTML).
     const puffsEl = byId("modalPuffs");
+    // Mesmo raio preenchido do badge do card. O texto entra como nó de texto,
+    // nunca via innerHTML com dado do produto, para não abrir injeção.
     puffsEl.innerHTML = '<i class="ico-bolt"></i> ';
     puffsEl.append(model.puff_count);
     byId("qtyVal").textContent = "1";
@@ -504,14 +607,27 @@
   overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") { closeModal(); closeCart(); closeNav(); } });
 
-  // Card click -> open modal (disabled in editor mode)
-  grid.parentElement.parentElement.addEventListener("click", () => {}); // noop guard
+  // Card -> abre o modal de sabores. Comportamento IDÊNTICO ao de antes: o
+  // alvo é o card inteiro, um toque só, e o botão do canto inferior direito
+  // continua sendo afordância visual (não tem handler próprio, então não há
+  // como disparar duas vezes).
+  //
+  // O que entrou: teclado. O card agora é role="button" tabindex="0" no
+  // template, então Enter e Espaço precisam abrir o modal como o clique. Antes
+  // a grade inteira era inalcançável sem mouse ou toque.
+  function openCardModal(card) {
+    if (CFG.editor) return;
+    const id = Number(card.dataset.id);
+    const model = CATALOG.find((m) => m.id === id);
+    if (model) openModal(model);
+  }
   document.querySelectorAll(".model-card").forEach((card) => {
-    card.addEventListener("click", (e) => {
-      if (CFG.editor) return;
-      const id = Number(card.dataset.id);
-      const model = CATALOG.find((m) => m.id === id);
-      if (model) openModal(model);
+    card.addEventListener("click", () => openCardModal(card));
+    card.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+      // Espaço rola a página por padrão; num controle isso é comportamento errado.
+      e.preventDefault();
+      openCardModal(card);
     });
   });
 
@@ -568,7 +684,7 @@
     cartFab.classList.toggle("show", totalCount > 0);
 
     if (cart.length === 0) {
-      box.innerHTML = `<div class="cart-empty"><div class="big">🛒</div>Seu carrinho está vazio.</div>`;
+      box.innerHTML = `<div class="cart-empty"><svg class="ico big" aria-hidden="true"><use href="#i-cart"></use></svg>Seu carrinho está vazio.</div>`;
       resetCoupon();
       byId("whatsappBtn").disabled = true;
       return;
@@ -576,8 +692,8 @@
 
     box.innerHTML = cart.map((it, idx) => {
       const img = it.image_url
-        ? `<img src="${it.image_url}" alt="">`
-        : `<span class="ph">${it.model_name[0]}</span>`;
+        ? `<img src="${it.image_url}" alt="" decoding="async">`
+        : `<span class="ph">${escapeHtml(it.model_name[0])}</span>`;
       return `<div class="cart-item">
         <div class="ci-img">${img}</div>
         <div class="ci-info">
@@ -586,7 +702,7 @@
           <div class="p">${brl(it.price)}</div>
         </div>
         <div class="ci-right">
-          <button class="rm" data-idx="${idx}" title="Remover">🗑</button>
+          <button class="rm" data-idx="${idx}" title="Remover" aria-label="Remover ${escapeHtml(it.model_name)} do carrinho"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg></button>
           <div class="ci-qty">
             <button data-act="dec" data-idx="${idx}">−</button>
             <span>${it.qty}</span>
@@ -667,7 +783,7 @@
 
     const checkoutShippingNote = byId("checkoutShippingNote");
     if (pickup) {
-      checkoutShippingNote.textContent = "🏪 Retirada no local — sem frete";
+      checkoutShippingNote.textContent = "🏪 Retirada no local, sem frete";
       checkoutShippingNote.className = "geo-status show ok";
     } else if (shippingInfo && !hasNumericShipping) {
       checkoutShippingNote.textContent = shippingInfo.message || "";
@@ -918,9 +1034,9 @@
         if (acc <= 50) {
           setGeoStatus("✓ Localização precisa capturada", "ok");
         } else if (acc <= 500) {
-          setGeoStatus(`⚠ Localização aproximada (~${acc} metros) — confirme o endereço acima para garantir a entrega`, "warn");
+          setGeoStatus(`⚠ Localização aproximada (~${acc} metros). Confirme o endereço acima para garantir a entrega`, "warn");
         } else {
-          setGeoStatus("⚠ Localização imprecisa — por favor confirme bem o endereço digitado", "danger");
+          setGeoStatus("⚠ Localização imprecisa. Por favor confirme bem o endereço digitado", "danger");
         }
         fetchShipping();
       },
@@ -933,7 +1049,7 @@
         let msg;
         switch (err.code) {
           case err.PERMISSION_DENIED:
-            msg = "Você não permitiu o acesso à localização. Sem problema — preencha o endereço acima que o entregador chega até você.";
+            msg = "Você não permitiu o acesso à localização. Sem problema, preencha o endereço acima que o entregador chega até você.";
             break;
           case err.POSITION_UNAVAILABLE:
             msg = "Não foi possível obter sua localização agora. Confirme o endereço no campo acima.";
@@ -1014,7 +1130,9 @@
       return;
     }
 
-    let msg = `👑 *PEDIDO ${CFG.storeName.toUpperCase()}*\n`;
+    // Marcador neutro: a coroa era o símbolo do Royal e ia junto nos pedidos
+    // enviados pelas outras lojas servidas por este mesmo código.
+    let msg = `🛒 *PEDIDO ${CFG.storeName.toUpperCase()}*\n`;
     msg += `━━━━━━━━━━━━━━━\n\n`;
     let total = 0;
     cart.forEach((it, i) => {
@@ -1073,7 +1191,7 @@
     if (!pickup && geoCoords) {
       let mapNote = "";
       if (geoAccuracy != null && geoAccuracy > 500) {
-        mapNote = ` (localização aproximada, ~${Math.round(geoAccuracy)} metros — confira o endereço)`;
+        mapNote = ` (localização aproximada, ~${Math.round(geoAccuracy)} metros, confira o endereço)`;
       }
       msg += `🗺️ *Localização:* https://maps.google.com/?q=${geoCoords.lat},${geoCoords.lng}${mapNote}\n`;
     }
@@ -1086,6 +1204,26 @@
   });
 
   renderCart();
+
+  // ---------------------------------------------------------------
+  // SKELETON DA FOTO DO PRODUTO
+  // ---------------------------------------------------------------
+  // A caixa da foto mostra um brilho varrendo enquanto a imagem baixa (CSS).
+  // Aqui só marcamos quando cada uma terminou, para ela aparecer com um fade
+  // e o brilho parar. Imagem que veio do cache já chega com .complete = true,
+  // então nesse caso a marcação é imediata e não há piscada.
+  (function initImageSkeleton() {
+    document.querySelectorAll(".model-card .card-img img").forEach((img) => {
+      if (img.complete && img.naturalWidth > 0) {
+        img.classList.add("is-loaded");
+        return;
+      }
+      img.addEventListener("load", () => img.classList.add("is-loaded"), { once: true });
+      // Falha de rede (comum em 4G ruim): revela mesmo assim, senão a caixa
+      // fica brilhando para sempre num produto que nunca vai pintar.
+      img.addEventListener("error", () => img.classList.add("is-loaded"), { once: true });
+    });
+  })();
 
   // ---------------------------------------------------------------
   // SCROLL REVEAL (fade + deslize sutil ao entrar na viewport)
@@ -1124,7 +1262,23 @@
       { threshold: 0.08, rootMargin: "0px 0px -8% 0px" }
     );
 
-    targets.forEach((el) => observer.observe(el));
+    // Passe inicial: o que JÁ está na primeira tela é revelado na hora.
+    // O threshold de 0.08 é calculado sobre a altura TOTAL do elemento, então
+    // uma seção alta que aparece só pela borda inferior não atinge o limiar e
+    // ficava invisível até a rede de segurança de 3s. Isso não incomodava
+    // enquanto o hero era grande e empurrava tudo para fora da tela; com o
+    // hero mais curto, a seção "Mais Vendidos" caiu exatamente nessa faixa e
+    // o cliente via um vazio ao abrir a loja.
+    let initialIndex = 0;
+    const vh = window.innerHeight;
+    targets.forEach((el) => {
+      if (el.getBoundingClientRect().top < vh) {
+        reveal(el, Math.min(initialIndex, MAX_STAGGER_STEPS) * STAGGER_MS);
+        initialIndex++;
+      } else {
+        observer.observe(el);
+      }
+    });
 
     // Rede de segurança (acessibilidade): se algo não for observado/revelado em
     // até 3s, garante que nada fique invisível.
@@ -1190,7 +1344,7 @@
           .then((data) => {
             if (data.ok) {
               const box = card.querySelector(".card-img");
-              box.innerHTML = `<img src="${data.image_url}" alt="">`;
+              box.innerHTML = `<img src="${data.image_url}" alt="" decoding="async">`;
               // update in-memory catalog too
               const m = CATALOG.find((x) => x.id === Number(card.dataset.id));
               if (m) m.image_url = data.image_url;
