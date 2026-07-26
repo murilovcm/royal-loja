@@ -1199,6 +1199,11 @@
         mapNote = ` (localização aproximada, ~${Math.round(geoAccuracy)} metros, confira o endereço)`;
       }
       msg += `🗺️ *Localização:* https://maps.google.com/?q=${geoCoords.lat},${geoCoords.lng}${mapNote}\n`;
+    } else if (!pickup) {
+      // Entrega sem coordenadas: o cliente apertou o botão mas a localização não
+      // veio (permissão negada, timeout, sem suporte). Sinaliza para a equipe
+      // calcular o frete na mão pelo endereço, já que não dá para calcular sozinho.
+      msg += `⚠️ *Localização precisa NÃO enviada*, calcular o frete manualmente pelo endereço acima.\n`;
     }
     msg += `\nOlá! Gostaria de finalizar este pedido. 🚀`;
 
