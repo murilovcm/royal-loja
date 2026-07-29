@@ -815,6 +815,18 @@
             </div>
 
             <div class="pp-field">
+              <label for="cfgHeroTitle">Hero · Título principal</label>
+              <input type="text" id="cfgHeroTitle" maxlength="120" value="{{ config.hero_title or '' }}" placeholder="Ex: Pods de qualidade em | São Luís | você encontra aqui">
+              <small class="pp-hint">O trecho <b>entre as barras</b> ganha o destaque na cor da marca, igual ao título das perguntas. Vazio usa o texto padrão com o nome da cidade. É o texto de maior peso da página no Google — se você tem mais de uma loja, vale ser diferente em cada uma.</small>
+            </div>
+
+            <div class="pp-field">
+              <label for="cfgHeroSubtitle">Hero · Frase de apoio</label>
+              <input type="text" id="cfgHeroSubtitle" maxlength="200" value="{{ config.hero_subtitle or '' }}" placeholder="Ex: Entrega rápida em toda São Luís. Produtos originais, pedido direto pelo WhatsApp.">
+              <small class="pp-hint">Aparece logo abaixo do título principal. Vazio usa o texto padrão.</small>
+            </div>
+
+            <div class="pp-field">
               <label for="cfgPageTitle">Título da aba (navegador)</label>
               <input type="text" id="cfgPageTitle" maxlength="120" value="{{ config.page_title or '' }}" placeholder="Ex: Pods Ilha | Pods e Vapes">
               <small class="pp-hint">Aparece na aba do navegador (desktop e celular). Vazio usa "{nome da loja} | {assinatura}".</small>
@@ -1606,6 +1618,8 @@
           store_name: document.getElementById('cfgStoreName').value.trim(),
           store_city: document.getElementById('cfgStoreCity').value.trim(),
           store_tagline: document.getElementById('cfgStoreTagline').value.trim(),
+          hero_title: document.getElementById('cfgHeroTitle').value.trim(),
+          hero_subtitle: document.getElementById('cfgHeroSubtitle').value.trim(),
           footer_delivery_area: document.getElementById('cfgFooterDelivery').value.trim(),
           footer_hours: document.getElementById('cfgFooterHours').value.trim(),
           footer_payment: document.getElementById('cfgFooterPayment').value.trim(),

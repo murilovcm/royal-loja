@@ -185,10 +185,29 @@
       } catch (e) { return false; }
     }
 
+    // O gate é o último elemento do <body> e o conteúdo continua pintado atrás
+    // dele (ver a nota no style.css: esconder o conteúdo faria o Googlebot
+    // indexar a loja como uma tela de verificação de idade). Como o conteúdo
+    // está visível, ele também continuaria alcançável pelo Tab — daí o `inert`
+    // no resto do body enquanto a idade não é confirmada.
+    //
+    // `inert` tira interação, foco e leitura por leitor de tela SEM esconder
+    // nada visualmente, então não recria o problema de indexação. Em navegador
+    // antigo que não o suporta, a degradação é só a ordem de tabulação passar
+    // por trás do vidro — o overlay continua bloqueando clique e rolagem.
+    function setPageInert(on) {
+      Array.prototype.forEach.call(document.body.children, (el) => {
+        if (el === gate) return;
+        if (on) el.setAttribute("inert", "");
+        else el.removeAttribute("inert");
+      });
+    }
+
     if (isVerified()) {
       document.documentElement.classList.add("age-ok");
     } else {
       document.body.style.overflow = "hidden";
+      setPageInert(true);
       const yesBtn = byId("ageGateYes");
       if (yesBtn) setTimeout(() => yesBtn.focus(), 50);
     }
@@ -200,6 +219,7 @@
       gate.classList.add("age-gate-hide");
       document.documentElement.classList.add("age-ok");
       document.body.style.overflow = "";
+      setPageInert(false);
     });
 
     byId("ageGateNo").addEventListener("click", () => {

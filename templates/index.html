@@ -85,9 +85,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#0a0a0c">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>{{ config.page_title or ((config.store_name or 'Loja') ~ ' | ' ~ (config.store_tagline or 'Pods e Vapes')) }}</title>
-  {% if config.meta_description %}<meta name="description" content="{{ config.meta_description }}">{% endif %}
+  {# Título e descrição vêm de build_seo() no app.py, que deriva de
+     store_name/store_city/store_tagline quando o painel está vazio. A meta
+     description NÃO é mais condicional: com ela ausente, o Google montava o
+     snippet sozinho e escolhia o aviso de idade. #}
+  <title>{{ seo.title }}</title>
+  <meta name="description" content="{{ seo.description }}">
   {% if config.meta_keywords %}<meta name="keywords" content="{{ config.meta_keywords }}">{% endif %}
+
+  {# canonical e og:url usam site_url = host DA REQUISIÇÃO. Domínio fixo aqui
+     faria duas das três lojas declararem a terceira como versão oficial. #}
+  <link rel="canonical" href="{{ site_url }}">
+
+  {# Open Graph: além da busca, é o que faz o link da loja virar um card com
+     imagem quando alguém compartilha num grupo de WhatsApp — que é por onde
+     passa o pedido inteiro desta loja. #}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ config.store_name or 'Loja' }}">
+  <meta property="og:title" content="{{ seo.title }}">
+  <meta property="og:description" content="{{ seo.description }}">
+  <meta property="og:url" content="{{ site_url }}">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:image" content="{{ abs_url(seo.image) }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ seo.title }}">
+  <meta name="twitter:description" content="{{ seo.description }}">
+  <meta name="twitter:image" content="{{ abs_url(seo.image) }}">
+
+  {# Dados estruturados (montados em build_jsonld no app.py). `tojson` escapa
+     para contexto HTML, então texto do painel com <, > ou & não quebra o
+     <script>. #}
+  {% for block in jsonld %}
+  <script type="application/ld+json">{{ block | tojson }}</script>
+  {% endfor %}
+
   <link rel="icon" href="{{ config.favicon_url or url_for('static', filename='favicon-64.png') }}">
   {# Preload só do subset `latin`: é o que toda página em português baixa. Sem
      isso o navegador só descobre a fonte depois de baixar e parsear o CSS,
@@ -127,29 +158,17 @@
 
   {% include "_icons.html" %}
 
-  <!-- ============ AGE GATE ============ -->
-  <div class="age-gate" id="ageGate" role="dialog" aria-modal="true" aria-labelledby="ageGateTitle">
-    <div class="age-gate-card">
-      <img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Loja' }}" class="age-gate-logo">
-
-      <div class="age-gate-question" id="ageGateQuestion">
-        <span class="age-gate-badge">🔞 Proibido para menores</span>
-        <h2 id="ageGateTitle">Você tem 18 anos ou mais?</h2>
-        <p class="age-gate-desc">Esta loja vende produtos que contém nicotina. Destinados exclusivamente a maiores de 18 anos. Ao entrar, você confirma ter idade legal para acessar este conteúdo.</p>
-        <div class="age-gate-actions">
-          <button type="button" class="age-gate-yes" id="ageGateYes">SIM, TENHO 18 ANOS OU MAIS</button>
-        <button type="button" class="age-gate-no" id="ageGateNo">NÃO</button>
-        </div>
-      </div>
-
-      <div class="age-gate-denied" id="ageGateDenied">
-        <p class="age-gate-denied-msg">Desculpe, este site é destinado apenas a maiores de 18 anos.</p>
-        <a href="https://www.google.com" class="age-gate-exit">Sair do site</a>
-      </div>
-
-      <p class="age-gate-legal">Venda proibida para menores de 18 anos.</p>
-    </div>
-  </div>
+  {# O age gate NÃO fica mais aqui: ele é o último elemento do <body>.
+     Motivo em duas partes:
+       1. Enquanto era o primeiro filho, a regra `#ageGate ~ *` do style.css
+          apagava (visibility:hidden) header, hero, catálogo, FAQ e rodapé —
+          ou seja, TODO o conteúdo. O Googlebot renderiza sem localStorage,
+          então nunca ganhava a classe .age-ok e enxergava uma página cujo
+          único conteúdo visível era a tela de verificação de idade. Era daí
+          que vinha o aviso 18+ como descrição no resultado de busca.
+       2. Ele é `position: fixed; inset: 0` com o maior z-index da escala
+          (--z-gate), então cobrir a página nunca dependeu da posição no DOM.
+     Ver o bloco no fim deste arquivo. #}
 
   <!-- Header -->
   <header class="site-header">
@@ -242,10 +261,15 @@
 
     {# A pill da cidade dentro do título é a peça que a loja já tinha de mais
        característico: diz "entregamos AQUI" na cor da marca. O trabalho aqui é
-       dar escala a ela, não substituí-la. #}
-    <h1>Pods de qualidade em <span class="cidade">{{ config.store_city or 'São Luís' }}</span> você encontra aqui</h1>
+       dar escala a ela, não substituí-la.
 
-    <p class="hero-subhead">Entrega rápida em toda {{ config.store_city or 'São Luís' }}. Produtos originais, pedido direto pelo WhatsApp.</p>
+       O texto vem de parse_hero() (app.py), editável em Configurações Gerais:
+       três lojas em três domínios não podem compartilhar o <h1>, que é o texto
+       de mais peso da página. Os trechos entre pipes viram a pílula — mesma
+       convenção que o "Título da seção de perguntas" já usa no painel. #}
+    <h1>{% for seg in hero.segments %}{% if seg.accent %}<span class="cidade">{{ seg.text }}</span>{% else %}{{ seg.text }}{% endif %}{{ ' ' if not loop.last else '' }}{% endfor %}</h1>
+
+    <p class="hero-subhead">{{ hero.subtitle }}</p>
 
     <div class="hero-cta">
       {# .ring-btn = cometa no contorno (opção F): um ponto de luz percorre a
@@ -376,14 +400,10 @@
      atributo, os navegadores antigos simplesmente deixam abrir vários, que é
      uma degradação aceitável.
 
-     Conteúdo do painel: uma por linha, "Pergunta | Resposta". #}
-  {% set faq = [] %}
-  {% for linha in (config.faq_items or '').split('\n') %}
-    {% set partes = linha.split('|') %}
-    {% if partes | length >= 2 and partes[0].strip() and partes[1].strip() %}
-      {% set _ = faq.append({'q': partes[0].strip(), 'a': partes[1:] | join('|') | trim}) %}
-    {% endif %}
-  {% endfor %}
+     Conteúdo do painel: uma por linha, "Pergunta | Resposta". A leitura dessa
+     lista saiu daqui e virou parse_faq() no app.py — o JSON-LD de FAQPage
+     precisa marcar exatamente as mesmas perguntas que aparecem na tela, e duas
+     implementações do mesmo parser acabariam divergindo. #}
   {% if config.faq_enabled == '1' and faq %}
   {% set titulo = (config.faq_title or 'Perguntas | frequentes').split('|') %}
   <section class="section container faq" id="faq">
@@ -680,6 +700,35 @@
     </div>
   </div>
   {% endif %}
+
+  {# ============ AGE GATE ============
+     ÚLTIMO elemento do <body>, de propósito. Continua funcionando igual: é um
+     overlay fixo (inset: 0) no topo da escala de z-index, trava a rolagem e
+     recebe o foco ao abrir. O que mudou é que o conteúdo da página continua
+     PINTADO atrás do vidro fosco em vez de ser apagado — é isso que faz o
+     Googlebot receber o catálogo. Ver a nota no topo do <body>. #}
+  <div class="age-gate" id="ageGate" role="dialog" aria-modal="true" aria-labelledby="ageGateTitle">
+    <div class="age-gate-card">
+      <img src="{{ config.logo_main_url or url_for('static', filename='logo.png') }}" alt="{{ config.store_name or 'Loja' }}" class="age-gate-logo">
+
+      <div class="age-gate-question" id="ageGateQuestion">
+        <span class="age-gate-badge">🔞 Proibido para menores</span>
+        <h2 id="ageGateTitle">Você tem 18 anos ou mais?</h2>
+        <p class="age-gate-desc">Esta loja vende produtos que contém nicotina. Destinados exclusivamente a maiores de 18 anos. Ao entrar, você confirma ter idade legal para acessar este conteúdo.</p>
+        <div class="age-gate-actions">
+          <button type="button" class="age-gate-yes" id="ageGateYes">SIM, TENHO 18 ANOS OU MAIS</button>
+        <button type="button" class="age-gate-no" id="ageGateNo">NÃO</button>
+        </div>
+      </div>
+
+      <div class="age-gate-denied" id="ageGateDenied">
+        <p class="age-gate-denied-msg">Desculpe, este site é destinado apenas a maiores de 18 anos.</p>
+        <a href="https://www.google.com" class="age-gate-exit">Sair do site</a>
+      </div>
+
+      <p class="age-gate-legal">Venda proibida para menores de 18 anos.</p>
+    </div>
+  </div>
 
   <!-- Data injected for JS -->
   <script id="catalogData" type="application/json">{{ catalog | tojson }}</script>

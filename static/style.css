@@ -438,8 +438,17 @@ button { font-family: inherit; cursor: pointer; border: none; }
           mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 2v11h3v9l7-12h-4l4-8z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
-/* ---------- Age Gate ---------- */
-html:not(.age-ok) #ageGate ~ * { visibility: hidden !important; }
+/* ---------- Age Gate ----------
+   Aqui existia `html:not(.age-ok) #ageGate ~ * { visibility: hidden }`, que
+   apagava a página inteira até a idade ser confirmada. Foi REMOVIDA e não deve
+   voltar em nenhuma forma: o Googlebot renderiza sem localStorage, nunca ganha
+   .age-ok, e qualquer regra que esconda o conteúdo faz ele indexar a loja como
+   se ela fosse só uma tela de "você tem 18 anos?".
+
+   O gate não precisa dela para cobrir a página: é `position: fixed; inset: 0`
+   com --z-gate (120, o topo da escala) e fundo 86% opaco + blur(20px), então o
+   conteúdo atrás fica ilegível de qualquer forma. A trava de rolagem e o
+   `inert` no resto do body são aplicados pelo app.js. */
 
 .age-gate {
   position: fixed;

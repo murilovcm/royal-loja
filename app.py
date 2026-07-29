@@ -8,11 +8,13 @@ import uuid
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from functools import wraps
+from urllib.parse import urljoin
+from xml.sax.saxutils import escape as xml_escape
 from defusedxml import ElementTree as DefusedET
 from defusedxml.common import DefusedXmlException
 from flask import (
     Flask, g, render_template, request, jsonify,
-    redirect, url_for, send_from_directory, session, abort
+    redirect, url_for, send_from_directory, session, abort, Response
 )
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -210,6 +212,34 @@ def inject_config():
     return {"config": get_config()}
 
 
+@app.context_processor
+def inject_site_urls():
+    """URLs absolutas derivadas do HOST DA REQUISIÇÃO — nunca de domínio fixo.
+
+    O mesmo código roda em royalpodsslz.com, vaporstoreslz.com e podsaoluis.com,
+    cada um num serviço próprio do EasyPanel. Um domínio escrito no código faria
+    duas das três lojas apontarem canonical/og:url para a terceira, que é a
+    forma mais rápida de sumir do índice do Google.
+
+    `request.url_root` já sai correto atrás do proxy porque o ProxyFix está com
+    x_proto=1 (respeita X-Forwarded-Proto, então detecta https) — ver a
+    configuração do wsgi_app mais acima.
+    """
+    root = request.url_root
+
+    def abs_url(path):
+        """Caminho do banco (ex: /static/uploads/logo-x.png) -> URL absoluta.
+        Deixa passar quem já é absoluto: o painel permite colar uma URL pronta
+        no favicon, e og:image/JSON-LD exigem URL absoluta de qualquer forma."""
+        if not path:
+            return ""
+        if path.startswith(("http://", "https://")):
+            return path
+        return urljoin(root, path)
+
+    return {"site_url": root, "abs_url": abs_url}
+
+
 @app.after_request
 def set_security_headers(response):
     """Headers de defesa-em-profundidade contra clickjacking, MIME-sniffing e
@@ -232,6 +262,12 @@ def set_security_headers(response):
         "frame-ancestors 'none'; "
         "form-action 'self'"
     )
+    # Painel e API nunca devem aparecer em busca. O robots.txt pede para não
+    # rastrear, mas robots.txt só barra o RASTREIO: uma URL descoberta por link
+    # externo ainda pode ser indexada só pelo endereço. O X-Robots-Tag é o que
+    # de fato tira da indexação.
+    if request.path.startswith("/admin") or request.path.startswith("/api/"):
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
     return response
 
 
@@ -574,8 +610,13 @@ def init_db():
         "theme_flavor_more_color": "#a855f7",
         "logo_main_url": "",
         "logo_footer_url": "",
-        "hero_title": "Sabor que reina. Qualidade Royal.",
-        "hero_subtitle": "Os melhores pods descartáveis com a curadoria mais premium do Brasil.",
+        # Hero editável por loja (campos "Hero" em Configurações Gerais).
+        # Vazio = o texto derivado de store_city que a loja já mostrava quando
+        # o hero era fixo no template — ver parse_hero(). Começam vazios de
+        # propósito: é o que garante que ligar o campo não muda a aparência de
+        # nenhuma loja antes de o dono escrever a versão dele.
+        "hero_title": "",
+        "hero_subtitle": "",
         "store_name": "Royal",
         "store_city": "São Luís",
         # Complemento do título da aba quando `page_title` está vazio. Antes o
@@ -677,6 +718,29 @@ def init_db():
                 db.execute("DELETE FROM site_config WHERE key LIKE ?", (f"promo_{pid}_%",))
         db.execute(
             "INSERT OR IGNORE INTO site_config (key, value) VALUES ('atacado_block_purged', '1')"
+        )
+        db.commit()
+
+    # Limpeza única (uma vez por banco): `hero_title`/`hero_subtitle` existiam
+    # no site_config mas nenhum template os lia — um redesign passado fixou o
+    # hero no index.html e deixou as chaves órfãs, congeladas no texto semeado
+    # ("Sabor que reina. Qualidade Royal."). Agora que os campos voltaram a
+    # alimentar o hero, esse valor precisa sair: sem isto, Vapor Store e Pods
+    # Ilha passariam a exibir "Qualidade Royal" no <h1> no primeiro deploy.
+    # Só apaga se o valor for EXATAMENTE o legado — texto que o lojista tenha
+    # escrito fica intacto. A flag garante uma passada só, então o dono pode
+    # apagar o campo de propósito depois sem que isto o reescreva.
+    if db.execute("SELECT 1 FROM site_config WHERE key = 'hero_legacy_cleared'").fetchone() is None:
+        for key, legado in (
+            ("hero_title", "Sabor que reina. Qualidade Royal."),
+            ("hero_subtitle", "Os melhores pods descartáveis com a curadoria mais premium do Brasil."),
+        ):
+            db.execute(
+                "UPDATE site_config SET value = '' WHERE key = ? AND value = ?",
+                (key, legado),
+            )
+        db.execute(
+            "INSERT OR IGNORE INTO site_config (key, value) VALUES ('hero_legacy_cleared', '1')"
         )
         db.commit()
 
@@ -955,20 +1019,244 @@ def build_catalog():
     return catalog
 
 
+def parse_faq(config):
+    """Lê `faq_items` ("Pergunta | Resposta", uma por linha) e devolve a lista
+    de {q, a}. Fonte única: alimenta ao mesmo tempo a seção visível do site e o
+    JSON-LD de FAQPage, que precisam bater exatamente — o Google exige que o
+    conteúdo marcado esteja visível na página.
+
+    O pipe foi escolhido como separador por não aparecer em texto corrido em
+    português; se a RESPOSTA contiver um, ele é preservado (só o primeiro pipe
+    separa pergunta de resposta).
+    """
+    faq = []
+    for linha in (config.get("faq_items") or "").split("\n"):
+        partes = linha.split("|")
+        # Mesma regra que o index.html aplicava inline antes desta função
+        # existir: precisa de pergunta e de um primeiro trecho de resposta não
+        # vazios. Mantida igual de propósito, para nenhuma loja perder ou ganhar
+        # uma pergunta na tela por causa desta refatoração.
+        if len(partes) < 2 or not partes[0].strip() or not partes[1].strip():
+            continue
+        faq.append({"q": partes[0].strip(), "a": "|".join(partes[1:]).strip()})
+    return faq
+
+
+def parse_hero(config):
+    """Título e subtítulo do hero, editáveis por loja.
+
+    O título usa a MESMA convenção de pipe que `faq_title` já usa no painel: os
+    trechos em posição ímpar (entre pipes) ganham a pílula na cor da marca, o
+    resto sai em texto normal.
+
+        "Pods de qualidade em | São Luís | você encontra aqui"
+                                ^^^^^^^^ vira a pílula amarela
+
+    Sem pipe nenhum, o título inteiro sai sem pílula — é uma escolha válida.
+
+    Campo vazio reproduz exatamente o texto que a loja mostrava quando o hero
+    era fixo no template, montado com store_city. Ou seja: destravar o campo
+    não muda a aparência de loja nenhuma; ele só passa a poder ser mudado.
+    """
+    city = (config.get("store_city") or "").strip() or "São Luís"
+
+    raw = (config.get("hero_title") or "").strip()
+    if not raw:
+        raw = f"Pods de qualidade em | {city} | você encontra aqui"
+
+    segments = []
+    for i, parte in enumerate(raw.split("|")):
+        parte = parte.strip()
+        if not parte:
+            continue
+        # A paridade vem do índice ORIGINAL, então um pipe sobrando no texto
+        # não inverte quem recebe a pílula.
+        segments.append({"text": parte, "accent": i % 2 == 1})
+
+    subtitle = (config.get("hero_subtitle") or "").strip()
+    if not subtitle:
+        subtitle = (
+            f"Entrega rápida em toda {city}. "
+            "Produtos originais, pedido direto pelo WhatsApp."
+        )
+
+    return {"segments": segments, "subtitle": subtitle}
+
+
+def build_seo(config):
+    """Título, descrição e imagem da página, tudo derivado de site_config.
+
+    Nada aqui pode ser fixo por loja: o mesmo código serve os três domínios.
+    Onde o painel está vazio, deriva-se de store_name/store_city/store_tagline.
+    """
+    store = (config.get("store_name") or "").strip() or "Loja"
+    city = (config.get("store_city") or "").strip()
+    tagline = (config.get("store_tagline") or "").strip() or "Pods e Vapes"
+
+    title = (config.get("page_title") or "").strip() or f"{store} | {tagline}"
+
+    description = (config.get("meta_description") or "").strip()
+    if not description:
+        # Rede de segurança para a loja nunca ficar SEM descrição: era com o
+        # campo vazio que o Google montava o snippet sozinho e escolhia o aviso
+        # de idade. Por ser derivado, sai parecido entre as três lojas —
+        # preencher "Meta description" no painel de cada uma substitui isto e é
+        # o que realmente diferencia uma da outra.
+        onde = f" em {city}" if city else ""
+        description = (
+            f"{store}: {tagline.lower()}{onde}. Veja o catálogo com preços e "
+            "sabores disponíveis e faça seu pedido direto pelo WhatsApp."
+        )
+
+    # og:image. O logo da loja é o que o painel garante existir; vira absoluto
+    # no template (abs_url), porque redes sociais e WhatsApp ignoram caminho
+    # relativo.
+    image = (config.get("logo_main_url") or "").strip() or url_for(
+        "static", filename="logo.png"
+    )
+
+    return {"title": title, "description": description, "image": image}
+
+
+def build_jsonld(config, faq):
+    """Dados estruturados da home: Organization + FAQPage.
+
+    Organization, e não LocalBusiness/Store, porque não publicamos endereço
+    físico — e LocalBusiness sem `address` é marcação fraca, que o Google
+    costuma simplesmente descartar. Se um dia o endereço for publicado no site,
+    trocar o @type e acrescentar `address` é o único ajuste necessário.
+
+    FAQPage só entra quando a seção de perguntas está mesmo VISÍVEL na página
+    (mesma condição e mesmo limite de 10 que o template usa): marcar conteúdo
+    que o visitante não vê é violação das diretrizes de dados estruturados.
+    """
+    root = request.url_root
+
+    def _abs(path):
+        if not path:
+            return ""
+        if path.startswith(("http://", "https://")):
+            return path
+        return urljoin(root, path)
+
+    store = (config.get("store_name") or "").strip() or "Loja"
+    city = (config.get("store_city") or "").strip()
+    logo = _abs(
+        (config.get("logo_main_url") or "").strip()
+        or url_for("static", filename="logo.png")
+    )
+
+    org = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": store,
+        "url": root,
+        "logo": logo,
+        "image": logo,
+    }
+    if city:
+        org["areaServed"] = city
+    instagram = (config.get("instagram_url") or "").strip()
+    if instagram:
+        org["sameAs"] = [instagram]
+    # Mesmo fallback de telefone que o template usa nos links wa.me, para o
+    # dado estruturado nunca divergir do botão que o cliente clica.
+    phone = "".join(
+        ch for ch in (config.get("whatsapp_phone") or WHATSAPP_PHONE) if ch.isdigit()
+    )
+    if phone:
+        org["contactPoint"] = {
+            "@type": "ContactPoint",
+            "contactType": "sales",
+            "telephone": f"+{phone}",
+            "availableLanguage": "Portuguese",
+        }
+
+    blocks = [org]
+
+    if config.get("faq_enabled") == "1" and faq:
+        blocks.append(
+            {
+                "@context": "https://schema.org",
+                "@type": "FAQPage",
+                "mainEntity": [
+                    {
+                        "@type": "Question",
+                        "name": item["q"],
+                        "acceptedAnswer": {"@type": "Answer", "text": item["a"]},
+                    }
+                    for item in faq[:10]
+                ],
+            }
+        )
+
+    return blocks
+
+
 # ---------------------------------------------------------------------------
 # Rotas públicas
 # ---------------------------------------------------------------------------
 @app.route("/")
 def home():
+    config = get_config()
+    faq = parse_faq(config)
     return render_template(
         "index.html",
-        config=get_config(),
+        config=config,
         catalog=build_catalog(),
         brands=[dict(b) for b in get_db().execute("SELECT * FROM brands ORDER BY name").fetchall()],
         whatsapp=WHATSAPP_PHONE,
         editor=False,
         promo_blocks=get_promo_blocks(only_active=True),
+        seo=build_seo(config),
+        faq=faq,
+        hero=parse_hero(config),
+        jsonld=build_jsonld(config, faq),
     )
+
+
+@app.route("/robots.txt")
+def robots_txt():
+    """Servido pelo Flask (e não como arquivo em /static) de propósito: assim a
+    linha Sitemap: sai com o domínio de QUEM PEDIU, e as três lojas apontam
+    cada uma para o próprio sitemap sem nenhuma configuração por loja."""
+    linhas = [
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /admin",
+        "Disallow: /api/",
+        "",
+        f"Sitemap: {urljoin(request.url_root, url_for('sitemap_xml'))}",
+        "",
+    ]
+    return Response("\n".join(linhas), mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    """Sitemap com a única URL pública da loja: a home.
+
+    `lastmod` vem da data de modificação do banco, que é o que muda quando o
+    lojista mexe em produto, preço ou texto — é a informação mais honesta de
+    "quando esta página mudou" que existe aqui, já que a página é montada
+    inteira a partir do SQLite.
+    """
+    try:
+        lastmod = datetime.fromtimestamp(os.path.getmtime(DB_PATH)).strftime("%Y-%m-%d")
+    except OSError:
+        lastmod = datetime.now().strftime("%Y-%m-%d")
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        "  <url>\n"
+        f"    <loc>{xml_escape(request.url_root)}</loc>\n"
+        f"    <lastmod>{lastmod}</lastmod>\n"
+        "    <changefreq>weekly</changefreq>\n"
+        "  </url>\n"
+        "</urlset>\n"
+    )
+    return Response(xml, mimetype="application/xml")
 
 
 @app.route("/static/uploads/<path:filename>")
