@@ -106,6 +106,18 @@
     .faq-pair-num { font-weight:700; font-size:.82rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.04em; }
     .faq-pair-del { background:none; border:1px solid var(--border); border-radius:8px; color:var(--text-dim); cursor:pointer; padding:4px 9px; font-size:.85rem; transition:.2s; }
     .faq-pair-del:hover { color:#ff6b6b; border-color:#ff6b6b; }
+    /* Reordenar: as setas ficam encostadas no número da pergunta, e o
+       "Remover" continua sozinho na ponta direita — ação destrutiva não deve
+       dividir vizinhança com ação corriqueira. */
+    .faq-pair-head-left { display:flex; align-items:center; gap:10px; }
+    .faq-pair-move-group { display:flex; gap:4px; }
+    .faq-pair-move {
+      background:none; border:1px solid var(--border); border-radius:8px;
+      color:var(--text-dim); cursor:pointer; width:30px; height:26px;
+      display:grid; place-items:center; font-size:.9rem; line-height:1; transition:.2s;
+    }
+    .faq-pair-move:hover:not(:disabled) { color:var(--primary-yellow); border-color:var(--primary-yellow); }
+    .faq-pair-move:disabled { opacity:.3; cursor:default; }
     .faq-pair .faq-q-input { width:100%; margin-bottom:8px; font-weight:600; }
     .faq-pair .faq-a-input { width:100%; resize:vertical; }
     .faq-pair-label { display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:4px; }
@@ -1025,6 +1037,9 @@
           <button type="button" class="mini-btn faq-add-btn" id="faqAddBtn" onclick="addFaqPair()">＋ Adicionar um Q&A</button>
           <small class="pp-hint">
             Uma caixa para a pergunta e outra para a resposta. Deixe um par vazio e ele é ignorado ao salvar.
+            Use as setas <strong>↑ ↓</strong> para mudar a ordem — é a mesma ordem que aparece no site, então
+            vale deixar em cima as perguntas que mais decidem a compra. Depois do primeiro clique dá para
+            segurar o <strong>Enter</strong> e a pergunta continua subindo.
             Máximo de 10 perguntas: acima disso a seção vira um manual e ninguém lê.
           </small>
         </div>
@@ -1651,7 +1666,13 @@
       wrap.className = 'faq-pair';
       wrap.innerHTML =
         '<div class="faq-pair-head">' +
-          '<span class="faq-pair-num"></span>' +
+          '<div class="faq-pair-head-left">' +
+            '<span class="faq-pair-num"></span>' +
+            '<div class="faq-pair-move-group">' +
+              '<button type="button" class="faq-pair-move" data-dir="up" title="Mover esta pergunta para cima" aria-label="Mover para cima" onclick="moveFaqPair(this, -1)">↑</button>' +
+              '<button type="button" class="faq-pair-move" data-dir="down" title="Mover esta pergunta para baixo" aria-label="Mover para baixo" onclick="moveFaqPair(this, 1)">↓</button>' +
+            '</div>' +
+          '</div>' +
           '<button type="button" class="faq-pair-del" title="Remover este Q&A" onclick="removeFaqPair(this)">🗑 Remover</button>' +
         '</div>' +
         '<label class="faq-pair-label">Pergunta</label>' +
@@ -1665,7 +1686,15 @@
 
     function renumberFaqPairs() {
       const pairs = document.querySelectorAll('#faqPairs .faq-pair');
-      pairs.forEach((p, i) => { p.querySelector('.faq-pair-num').textContent = 'Pergunta ' + (i + 1); });
+      pairs.forEach((p, i) => {
+        p.querySelector('.faq-pair-num').textContent = 'Pergunta ' + (i + 1);
+        // A seta que não leva a lugar nenhum fica desativada em vez de sumir:
+        // botão que aparece e desaparece faz a linha "pular" a cada troca.
+        const up = p.querySelector('.faq-pair-move[data-dir="up"]');
+        const down = p.querySelector('.faq-pair-move[data-dir="down"]');
+        if (up) up.disabled = (i === 0);
+        if (down) down.disabled = (i === pairs.length - 1);
+      });
       const addBtn = document.getElementById('faqAddBtn');
       if (addBtn) {
         const atMax = pairs.length >= FAQ_MAX;
@@ -1696,6 +1725,33 @@
     function removeFaqPair(btn) {
       btn.closest('.faq-pair').remove();
       renumberFaqPairs();
+    }
+
+    // Reordena as perguntas. A ordem no site é a ordem destes pares aqui:
+    // collectFaqItems() percorre o DOM e monta o texto de faq_items linha a
+    // linha, então mover a caixa já é mover a pergunta. Nenhuma chamada de API
+    // envolvida — a nova ordem só vai para o banco quando você clicar em
+    // "Salvar Informações do site".
+    function moveFaqPair(btn, passo) {
+      const par = btn.closest('.faq-pair');
+      const vizinho = passo < 0 ? par.previousElementSibling : par.nextElementSibling;
+      if (!vizinho || !vizinho.classList.contains('faq-pair')) return;
+
+      if (passo < 0) par.parentNode.insertBefore(par, vizinho);
+      else par.parentNode.insertBefore(vizinho, par);
+
+      renumberFaqPairs();
+
+      // Mover o nó do DOM tira o foco do botão em alguns navegadores. Devolve,
+      // para dar para clicar várias vezes seguidas e trazer uma pergunta lá do
+      // fim até o topo sem tirar a mão. Se a seta usada acabou de ser
+      // desativada (chegou na ponta), o foco vai para a outra.
+      const mesma = par.querySelector('.faq-pair-move[data-dir="' + (passo < 0 ? 'up' : 'down') + '"]');
+      const outra = par.querySelector('.faq-pair-move[data-dir="' + (passo < 0 ? 'down' : 'up') + '"]');
+      (mesma && !mesma.disabled ? mesma : outra).focus();
+
+      // Com muitas perguntas, a caixa movida pode sair da área visível.
+      par.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
 
     function initFaqEditor() {

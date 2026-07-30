@@ -390,15 +390,16 @@
   <div class="page-end">
 
   {# ============ PERGUNTAS FREQUENTES ============
-     Accordion, conforme o modelo aprovado. Registro que eu havia argumentado
-     contra accordion aqui (ele esconde a resposta atrás de um toque, e estas
-     são as perguntas que decidem a compra); a decisão do dono da loja mandou.
+     Respostas SEMPRE VISÍVEIS. Antes era um accordion <details name="faq">,
+     que mantinha uma pergunta aberta por vez; o dono da loja pediu tudo aberto.
 
-     <details name="faq"> em vez de JS: o atributo `name` faz o próprio
-     navegador manter só um aberto por vez, e <summary> já vem com papel de
-     botão, foco de teclado e leitura por leitor de tela de graça. Sem esse
-     atributo, os navegadores antigos simplesmente deixam abrir vários, que é
-     uma degradação aceitável.
+     Com isso o <details>/<summary> saiu: um <summary> anuncia "botão" para
+     leitor de tela e sugere clique para quem enxerga, e não há mais nada para
+     clicar. No lugar entrou <h3>, que é o que a pergunta de fato é — e assim
+     ela vira um cabeçalho de verdade na hierarquia da página (h1 do hero > h2
+     da seção > h3 da pergunta), o que também ajuda o FAQPage do JSON-LD.
+     A seta i-arrow-down saiu junto: ela indicava abrir/fechar, que não existe
+     mais. Era o único uso dela, então saiu também do sprite em _icons.html.
 
      Conteúdo do painel: uma por linha, "Pergunta | Resposta". A leitura dessa
      lista saiu daqui e virou parse_faq() no app.py — o JSON-LD de FAQPage
@@ -416,13 +417,15 @@
 
     <div class="faq-list">
       {% for item in faq[:10] %}
-      <details class="faq-item" name="faq"{% if loop.first %} open{% endif %}>
-        <summary class="faq-q">
-          <span>{{ item.q }}</span>
-          <svg class="ico faq-arrow" aria-hidden="true"><use href="#i-arrow-down"></use></svg>
-        </summary>
+      <div class="faq-item">
+        {# Ícone escolhido por faq_icon() a partir das palavras da pergunta —
+           nunca pela posição, porque o texto muda em cada loja. Decorativo:
+           a pergunta logo abaixo já diz tudo, então fica fora da leitura de
+           tela. #}
+        <svg class="ico faq-ico" aria-hidden="true"><use href="#{{ item.icon }}"></use></svg>
+        <h3 class="faq-q">{{ item.q }}</h3>
         <div class="faq-a"><p>{{ item.a }}</p></div>
-      </details>
+      </div>
       {% endfor %}
     </div>
   </section>

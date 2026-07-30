@@ -5,6 +5,7 @@ import secrets
 import sqlite3
 import time
 import uuid
+import unicodedata
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from functools import wraps
@@ -1019,6 +1020,50 @@ def build_catalog():
     return catalog
 
 
+# Ícone de cada pergunta frequente, escolhido pelo QUE A PERGUNTA DIZ.
+#
+# Não dá para amarrar ícone à posição ("a terceira pergunta é a do frete"): o
+# texto vem do painel e é diferente em cada loja, então bastaria o lojista
+# reordenar ou reescrever uma pergunta para todos os ícones saírem errados.
+#
+# A ordem das regras é a precedência, e ela importa. "Posso pagar na entrega?"
+# casa com pagamento E com entrega — e o ícone certo é o de pagamento, que é o
+# assunto da pergunta. Por isso i-truck fica por último: é a regra mais ampla.
+#
+# A comparação é por PREFIXO DE PALAVRA INTEIRA, nunca por trecho solto:
+# "hora" precisa pegar "horário" e "horas" sem pegar "agora".
+FAQ_ICON_RULES = (
+    ("i-card",    ("pagar", "pagamento", "paga", "pix", "cartao", "dinheiro", "credito", "debito", "parcel")),
+    ("i-refresh", ("defeito", "troca", "trocar", "devolv", "arrepend", "estragou")),
+    ("i-shield",  ("origina", "lacrad", "garantia", "procedencia", "autentic", "falsific", "seguro")),
+    ("i-cart",    ("pedido", "pedir", "comprar", "compra", "cadastro", "carrinho", "finalizar", "encomend")),
+    ("i-grid",    ("estoque", "disponiv", "catalogo", "variedade")),
+    ("i-clock",   ("horario", "hora", "atendimento", "atende", "aberto", "abre", "fecha", "domingo", "feriado")),
+    ("i-home",    ("retirar", "retirada", "retiro", "balcao")),
+    ("i-truck",   ("entrega", "entregar", "entregam", "chega", "prazo", "frete", "bairro", "demora", "receb", "envio")),
+)
+FAQ_ICON_FALLBACK = "i-help"
+
+
+def _palavras(texto):
+    """Quebra o texto em palavras sem acento e em minúsculas, para o
+    mapeamento de ícone não depender de o lojista digitar "cartão" ou
+    "cartao", "horário" ou "horario"."""
+    decomposto = unicodedata.normalize("NFKD", (texto or "").lower())
+    sem_acento = "".join(c for c in decomposto if not unicodedata.combining(c))
+    return re.findall(r"[a-z0-9]+", sem_acento)
+
+
+def faq_icon(pergunta):
+    """Id do <symbol> do sprite que ilustra esta pergunta."""
+    palavras = _palavras(pergunta)
+    for icone, prefixos in FAQ_ICON_RULES:
+        for prefixo in prefixos:
+            if any(p.startswith(prefixo) for p in palavras):
+                return icone
+    return FAQ_ICON_FALLBACK
+
+
 def parse_faq(config):
     """Lê `faq_items` ("Pergunta | Resposta", uma por linha) e devolve a lista
     de {q, a}. Fonte única: alimenta ao mesmo tempo a seção visível do site e o
@@ -1038,7 +1083,12 @@ def parse_faq(config):
         # uma pergunta na tela por causa desta refatoração.
         if len(partes) < 2 or not partes[0].strip() or not partes[1].strip():
             continue
-        faq.append({"q": partes[0].strip(), "a": "|".join(partes[1:]).strip()})
+        pergunta = partes[0].strip()
+        faq.append({
+            "q": pergunta,
+            "a": "|".join(partes[1:]).strip(),
+            "icon": faq_icon(pergunta),
+        })
     return faq
 
 

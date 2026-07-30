@@ -55,6 +55,15 @@
      CLAREAMOS a cor que o lojista escolheu. Assim o matiz dele continua
      mandando, o contraste passa, e vale para as três lojas sem hardcode. */
   --label-lift: 24%;
+  /* Mesma ideia do --label-lift, para a resposta das perguntas frequentes.
+     Com a resposta sempre aberta ela virou o corpo do bloco, e --text-dim puro
+     dava 5,97:1 contra a superfície do cartão — passa em AA, mas ao lado de uma
+     pergunta em 15,67:1 parece apagada. Clareamos a cor do painel EM DIREÇÃO À
+     COR DE TEXTO DO PAINEL (não a branco): se a loja usar um texto levemente
+     tingido, a resposta acompanha o tom em vez de destoar. */
+  --faq-answer-lift: 55%;
+  /* Sem color-mix, fica a cor crua do painel: mais apagada, porém ainda em AA. */
+  --faq-answer-color: var(--text-dim);
 
   --price-color: var(--primary-yellow);
   --arrow-color: var(--primary-yellow);
@@ -267,6 +276,7 @@
        o contraste cai para o limite, mas nada quebra. */
     --brand-label-color: color-mix(in oklab, var(--brand-label-raw), #ffffff var(--label-lift));
     --flavor-more-color: color-mix(in oklab, var(--flavor-more-raw), #ffffff var(--label-lift));
+    --faq-answer-color: color-mix(in oklab, var(--text-dim), var(--text) var(--faq-answer-lift));
   }
 }
 
@@ -2363,76 +2373,123 @@ header.site-header::after {
 }
 .faq-title-accent { color: var(--brand); }
 
-.faq-list { display: flex; flex-direction: column; gap: 10px; }
+/* Respostas sempre abertas: o cartão não é mais um controle, é um bloco de
+   leitura. Some tudo que sugeria interação (cursor de mão, hover, foco, seta,
+   contorno de "aberto") e entra o que faz um bloco de texto ser confortável:
+   respiro, hierarquia e contraste. */
+/* Uma coluna no celular; duas a partir de 900px. Com a resposta sempre à
+   vista, um cartão de 1200px de largura deixava o texto parando no meio e
+   metade do cartão vazia — parecia descuido. Em duas colunas a linha volta a
+   ter medida de leitura e o bloco ocupa a largura de propósito. */
+.faq-list { display: grid; gap: 12px; }
+@media (min-width: 900px) {
+  .faq-list { grid-template-columns: 1fr 1fr; gap: 14px; }
+}
 
 .faq-item {
   background: var(--surf-1);
-  border: 1px solid var(--line);
+  /* A borda vira transparente porque quem desenha o contorno agora é o aro do
+     ::before (logo abaixo) — inclusive o trecho neutro dele. Manter a borda
+     aqui dobraria a linha. */
+  border: 1px solid transparent;
   border-radius: var(--r-lg);
-  overflow: hidden;
-  transition: border-color var(--dur) ease-out, background var(--dur) ease-out;
+  position: relative;
+  isolation: isolate;
+  /* Respiro generoso é o que separa "caixa de formulário" de "cartão
+     editorial". Era 16/18px com a resposta escondida; com ela sempre à vista,
+     o bloco precisa de margem para não parecer apertado. */
+  padding: 24px 26px;
+  /* Luz de cima: 1px de realce no topo, truque clássico de UI escura para o
+     cartão parecer levantado da superfície em vez de recortado nela. Fica
+     abaixo de 5% de branco de propósito — a intenção é ser percebido sem ser
+     notado. */
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
 }
-/* Aberto: contorno na cor de marca. É o único dourado do bloco, e ele carrega
-   estado real (qual pergunta está aberta), que é o critério do B3. */
-.faq-item[open] {
-  border-color: rgba(var(--primary-rgb),.55);
-  background: var(--surf-1);
-}
-.faq-item:not([open]):hover { border-color: rgba(255,255,255,.16); }
 
+/* Contorno em degradê fixo. A borda deixa de ser uma linha cinza uniforme e
+   passa a nascer na cor da marca no canto superior esquerdo, dissolvendo até
+   quase transparente no canto oposto.
+
+   Técnica: conic-gradient recortado por mask-composite, a mesma do .ring-btn
+   do CTA — `border` não aceita degradê. A diferença é que aqui NÃO há
+   animação: teve uma versão com o aro girando e ela competia com o "Ver
+   Catálogo", que é onde esse gesto significa "clique aqui". Cinco cartões
+   girando diluíam esse significado.
+
+   Sem movimento, o custo de pintura é zero e o resultado é idêntico em
+   qualquer aparelho — inclusive celular antigo. */
+.faq-item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(145deg,
+      rgba(var(--ring-rgb, var(--primary-rgb)), .5) 0%,
+      var(--line) 38%,
+      var(--line) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite: exclude;
+}
+
+/* Ícone da pergunta (posição B: solto no topo, sem selo). O tamanho vem em px
+   e não em em porque `.ico` usa 1.25em e herdaria o corpo do cartão. */
+.faq-ico {
+  display: block;
+  width: 24px;
+  height: 24px;
+  margin-bottom: 14px;
+  color: var(--brand);
+}
+
+/* Corpo e peso FORA da escala de propósito — é justamente o ponto deste
+   tratamento. Antes: --fs-lg (17px) com --fw-bold (700), que é peso de rótulo
+   de campo, não de pergunta que alguém fez. Maior e mais leve inverte isso: lê
+   como texto escrito por uma pessoa.
+
+   O peso 560 só existe porque a Geist do projeto é fonte VARIÁVEL (veja
+   `font-weight: 100 900` no @font-face acima) — medido no navegador, 550 e 650
+   renderizam com larguras distintas. Numa fonte comum isso arredondaria para
+   500 ou 600 e o efeito se perderia.
+
+   Valores crus em vez de token novo: é exceção de um componente só, e a escala
+   global salta de 17px (--fs-lg) para 20px (--fs-xl). Criar um degrau lá para
+   atender um único bloco polui a escala para o resto do site. */
 .faq-q {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px 18px;
-  cursor: pointer;
-  list-style: none;
-  font-size: var(--fs-md);
-  font-weight: var(--fw-bold);
+  font-size: 1.1875rem;   /* 19px */
+  font-weight: 560;
+  letter-spacing: -.026em;
+  line-height: 1.28;
   color: var(--text);
-  line-height: var(--lh-snug);
-  /* Alvo de toque confortável mesmo com pergunta de uma linha só. */
-  min-height: 56px;
+  text-wrap: balance;
+  margin-bottom: 10px;
 }
-/* Some com o triângulo nativo do <summary> nos dois motores. */
-.faq-q::-webkit-details-marker { display: none; }
-.faq-q::marker { content: ""; }
-.faq-q:focus-visible { outline: 2px solid var(--brand); outline-offset: -3px; }
 
-.faq-arrow {
-  width: 20px; height: 20px;
-  flex-shrink: 0;
-  color: var(--text-dim);
-  vertical-align: 0;
-  transition: transform var(--dur-slow) var(--ease), color var(--dur) ease-out;
-}
-/* Uma seta só no sprite: o estado aberto gira 180°, em vez de trocar o
-   símbolo. A rotação ainda comunica a transição e o sprite fica menor. */
-.faq-item[open] .faq-arrow { transform: rotate(180deg); color: var(--brand); }
-
-.faq-a {
-  padding: 0 18px 18px;
-  /* A resposta desliza e aparece. `animation` e não `transition` de propósito:
-     <details> troca o display de none para block, e transição não dispara
-     nessa troca; animação sim, porque roda quando o elemento passa a existir
-     na renderização. */
-  animation: faqAbre .28s var(--ease-out) both;
-}
 .faq-a p {
-  font-size: var(--fs-base);
-  line-height: var(--lh-base);
-  color: var(--text-dim);
-  max-width: 68ch;
+  /* 15px em vez de 14px: a resposta deixou de ser conteúdo secundário
+     revelado sob demanda e passou a ser o corpo do bloco. */
+  font-size: var(--fs-md);
+  /* Entrelinha mais aberta que o padrão. Em parágrafo de três ou quatro
+     linhas, é o que mais pesa na sensação de leitura confortável. */
+  line-height: var(--lh-loose);
+  color: var(--faq-answer-color);
+  /* Sem max-width aqui: quem define a medida de leitura agora é a coluna da
+     grade. Um limite em ch por cima da coluna só recriaria o espaço morto
+     dentro do cartão. */
   text-wrap: pretty;
 }
-@keyframes faqAbre {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .faq-a { animation: none; }
-  .faq-arrow { transition: none; }
+
+@media (max-width: 560px) {
+  .faq-item { padding: 20px 18px; }
+  /* 17.5px: em ~390px de largura, 19px começa a quebrar em duas linhas até
+     pergunta curta. Continua bem acima dos 15px da resposta, então a
+     hierarquia entre as duas se mantém sem depender só do peso da fonte —
+     que é o que achataria o bloco. */
+  .faq-q { font-size: 1.09375rem; }
 }
 
 /* ---------- Rodapé de confiança ----------
