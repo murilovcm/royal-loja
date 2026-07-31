@@ -541,7 +541,21 @@
       <button class="close-cart" id="cartClose" aria-label="Fechar carrinho"><svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg></button>
     </div>
     <div class="cart-items" id="cartItems"></div>
+    <!-- Fica FORA de #cartItems de propósito: renderCart() reescreve o innerHTML
+         daquele container a cada mudança e apagaria o botão junto. -->
+    <div class="cart-add-more-wrap">
+      <button type="button" class="cart-add-more" id="cartAddMoreBtn">
+        <svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg> Adicionar um novo produto
+      </button>
+    </div>
     <div class="cart-foot">
+      <div class="freeship-bar" id="freeShipBar" style="display:none;">
+        <div class="freeship-msg" id="freeShipMsg"></div>
+        <div class="freeship-track">
+          <div class="freeship-fill" id="freeShipFill"></div>
+        </div>
+        <div class="freeship-note" id="freeShipNote"></div>
+      </div>
       <div class="coupon-box">
         <div class="coupon-input-row">
           <span class="coupon-icon"><svg class="ico" aria-hidden="true"><use href="#i-ticket"></use></svg></span>
@@ -648,9 +662,20 @@
 
         <div class="checkout-shipping-row" id="checkoutShippingRow" style="display:none;">
           <span>Frete <span id="checkoutShippingZone"></span></span>
-          <span id="checkoutShippingValue">R$ 0,00</span>
+          <span class="shipping-value-cell">
+            <s class="shipping-was" id="checkoutShippingWas" style="display:none;"></s>
+            <span id="checkoutShippingValue">R$ 0,00</span>
+          </span>
         </div>
         <div class="geo-status" id="checkoutShippingNote"></div>
+
+        <div class="freeship-banner" id="checkoutFreeShipBanner" style="display:none;">
+          <svg class="ico" aria-hidden="true"><use href="#i-truck"></use></svg>
+          <span>
+            <strong>Você ganhou FRETE GRÁTIS!</strong>
+            <em id="checkoutFreeShipSaved"></em>
+          </span>
+        </div>
 
         <div class="checkout-surcharge-row" id="checkoutSurchargeRow" style="display:none;">
           <span>Acréscimo cartão de crédito (5%)</span>
@@ -739,7 +764,13 @@
     window.ROYAL = {
       whatsapp: "{{ config.whatsapp_phone or whatsapp }}",
       editor: {{ 'true' if editor else 'false' }},
-      storeName: "{{ config.store_name or 'Loja' }}"
+      storeName: "{{ config.store_name or 'Loja' }}",
+      freeShip: {
+        enabled: {{ 'true' if config.free_ship_enabled == '1' else 'false' }},
+        min: {{ (config.free_ship_min or 0) | float(0) }},
+        maxZone: {{ (config.free_ship_max_zone or 0) | float(0) }},
+        minSaving: {{ (config.free_ship_min_saving or 0) | float(0) }}
+      }
     };
   </script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ asset_v }}"></script>

@@ -569,6 +569,41 @@
 
     <div class="admin-tab-panel" data-tab-panel="shipping">
       {% if not is_owner %}<div class="readonly-banner">🔒 Somente leitura — apenas o dono da loja pode alterar o frete.</div>{% endif %}
+      <div class="{{ 'readonly-lock' if not is_owner }} sections-block" style="margin-bottom:18px;">
+        <div class="sections-head">
+          🚚 Frete grátis por valor <span class="sections-sub">Isenta o frete quando o pedido passa de um valor mínimo</span>
+        </div>
+        <div class="pp-field">
+          <label class="pp-switch" style="margin-bottom:12px">
+            <span class="switch {{ 'on' if config.free_ship_enabled == '1' }}" id="cfgFreeShipSwitch" onclick="this.classList.toggle('on')"></span>
+            <span>Ativar frete grátis acima de um valor</span>
+          </label>
+        </div>
+        <div class="pp-row">
+          <div class="pp-field">
+            <label for="cfgFreeShipMin">Pedido mínimo (R$)</label>
+            <input type="number" id="cfgFreeShipMin" step="0.01" min="0" value="{{ config.free_ship_min or '250' }}" placeholder="250,00">
+            <small class="pp-hint">Contado sobre o valor dos produtos já com o cupom aplicado.</small>
+          </div>
+          <div class="pp-field">
+            <label for="cfgFreeShipMaxZone">Só para zonas com frete até (R$)</label>
+            <input type="number" id="cfgFreeShipMaxZone" step="0.01" min="0" value="{{ config.free_ship_max_zone or '22' }}" placeholder="22,00">
+            <small class="pp-hint">Zona mais cara que isso continua cobrando o valor cheio.</small>
+          </div>
+        </div>
+        <div class="pp-field">
+          <label for="cfgFreeShipMinSaving">Só mostrar quanto o cliente economizou se o frete for de pelo menos (R$)</label>
+          <input type="number" id="cfgFreeShipMinSaving" step="0.01" min="0" value="{{ config.free_ship_min_saving or '12' }}" placeholder="12,00">
+          <small class="pp-hint">Nas zonas mais próximas o frete é baixo, e dizer "economia de R$ 8,00" faz o benefício parecer pequeno. Abaixo deste valor o cliente vê só que ganhou o frete grátis, sem o valor em reais.</small>
+        </div>
+        <small class="pp-hint">💡 Bolsões com preço em branco ("frete a combinar") e endereços fora da área nunca recebem o frete grátis — nesses casos o custo da entrega ainda não é conhecido.</small>
+        {% if is_owner %}
+        <div class="identity-save-row">
+          <button class="mini-btn primary" id="saveFreeShipBtn" onclick="saveFreeShipSettings()">Salvar Frete Grátis</button>
+        </div>
+        {% endif %}
+      </div>
+
       <div class="{{ 'readonly-lock' if not is_owner }} sections-block">
         <div class="sections-head">
           🗺️ Zonas de Frete <span class="sections-sub">Rotas usadas no checkout para calcular o frete pela localização do cliente</span>
@@ -1009,7 +1044,7 @@
             <span>Mostrar avisos rotativos no topo do site</span>
           </label>
           <label for="cfgAnnounceMsgs">Avisos rotativos</label>
-          <textarea id="cfgAnnounceMsgs" rows="4" maxlength="600" placeholder="Frete grátis nos pedidos acima de R$ 200&#10;Entrega no mesmo dia para toda São Luís">{{ config.announce_messages or '' }}</textarea>
+          <textarea id="cfgAnnounceMsgs" rows="4" maxlength="600" placeholder="Frete grátis nos pedidos acima de R$ 250&#10;Entrega no mesmo dia para toda São Luís">{{ config.announce_messages or '' }}</textarea>
           <small class="pp-hint">Uma mensagem por linha. O site alterna entre elas a cada 5 segundos, logo abaixo do aviso de idade. Máximo de 6 mensagens: acima disso ninguém lê nenhuma.</small>
         </div>
       </div>
@@ -1833,6 +1868,36 @@
         toast(allOk ? "Redes sociais salvas com sucesso ✓" : "Algumas alterações não foram salvas");
       } catch (e) {
         toast("Erro ao salvar redes sociais");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
+    }
+
+    async function saveFreeShipSettings() {
+      const btn = document.getElementById('saveFreeShipBtn');
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = "Salvando...";
+      try {
+        const num = (id) => {
+          const v = parseFloat(String(document.getElementById(id).value).replace(',', '.'));
+          return (isFinite(v) && v >= 0 ? v : 0).toFixed(2);
+        };
+        const fields = {
+          free_ship_enabled: document.getElementById('cfgFreeShipSwitch').classList.contains('on') ? '1' : '0',
+          free_ship_min: num('cfgFreeShipMin'),
+          free_ship_max_zone: num('cfgFreeShipMaxZone'),
+          free_ship_min_saving: num('cfgFreeShipMinSaving'),
+        };
+        let allOk = true;
+        for (const [key, value] of Object.entries(fields)) {
+          const res = await api('/api/update_config', 'POST', { key, value });
+          if (!res || !res.ok) allOk = false;
+        }
+        toast(allOk ? "Frete grátis salvo com sucesso ✓" : "Algumas alterações não foram salvas");
+      } catch (e) {
+        toast("Erro ao salvar o frete grátis");
       } finally {
         btn.disabled = false;
         btn.textContent = originalLabel;

@@ -677,10 +677,22 @@ def init_db():
         # pelos funcionários em "Configurações Gerais".
         "announce_enabled": "1",
         "announce_messages": (
-            "Frete grátis nos pedidos acima de R$ 200\n"
+            "Frete grátis nos pedidos acima de R$ 250\n"
             "Entrega no mesmo dia para toda São Luís\n"
             "Pague no Pix, cartão ou dinheiro na entrega"
         ),
+        # Frete grátis por valor do pedido. O benefício só vale nas zonas com
+        # preço numérico até free_ship_max_zone — bolsão ("a combinar") e
+        # endereço fora da área continuam como estão, porque nesses casos o
+        # custo real da entrega ainda não é conhecido. Editável na aba "Frete".
+        "free_ship_enabled": "1",
+        "free_ship_min": "250",
+        "free_ship_max_zone": "22",
+        # Abaixo deste valor a economia NÃO é exibida em reais — o cliente vê
+        # só "frete grátis". Nas zonas mais próximas o frete é tão barato que
+        # anunciar "economia de R$ 8,00" encolhe a percepção do benefício em
+        # vez de reforçá-la.
+        "free_ship_min_saving": "12",
         # Pop-up de promoção do site (gerenciado na aba Cupons do painel).
         "promo_popup_enabled": "0",
         "promo_popup_badge": "OFERTA ESPECIAL",
@@ -742,6 +754,28 @@ def init_db():
             )
         db.execute(
             "INSERT OR IGNORE INTO site_config (key, value) VALUES ('hero_legacy_cleared', '1')"
+        )
+        db.commit()
+
+    # Correção única (uma vez por banco): o ticker do topo foi semeado
+    # anunciando "frete grátis acima de R$ 200", mas o valor virou R$ 250 e
+    # agora existe regra de verdade aplicando isso no carrinho. Bancos já
+    # publicados continuariam prometendo R$ 200 na faixa enquanto o checkout
+    # exige R$ 250 — contradição que chega ao cliente. Só reescreve se o texto
+    # for EXATAMENTE o semeado; mensagem que o lojista tenha personalizado
+    # fica intacta, e a flag garante uma passada só.
+    if db.execute("SELECT 1 FROM site_config WHERE key = 'announce_freeship_250'").fetchone() is None:
+        db.execute(
+            "UPDATE site_config SET value = REPLACE(value, ?, ?) "
+            "WHERE key = 'announce_messages' AND value LIKE ?",
+            (
+                "Frete grátis nos pedidos acima de R$ 200",
+                "Frete grátis nos pedidos acima de R$ 250",
+                "%Frete grátis nos pedidos acima de R$ 200%",
+            ),
+        )
+        db.execute(
+            "INSERT OR IGNORE INTO site_config (key, value) VALUES ('announce_freeship_250', '1')"
         )
         db.commit()
 

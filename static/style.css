@@ -2002,7 +2002,12 @@ header.site-header::after {
 .cart-header .close-cart { width: 36px; height: 36px; border-radius: var(--r-sm); background: var(--surf-1); color: var(--text); display: grid; place-items: center; border: 1px solid var(--line); transition: .2s; }
 .cart-header .close-cart:hover { color: var(--primary-yellow); }
 .cart-items {
-  flex: 1; min-height: 0;
+  /* `flex: 0 1 auto` (e não `flex: 1`) para a lista terminar onde os itens
+     terminam: assim o botão "adicionar um novo produto" logo abaixo fica colado
+     no último produto em vez de flutuar no fim do painel. Com muitos itens ela
+     encolhe e rola normalmente, e a sobra de espaço vai para o margin-bottom
+     automático do botão. */
+  flex: 0 1 auto; min-height: 0;
   overflow-y: auto; -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding: 16px 22px;
@@ -2046,7 +2051,63 @@ header.site-header::after {
 .ci-qty button { width: 26px; height: 26px; border-radius: 50%; background: none; color: var(--text); transition: .16s; }
 .ci-qty button:hover { color: var(--primary-yellow); }
 .ci-qty span { min-width: 24px; text-align: center; font-weight: 700; font-size: .85rem; }
+/* Botão "adicionar um novo produto": fica entre a lista e o rodapé do carrinho.
+   Deliberadamente fantasma — tem que ser encontrável sem disputar atenção com o
+   verde do "Finalizar Pedido", que é a ação principal do painel. */
+/* O wrapper existe por dois motivos: o `margin-bottom: auto` manda toda a sobra
+   de espaço do painel para DEPOIS do botão (mantendo-o colado nos itens), e o
+   padding-bottom garante um respiro mínimo até o rodapé quando a lista é longa
+   e não sobra espaço nenhum. */
+.cart-add-more-wrap { flex-shrink: 0; margin-bottom: auto; padding: 0 22px 16px; }
+.cart-add-more {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px dashed var(--line); border-radius: var(--r-md);
+  background: none; color: var(--text-dim);
+  font-size: .86rem; font-weight: 600;
+  transition: color var(--dur) var(--ease-out),
+              border-color var(--dur) var(--ease-out),
+              background var(--dur) var(--ease-out);
+}
+.cart-add-more:hover {
+  color: var(--text);
+  border-color: var(--brand);
+  background: var(--surf-2);
+}
+.cart-add-more .ico { width: 17px; height: 17px; }
+
 .cart-foot { flex-shrink: 0; padding: 22px; border-top: 1px solid var(--line); background: var(--surf-1); }
+
+/* Barra de progresso do frete grátis, no topo do rodapé do carrinho. Fica no
+   .cart-foot (e não no fim da lista) para não rolar para fora da tela quando o
+   cliente tem vários itens — é justamente aí que ela mais importa. */
+.freeship-bar { margin-bottom: 16px; }
+.freeship-msg {
+  display: flex; align-items: center; gap: 7px;
+  font-size: .84rem; color: var(--text-dim); margin-bottom: 8px;
+}
+.freeship-msg strong { color: var(--text); font-weight: 700; }
+.freeship-msg .ico { width: 17px; height: 17px; flex-shrink: 0; }
+.freeship-track {
+  height: 7px; border-radius: var(--r-pill);
+  background: var(--surf-2); overflow: hidden;
+}
+.freeship-fill {
+  height: 100%; width: 0; border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  transition: width 420ms var(--ease-out), background var(--dur) var(--ease-out);
+}
+.freeship-note {
+  margin-top: 6px; font-size: .72rem; color: var(--text-dim); opacity: .8;
+}
+.freeship-bar.done .freeship-msg { color: var(--green); }
+.freeship-bar.done .freeship-msg strong { color: var(--green); }
+.freeship-bar.done .freeship-fill { background: var(--green); }
+
+@media (prefers-reduced-motion: reduce) {
+  .freeship-fill { transition: none; }
+}
 .cart-total { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .cart-total .lbl { color: var(--text-dim); }
 .cart-total .val { font-size: 1.6rem; font-weight: 700; color: var(--primary-yellow); }
@@ -2328,6 +2389,28 @@ header.site-header::after {
 .checkout-shipping-row span:first-child { font-weight: 500; color: var(--text-dim); }
 .checkout-shipping-row span:first-child span { color: var(--text-dim); font-weight: 500; }
 #checkoutShippingNote.geo-status { margin-top: 12px; margin-bottom: 4px; }
+
+/* Frete isento: o valor que seria cobrado aparece riscado ao lado do "GRÁTIS",
+   para a economia ficar concreta em vez de virar só uma palavra. */
+.shipping-value-cell { display: inline-flex; align-items: baseline; gap: 8px; }
+.shipping-was {
+  color: var(--text-dim); font-weight: 500; font-size: .82rem; opacity: .75;
+}
+.checkout-shipping-row.free #checkoutShippingValue {
+  color: var(--green); font-weight: 800; letter-spacing: .3px;
+}
+
+.freeship-banner {
+  display: flex; align-items: center; gap: 10px;
+  margin: 14px 0; padding: 12px 14px;
+  border: 1px solid color-mix(in oklab, var(--green), transparent 60%);
+  border-radius: var(--r-md);
+  background: color-mix(in oklab, var(--green), transparent 88%);
+  font-size: .86rem; color: var(--text);
+}
+.freeship-banner .ico { width: 20px; height: 20px; color: var(--green); flex-shrink: 0; }
+.freeship-banner strong { display: block; color: var(--green); font-weight: 800; }
+.freeship-banner em { font-style: normal; color: var(--text-dim); font-size: .8rem; }
 
 .checkout-surcharge-row {
   display: flex; justify-content: space-between; align-items: center;

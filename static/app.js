@@ -668,6 +668,13 @@
   byId("cartClose").addEventListener("click", closeCart);
   cartOverlay.addEventListener("click", closeCart);
 
+  // Voltar ao catálogo sem perder o carrinho: quem quer um segundo modelo não
+  // precisa fechar tudo e rolar a página do topo de novo.
+  byId("cartAddMoreBtn").addEventListener("click", () => {
+    closeCart();
+    byId("catalogo").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
   const cartFab = byId("cartFab");
   cartFab.addEventListener("click", openCart);
 
@@ -773,44 +780,136 @@
     return Math.min(coupon.value, base);
   }
 
-  function updateTotals() {
+  // Fonte única de verdade do dinheiro do pedido. É consumida tanto pelo resumo
+  // na tela (updateTotals) quanto pela mensagem do WhatsApp — antes cada um
+  // refazia a conta por conta própria, então toda regra nova precisava ser
+  // escrita duas vezes e bastava esquecer uma para a tela e a mensagem enviada
+  // ao cliente discordarem sobre quanto ele vai pagar.
+  function computeOrderTotals() {
     const total = cartTotal();
     const discount = computeDiscount(appliedCoupon);
     const discountedTotal = Math.max(total - discount, 0);
-    const showDiscount = !!(appliedCoupon && discount > 0);
+
+    const fs = CFG.freeShip || {};
+    const freeShipEnabled = !!fs.enabled && fs.min > 0;
+    // O mínimo é medido sobre o valor DEPOIS do cupom: é o que o cliente
+    // realmente paga pelos produtos, então cupom e frete grátis não se somam
+    // em cima de um ticket que não chegou ao valor exigido.
+    const qualifiesByValue = freeShipEnabled && discountedTotal >= fs.min;
+
+    // Frete: só existe depois que o cliente usa a geolocalização no checkout (e não pediu retirada).
+    const pickup = pickupCheckbox.checked;
+    const hasNumericShipping = !pickup && !!(shippingInfo && shippingInfo.ok && typeof shippingInfo.price === "number");
+    // Bolsão ("a combinar", price null) e endereço fora da área nunca entram:
+    // não têm preço numérico, então não há o que zerar.
+    const zoneEligible = hasNumericShipping && shippingInfo.price <= fs.maxZone;
+    const freeShipping = qualifiesByValue && zoneEligible;
+
+    const shippingFull = hasNumericShipping ? shippingInfo.price : 0;
+    const shippingPrice = freeShipping ? 0 : shippingFull;
+
+    const surchargeBase = discountedTotal + shippingPrice;
+    const surcharge = creditSurcharge(surchargeBase);
+
+    // Frete barato demais para virar argumento: nas zonas mais próximas dizer
+    // "economia de R$ 8,00" diminui o benefício em vez de reforçá-lo. Nesses
+    // casos o cliente vê só que ganhou o frete, sem o valor em reais.
+    const showSaving = freeShipping && shippingFull >= (fs.minSaving || 0);
+
+    return {
+      total, discount, discountedTotal, pickup, hasNumericShipping,
+      freeShipping, showSaving, shippingFull, shippingPrice, surcharge,
+      finalTotal: surchargeBase + surcharge,
+      // Progresso da barra do carrinho. Não depende da zona: ali o site ainda
+      // não sabe onde o cliente mora (a zona só sai do GPS, no checkout).
+      freeShipEnabled,
+      freeShipMin: fs.min,
+      remaining: freeShipEnabled ? Math.max(fs.min - discountedTotal, 0) : 0,
+      pct: freeShipEnabled ? Math.min(discountedTotal / fs.min, 1) : 0
+    };
+  }
+
+  // Barra "faltam R$ X para o frete grátis", no rodapé do carrinho.
+  function renderFreeShipBar(t) {
+    const bar = byId("freeShipBar");
+    if (!t.freeShipEnabled || cart.length === 0) {
+      bar.style.display = "none";
+      return;
+    }
+    bar.style.display = "block";
+
+    const done = t.remaining <= 0;
+    bar.classList.toggle("done", done);
+    byId("freeShipFill").style.width = (t.pct * 100).toFixed(1) + "%";
+
+    const ico = (name) => `<svg class="ico" aria-hidden="true"><use href="#${name}"></use></svg>`;
+    if (done) {
+      byId("freeShipMsg").innerHTML = ico("i-check") + " <strong>Frete grátis liberado!</strong>";
+      // Ressalva deliberada: o carrinho promete o frete grátis sem saber a zona
+      // do cliente. Quem cair em bolsão ("a combinar") não recebe o benefício,
+      // e descobrir isso só no checkout parece propaganda enganosa.
+      byId("freeShipNote").textContent = "válido para as zonas de entrega";
+    } else {
+      byId("freeShipMsg").innerHTML =
+        ico("i-truck") + ` Faltam <strong>${brl(t.remaining)}</strong> para o frete grátis`;
+      byId("freeShipNote").textContent = "";
+    }
+  }
+
+  function updateTotals() {
+    const t = computeOrderTotals();
+    const showDiscount = !!(appliedCoupon && t.discount > 0);
 
     const cartDiscountRow = byId("cartDiscountRow");
     cartDiscountRow.style.display = showDiscount ? "flex" : "none";
     if (showDiscount) {
       byId("cartDiscountCode").textContent = `(${appliedCoupon.code})`;
-      byId("cartDiscountValue").textContent = "-" + brl(discount);
+      byId("cartDiscountValue").textContent = "-" + brl(t.discount);
     }
-    byId("cartTotal").textContent = brl(discountedTotal);
+    byId("cartTotal").textContent = brl(t.discountedTotal);
 
     const checkoutDiscountRow = byId("checkoutDiscountRow");
     checkoutDiscountRow.style.display = showDiscount ? "flex" : "none";
     if (showDiscount) {
       byId("checkoutDiscountCode").textContent = `(${appliedCoupon.code})`;
-      byId("checkoutDiscountValue").textContent = "-" + brl(discount);
+      byId("checkoutDiscountValue").textContent = "-" + brl(t.discount);
     }
 
-    // Frete: só existe depois que o cliente usa a geolocalização no checkout (e não pediu retirada).
-    const pickup = pickupCheckbox.checked;
-    const hasNumericShipping = !pickup && !!(shippingInfo && shippingInfo.ok && typeof shippingInfo.price === "number");
-    const shippingPrice = hasNumericShipping ? shippingInfo.price : 0;
+    renderFreeShipBar(t);
 
     const checkoutShippingRow = byId("checkoutShippingRow");
-    checkoutShippingRow.style.display = hasNumericShipping ? "flex" : "none";
-    if (hasNumericShipping) {
+    const checkoutShippingWas = byId("checkoutShippingWas");
+    checkoutShippingRow.style.display = t.hasNumericShipping ? "flex" : "none";
+    checkoutShippingRow.classList.toggle("free", t.freeShipping);
+    if (t.hasNumericShipping) {
       byId("checkoutShippingZone").textContent = `(${shippingInfo.zone_label})`;
-      byId("checkoutShippingValue").textContent = brl(shippingInfo.price);
+      if (t.freeShipping) {
+        // Mostra o valor que seria cobrado, riscado: a economia fica concreta
+        // em vez de virar só a palavra "grátis". Só que abaixo do minSaving o
+        // riscado sai de cena — ali o número trabalha contra a oferta.
+        checkoutShippingWas.style.display = t.showSaving ? "" : "none";
+        if (t.showSaving) checkoutShippingWas.textContent = brl(t.shippingFull);
+        byId("checkoutShippingValue").textContent = "GRÁTIS";
+      } else {
+        checkoutShippingWas.style.display = "none";
+        byId("checkoutShippingValue").textContent = brl(t.shippingFull);
+      }
+    } else {
+      checkoutShippingWas.style.display = "none";
+    }
+
+    const freeShipBanner = byId("checkoutFreeShipBanner");
+    freeShipBanner.style.display = t.freeShipping ? "flex" : "none";
+    if (t.freeShipping) {
+      byId("checkoutFreeShipSaved").textContent =
+        t.showSaving ? `Economia de ${brl(t.shippingFull)}` : "Entrega por nossa conta";
     }
 
     const checkoutShippingNote = byId("checkoutShippingNote");
-    if (pickup) {
+    if (t.pickup) {
       checkoutShippingNote.textContent = "🏪 Retirada no local, sem frete";
       checkoutShippingNote.className = "geo-status show ok";
-    } else if (shippingInfo && !hasNumericShipping) {
+    } else if (shippingInfo && !t.hasNumericShipping) {
       checkoutShippingNote.textContent = shippingInfo.message || "";
       checkoutShippingNote.className = "geo-status show " + (shippingInfo.ok ? "warn" : "danger");
     } else {
@@ -818,15 +917,13 @@
       checkoutShippingNote.className = "geo-status";
     }
 
-    const surchargeBase = discountedTotal + shippingPrice;
-    const surcharge = creditSurcharge(surchargeBase);
     const checkoutSurchargeRow = byId("checkoutSurchargeRow");
-    checkoutSurchargeRow.style.display = surcharge > 0 ? "flex" : "none";
-    if (surcharge > 0) {
-      byId("checkoutSurchargeValue").textContent = "+" + brl(surcharge);
+    checkoutSurchargeRow.style.display = t.surcharge > 0 ? "flex" : "none";
+    if (t.surcharge > 0) {
+      byId("checkoutSurchargeValue").textContent = "+" + brl(t.surcharge);
     }
 
-    byId("checkoutTotal").textContent = brl(surchargeBase + surcharge);
+    byId("checkoutTotal").textContent = brl(t.finalTotal);
   }
 
   function setCouponFeedback(msg, variant) {
@@ -1169,7 +1266,8 @@
       msg += `   💰 Subtotal: ${brl(sub)}\n\n`;
     });
     msg += `━━━━━━━━━━━━━━━\n`;
-    const discount = appliedCoupon ? computeDiscount(appliedCoupon) : 0;
+    const t = computeOrderTotals();
+    const discount = t.discount;
     if (appliedCoupon) {
       // Cupom restrito: o "-X%" sozinho engana (incide só sobre parte do carrinho),
       // então mostramos também o valor real descontado.
@@ -1181,28 +1279,33 @@
       msg += `💸 *Desconto:* ${discountLabel}\n`;
     }
 
-    const hasNumericShipping = !pickup && !!(shippingInfo && shippingInfo.ok && typeof shippingInfo.price === "number");
-    const shippingPrice = hasNumericShipping ? shippingInfo.price : 0;
     if (pickup) {
       msg += `🏪 *Retirada no local* (sem frete)\n`;
     } else if (shippingInfo) {
-      if (hasNumericShipping) {
-        msg += `🚚 *Frete:* ${brl(shippingInfo.price)} (${shippingInfo.zone_label})\n`;
+      if (t.freeShipping) {
+        // Explicita que o frete foi zerado POR REGRA — senão a equipe não sabe
+        // se foi promoção ou esquecimento. O valor isento só entra acima do
+        // minSaving: o cliente lê esta mensagem antes de enviar, e nas zonas
+        // baratas ver "isento de R$ 8,00" desvaloriza o que ele acabou de
+        // ganhar. A zona vai junto de qualquer jeito, então a equipe consegue
+        // recuperar o valor pela tabela.
+        msg += `🚚 *Frete:* GRÁTIS (${shippingInfo.zone_label}) — pedido acima de ${brl(t.freeShipMin)}`;
+        msg += t.showSaving ? `, isento de ${brl(t.shippingFull)}\n` : `\n`;
+      } else if (t.hasNumericShipping) {
+        msg += `🚚 *Frete:* ${brl(t.shippingFull)} (${shippingInfo.zone_label})\n`;
       } else {
         msg += `🚚 *Frete:* ${shippingInfo.message}\n`;
       }
     }
 
-    const baseTotal = Math.max(total - discount, 0) + shippingPrice;
-    const surcharge = creditSurcharge(baseTotal);
+    const surcharge = t.surcharge;
     if (surcharge > 0) {
       msg += `💳 *Acréscimo cartão de crédito (5%):* +${brl(surcharge)}\n`;
     }
-    const finalTotal = baseTotal + surcharge;
-    if (hasNumericShipping || surcharge > 0) {
-      msg += `💰 *TOTAL FINAL: ${brl(finalTotal)}*\n\n`;
+    if (t.hasNumericShipping || surcharge > 0) {
+      msg += `💰 *TOTAL FINAL: ${brl(t.finalTotal)}*\n\n`;
     } else if (appliedCoupon) {
-      msg += `💰 *Total com desconto: ${brl(finalTotal)}*\n\n`;
+      msg += `💰 *Total com desconto: ${brl(t.finalTotal)}*\n\n`;
     } else {
       msg += `*TOTAL: ${brl(total)}*\n\n`;
     }
