@@ -32,7 +32,10 @@
          data-id="{{ m.id }}"
          data-brand="{{ m.brand_id }}"
          data-best="{{ m.is_best_seller }}"
-         data-name="{{ m.name | lower }}"
+         {# Os nomes das versões (Slim, geração anterior) entram no texto de busca
+            porque elas não têm mais card próprio: sem isto, quem digita "slim"
+            deixaria de achar o produto. Invisível na tela. #}
+         data-name="{{ (m.name ~ ' ' ~ m.version_search) | trim | lower }}"
          data-brandname="{{ m.brand_name | lower }}">
   <div class="card-top">
     <span class="puff-badge"><i class="ico-bolt"></i>{{ m.puff_count }}</span>
@@ -515,6 +518,9 @@
         <span class="puffs" id="modalPuffs"></span>
         <div class="modal-label">Escolha o sabor</div>
         <div class="flavor-grid" id="modalFlavors"></div>
+        {# Só aparece quando o sabor escolhido é de outra versão do aparelho
+           (Slim, geração anterior). Preenchido em app.js. #}
+        <p class="flavor-disclaimer" id="modalDisclaimer" hidden></p>
         <div class="modal-foot">
           <div class="qty-row">
             <div class="qty-ctrl">

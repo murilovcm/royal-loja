@@ -457,6 +457,15 @@ def init_db():
             puff_count     TEXT,
             image_url      TEXT,
             is_best_seller INTEGER DEFAULT 0,
+            -- Versões do MESMO produto (Slim, geração anterior). Um modelo com
+            -- parent_id preenchido não ganha card próprio no catálogo: os sabores
+            -- dele entram na lista do principal, marcados com variant_label.
+            -- SET NULL e não CASCADE: excluir o principal devolve a versão ao
+            -- catálogo como produto independente, em vez de apagar os sabores dela.
+            parent_id      INTEGER REFERENCES vape_models(id) ON DELETE SET NULL,
+            variant_label  TEXT,     -- etiqueta curta dentro do pill: "Slim", "Antiga"
+            variant_note   TEXT,     -- aviso ao cliente ao escolher o sabor
+            variant_pos    INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE CASCADE
         );
 
@@ -554,6 +563,32 @@ def init_db():
     if "active" not in model_cols:
         db.execute("ALTER TABLE vape_models ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
         db.commit()
+
+    # Migração: vape_models ganhou as colunas de VERSÃO. Um modelo com parent_id
+    # preenchido é uma variação do mesmo produto (Slim, geração anterior): ele
+    # some do catálogo como card e seus sabores passam a aparecer na lista do
+    # principal, marcados com a etiqueta variant_label.
+    #
+    # parent_id entra sem default (ou seja, NULL), que é o único jeito de o
+    # SQLite aceitar ADD COLUMN com cláusula REFERENCES. Como todo modelo antigo
+    # nasce com parent_id NULL, o catálogo continua exatamente como estava.
+    if "parent_id" not in model_cols:
+        db.execute(
+            "ALTER TABLE vape_models ADD COLUMN parent_id INTEGER "
+            "REFERENCES vape_models(id) ON DELETE SET NULL"
+        )
+        db.commit()
+    if "variant_label" not in model_cols:
+        db.execute("ALTER TABLE vape_models ADD COLUMN variant_label TEXT")
+        db.commit()
+    if "variant_note" not in model_cols:
+        db.execute("ALTER TABLE vape_models ADD COLUMN variant_note TEXT")
+        db.commit()
+    if "variant_pos" not in model_cols:
+        db.execute("ALTER TABLE vape_models ADD COLUMN variant_pos INTEGER NOT NULL DEFAULT 0")
+        db.commit()
+    db.execute("CREATE INDEX IF NOT EXISTS idx_models_parent ON vape_models(parent_id)")
+    db.commit()
 
     # Semeia a conta "dono" (acesso completo) só na primeiríssima vez que a
     # loja roda — depois disso, a senha real mora hasheada no banco, e essas
@@ -1016,24 +1051,68 @@ def get_shipping_zones():
     return special, concentric
 
 
+def _flavors_of(db, model):
+    """Sabores de UM modelo, já carimbados com os dados da versão a que pertencem.
+
+    O carimbo é o que permite achatar várias versões numa lista só: o sabor sabe
+    de qual aparelho ele é, então o modal troca foto/puffs/título e mostra o aviso
+    sem precisar de um segundo eixo de seleção.
+
+    `version_label` vazio significa "é da versão principal" — é essa string vazia
+    que o front usa para decidir se desenha a etiqueta e o aviso.
+    """
+    rows = db.execute(
+        "SELECT * FROM products WHERE model_id = ? ORDER BY id", (model["id"],)
+    ).fetchall()
+    flavors = []
+    for r in rows:
+        f = dict(r)
+        f["version_name"] = model["name"]                      # vai para o carrinho / WhatsApp
+        f["version_label"] = (model["variant_label"] or "").strip()
+        f["version_note"] = (model["variant_note"] or "").strip()
+        f["version_puffs"] = model["puff_count"]
+        f["version_image"] = model["image_url"]
+        flavors.append(f)
+    return flavors
+
+
 def build_catalog():
-    """Monta a lista de modelos com seus sabores e metadados agregados."""
+    """Monta a lista de modelos com seus sabores e metadados agregados.
+
+    Só os modelos PRINCIPAIS (parent_id NULL) viram card. As versões (Slim,
+    geração anterior) não aparecem no catálogo: os sabores delas são concatenados
+    na lista do principal, com o principal sempre primeiro.
+
+    Como `min_price`, `flavor_names` e a contagem de sabores do card já são
+    calculados sobre `flavors`, todos passam a considerar as versões sem
+    nenhuma mudança no template.
+    """
     db = get_db()
     models = db.execute(
         """
         SELECT m.*, b.name AS brand_name
         FROM vape_models m JOIN brands b ON b.id = m.brand_id
-        WHERE m.active = 1
+        WHERE m.active = 1 AND m.parent_id IS NULL
         ORDER BY m.is_best_seller DESC, m.id DESC
         """
     ).fetchall()
 
     catalog = []
     for m in models:
-        flavors = db.execute(
-            "SELECT * FROM products WHERE model_id = ? ORDER BY id", (m["id"],)
+        flavors = _flavors_of(db, m)
+        # Versões ativas, na ordem definida no painel. Uma versão desativada some
+        # do seletor sem que os sabores dela precisem ser apagados.
+        versions = db.execute(
+            """
+            SELECT * FROM vape_models
+            WHERE parent_id = ? AND active = 1
+            ORDER BY variant_pos, id
+            """,
+            (m["id"],),
         ).fetchall()
-        flavors = [dict(f) for f in flavors]
+        for v in versions:
+            flavors.extend(_flavors_of(db, v))
+
         in_stock = [f for f in flavors if f["is_in_stock"]]
         prices = [f["price"] for f in in_stock] or [f["price"] for f in flavors]
         min_price = min(prices) if prices else 0
@@ -1048,6 +1127,14 @@ def build_catalog():
                 "is_best_seller": m["is_best_seller"],
                 "flavors": flavors,
                 "flavor_names": [f["name"] for f in flavors],
+                # Texto extra que a busca do catálogo procura junto do nome do
+                # modelo. Sem isto, uma versão perderia a busca ao deixar de ter
+                # card próprio: quem digita "slim" hoje acha o card "V150 Slim",
+                # e passaria a não achar nada.
+                "version_search": " ".join(
+                    [v["name"] for v in versions]
+                    + [v["variant_label"] for v in versions if v["variant_label"]]
+                ),
                 "min_price": min_price,
             }
         )
@@ -1415,17 +1502,31 @@ def live_editor():
 def admin():
     db = get_db()
     brands = db.execute("SELECT * FROM brands ORDER BY name").fetchall()
+
+    def _node(m):
+        flavors = db.execute(
+            "SELECT * FROM products WHERE model_id = ? ORDER BY id", (m["id"],)
+        ).fetchall()
+        return {"model": dict(m), "flavors": [dict(f) for f in flavors]}
+
     tree = []
     for b in brands:
+        # Só os principais entram na lista; as versões ficam aninhadas dentro do
+        # próprio pai. A aba Cupons percorre esta mesma árvore, então ela passa a
+        # listar só os principais sem nenhuma mudança naquele template.
         models = db.execute(
-            "SELECT * FROM vape_models WHERE brand_id = ? ORDER BY id", (b["id"],)
+            "SELECT * FROM vape_models WHERE brand_id = ? AND parent_id IS NULL ORDER BY id",
+            (b["id"],),
         ).fetchall()
         mlist = []
         for m in models:
-            flavors = db.execute(
-                "SELECT * FROM products WHERE model_id = ? ORDER BY id", (m["id"],)
+            node = _node(m)
+            versions = db.execute(
+                "SELECT * FROM vape_models WHERE parent_id = ? ORDER BY variant_pos, id",
+                (m["id"],),
             ).fetchall()
-            mlist.append({"model": dict(m), "flavors": [dict(f) for f in flavors]})
+            node["versions"] = [_node(v) for v in versions]
+            mlist.append(node)
         tree.append({"brand": dict(b), "models": mlist})
     special_zones, concentric_zones = get_shipping_zones()
     user = _current_user()
@@ -1986,9 +2087,15 @@ def api_apply_coupon():
     allowed_product_ids = None
     if restricted:
         model_ids = [r["model_id"] for r in model_rows]
+        ph = ",".join("?" * len(model_ids))
+        # O cupom marcado no modelo principal alcança também as VERSÕES dele
+        # (Slim, geração anterior): para o cliente é o mesmo produto, então
+        # restringir o desconto ao aparelho "certo" seria arbitrário.
         prods = db.execute(
-            "SELECT id FROM products WHERE model_id IN (%s)" % ",".join("?" * len(model_ids)),
-            model_ids,
+            "SELECT id FROM products WHERE model_id IN (%s) "
+            "   OR model_id IN (SELECT id FROM vape_models WHERE parent_id IN (%s))"
+            % (ph, ph),
+            model_ids + model_ids,
         ).fetchall()
         allowed_product_ids = {p["id"] for p in prods}
 
@@ -2246,6 +2353,63 @@ def api_update_model(mid):
     if "active" in d:
         fields.append("active = ?")
         vals.append(1 if d["active"] else 0)
+
+    # Etiqueta e aviso da versão. Texto livre, mas guardado limpo: a etiqueta é
+    # curta porque cabe dentro do pill do sabor.
+    for f in ("variant_label", "variant_note"):
+        if f in d:
+            fields.append(f"{f} = ?")
+            vals.append((d[f] or "").strip()[:80 if f == "variant_label" else 200])
+    if "variant_pos" in d:
+        fields.append("variant_pos = ?")
+        try:
+            vals.append(int(d["variant_pos"] or 0))
+        except (TypeError, ValueError):
+            vals.append(0)
+
+    # `parent_id` transforma o modelo numa VERSÃO de outro (Slim, geração
+    # anterior). Vazio desfaz o vínculo e devolve o modelo ao catálogo como card
+    # próprio. As regras abaixo valem no servidor, não só na interface: a API é
+    # chamável direto.
+    if "parent_id" in d:
+        raw = d["parent_id"]
+        if raw in (None, "", 0, "0"):
+            fields.append("parent_id = ?")
+            vals.append(None)
+        else:
+            try:
+                pid = int(raw)
+            except (TypeError, ValueError):
+                return jsonify({"ok": False, "error": "versão inválida"}), 400
+            if pid == mid:
+                return jsonify({"ok": False, "error": "um modelo não pode ser versão de si mesmo"}), 400
+            me = db.execute("SELECT brand_id FROM vape_models WHERE id = ?", (mid,)).fetchone()
+            parent = db.execute(
+                "SELECT brand_id, parent_id FROM vape_models WHERE id = ?", (pid,)
+            ).fetchone()
+            if not me or not parent:
+                return jsonify({"ok": False, "error": "modelo não encontrado"}), 404
+            # Um nível só: o pai não pode ser, ele mesmo, versão de outro.
+            if parent["parent_id"] is not None:
+                return jsonify({
+                    "ok": False,
+                    "error": "esse modelo já é uma versão — escolha o produto principal",
+                }), 400
+            # Quem já tem versões penduradas não pode virar versão de ninguém,
+            # senão as dele ficariam num segundo nível.
+            has_children = db.execute(
+                "SELECT 1 FROM vape_models WHERE parent_id = ? LIMIT 1", (mid,)
+            ).fetchone()
+            if has_children:
+                return jsonify({
+                    "ok": False,
+                    "error": "este modelo já tem versões; solte-as antes de torná-lo uma versão",
+                }), 400
+            if me["brand_id"] != parent["brand_id"]:
+                return jsonify({"ok": False, "error": "a versão precisa ser da mesma marca"}), 400
+            fields.append("parent_id = ?")
+            vals.append(pid)
+
     if not fields:
         return jsonify({"ok": False}), 400
     vals.append(mid)

@@ -65,6 +65,28 @@
     .m-photo:hover .m-photo-remove { opacity:1; }
     .m-photo-input { display:none; }
     .model-line .spacer { flex:1; }
+    /* Versão do mesmo produto (Slim, geração anterior): recuo + barra à esquerda
+       para ler como filha da linha de cima, e não como mais um modelo solto. */
+    .model-row.is-version { border-top:none; }
+    .model-row.is-version .model-line { padding-left:44px; position:relative; }
+    .model-row.is-version .model-line::before {
+      content:""; position:absolute; left:26px; top:0; bottom:0;
+      width:2px; background:rgba(255,214,10,.35);
+    }
+    .version-arrow { color:var(--primary-yellow); font-weight:700; font-size:1rem; line-height:1; }
+    .m-variant { display:flex; flex-direction:column; gap:3px; }
+    .m-variant.grow { flex:1 1 200px; min-width:150px; }
+    .m-variant-lbl {
+      font-size:.6rem; text-transform:uppercase; letter-spacing:.09em;
+      color:var(--text-dim); font-weight:700;
+    }
+    .m-variant select, .m-variant input {
+      background:var(--bg-2); border:1px solid var(--border); border-radius:8px;
+      color:var(--text); font-family:inherit; font-size:.8rem; padding:5px 8px; transition:.2s;
+    }
+    .m-variant select:hover, .m-variant input:hover { border-color:rgba(255,214,10,.3); }
+    .m-variant select:focus, .m-variant input:focus { outline:none; border-color:var(--primary-yellow); }
+    .m-variant input { width:100%; }
     .expand-btn { background:none; color:var(--purple-soft); font-size:.82rem; font-weight:600; }
     .del-btn { background:none; color:var(--text-dim); transition:.2s; font-size:1rem; }
     .del-btn:hover { color:#ff5a5a; }
@@ -374,11 +396,19 @@
             <button class="mini-btn" onclick="toggleAddModelForm({{ node.brand.id }}, false)">Cancelar</button>
           </div>
 
-          {% for item in node.models %}
+          {# Uma linha de modelo. Serve tanto para o produto principal quanto para
+             as versões dele (Slim, geração anterior), que só diferem pelo recuo,
+             pela ausência da estrela e pelos campos de etiqueta/aviso.
+             `mains` são os candidatos a "produto principal" no seletor. #}
+          {% macro model_row(item, mains, is_version=false) %}
           {% set m = item.model %}
-          <div class="model-row {{ '' if m.active else 'model-inactive' }}" data-mid="{{ m.id }}">
+          <div class="model-row {{ '' if m.active else 'model-inactive' }} {{ 'is-version' if is_version }}" data-mid="{{ m.id }}">
             <div class="model-line">
+              {% if is_version %}
+              <span class="version-arrow" title="Esta é uma versão do produto acima">↳</span>
+              {% else %}
               <button class="star-toggle {{ 'on' if m.is_best_seller }}" onclick="toggleBest({{ m.id }}, this)" title="Mais vendido">★</button>
+              {% endif %}
               <div class="m-photo {{ 'has-img' if m.image_url }}" id="photo-{{ m.id }}" data-mid="{{ m.id }}" onclick="triggerPhotoInput({{ m.id }})" title="Clique ou arraste uma imagem">
                 {% if m.image_url %}
                 <img src="{{ m.image_url }}" alt="">
@@ -390,6 +420,30 @@
               </div>
               <input type="text" class="m-name" value="{{ m.name }}" onchange="updateModel({{ m.id }}, 'name', this.value)">
               <input type="text" class="m-puff" value="{{ m.puff_count }}" onchange="updateModel({{ m.id }}, 'puff_count', this.value)">
+
+              {# Transforma o modelo numa VERSÃO de outro: ele perde o card próprio
+                 no catálogo e os sabores dele passam a aparecer na lista do
+                 principal, com a etiqueta ao lado do nome. #}
+              <label class="m-variant" title="Marque quando este modelo for o mesmo produto do principal, só que Slim ou de geração anterior.">
+                <span class="m-variant-lbl">Versão de</span>
+                <select onchange="updateModelParent({{ m.id }}, this.value)">
+                  <option value="">— produto principal</option>
+                  {% for cand in mains %}
+                  <option value="{{ cand.model.id }}" {{ 'selected' if m.parent_id == cand.model.id }}>{{ cand.model.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              {% if is_version %}
+              <label class="m-variant" title="Texto curto que aparece dentro do sabor, na loja. Quanto menor, melhor.">
+                <span class="m-variant-lbl">Etiqueta</span>
+                <input type="text" class="m-vlabel" maxlength="80" placeholder="Slim" value="{{ m.variant_label or '' }}" onchange="updateModel({{ m.id }}, 'variant_label', this.value)">
+              </label>
+              <label class="m-variant grow" title="Frase mostrada ao cliente quando ele escolhe um sabor desta versão. Em branco, aparece só a etiqueta.">
+                <span class="m-variant-lbl">Aviso ao cliente</span>
+                <input type="text" class="m-vnote" maxlength="200" placeholder="Corpo mais fino, mesma bateria" value="{{ m.variant_note or '' }}" onchange="updateModel({{ m.id }}, 'variant_note', this.value)">
+              </label>
+              {% endif %}
+
               <span class="spacer"></span>
               <span class="stock-toggle model-active-toggle" onclick="toggleModelActive({{ m.id }}, this)" title="Ligado = modelo aparece no site. Desligue quando o modelo esgotar para ocultá-lo sem perder os sabores.">
                 <span class="switch {{ 'on' if m.active }}"></span>
@@ -421,6 +475,15 @@
               </div>
             </div>
           </div>
+          {% endmacro %}
+
+          {% for item in node.models %}
+            {{ model_row(item, node.models | rejectattr('model.id', 'equalto', item.model.id) | list) }}
+            {# Versões logo abaixo do pai. O seletor delas lista os principais da
+               marca, e o próprio pai já vem marcado. #}
+            {% for sub in item.versions %}
+              {{ model_row(sub, node.models, is_version=true) }}
+            {% endfor %}
           {% endfor %}
         </div>
         {% endfor %}
@@ -456,7 +519,9 @@
               <div class="cmp-brand">{{ b.brand.name }}</div>
               <div class="cmp-models">
                 {% for m in b.models %}
-                <label class="cmp-item"><input type="checkbox" class="newCouponModel" value="{{ m.model.id }}"> {{ m.model.name }}</label>
+                {# Só os principais aparecem: o cupom marcado aqui já alcança as
+                   versões do produto (ver api_apply_coupon). #}
+                <label class="cmp-item"><input type="checkbox" class="newCouponModel" value="{{ m.model.id }}"> {{ m.model.name }}{% if m.versions %} <span style="color:var(--text-dim)">(+{{ m.versions|length }} versão{{ 'ões' if m.versions|length > 1 }})</span>{% endif %}</label>
                 {% endfor %}
               </div>
               {% endif %}
@@ -1268,8 +1333,34 @@
         uploadModelImage(mid, e.dataTransfer.files[0]);
       });
     });
+    // Vincular/desvincular uma versão muda a FORMA da árvore (a linha muda de
+    // lugar, ganha ou perde campos), então recarrega em vez de remendar o DOM —
+    // mesma escolha de addProduct/delProduct. E aqui a resposta é conferida de
+    // verdade: o servidor recusa hierarquia de dois níveis, marca diferente e
+    // modelo que já tem versões penduradas.
+    async function updateModelParent(id, value) {
+      const res = await api('/api/model/'+id,'POST',{parent_id: value || null});
+      if (!res || !res.ok) {
+        toast(res && res.error ? res.error : "Não foi possível salvar");
+        return;
+      }
+      location.reload();
+    }
     async function delModel(id) {
-      if (!confirm("Excluir este modelo e seus sabores?")) return;
+      // Excluir o principal NÃO apaga as versões: elas voltam a ser produtos
+      // independentes no catálogo (parent_id vira NULL). O aviso diz isso, senão
+      // o lojista acha que perdeu os sabores delas junto.
+      const row = document.querySelector('.model-row[data-mid="'+id+'"]');
+      let extra = "";
+      if (row) {
+        let n = 0, next = row.nextElementSibling;
+        while (next && next.classList.contains('is-version')) { n++; next = next.nextElementSibling; }
+        if (n > 0) {
+          extra = "\n\nAs " + n + " versão(ões) abaixo dele NÃO serão apagadas: " +
+                  "voltam a aparecer no catálogo como produtos independentes.";
+        }
+      }
+      if (!confirm("Excluir este modelo e seus sabores?" + extra)) return;
       await api('/api/model/'+id,'DELETE');
       location.reload();
     }

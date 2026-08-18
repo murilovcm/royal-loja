@@ -1904,6 +1904,46 @@ header.site-header::after {
   color: var(--text-on-primary); border-color: transparent;
   box-shadow: var(--glow);
 }
+/* Etiqueta da versão (Slim, Antiga) DENTRO do pill do sabor.
+   Dentro e não em linha separada de propósito: o mesmo sabor pode existir em
+   duas versões com preços diferentes ("Grape Ice" no padrão e no antigo), então
+   a etiqueta precisa ficar colada ao nome, senão a lista mostra o item repetido
+   sem o cliente saber qual é qual. */
+.flavor-pill .vtag {
+  font-size: .64rem; font-weight: var(--fw-medium);
+  letter-spacing: .04em; text-transform: uppercase;
+  color: var(--brand);
+  background: rgba(var(--primary-rgb), .13);
+  border: 1px solid rgba(var(--primary-rgb), .34);
+  padding: 2px 7px; border-radius: var(--r-pill);
+  white-space: nowrap;
+}
+/* Pill selecionado é preenchido com o degradê de marca, então a etiqueta
+   inverte para escuro — amarelo sobre amarelo sumiria. */
+.flavor-pill.selected .vtag {
+  color: var(--text-on-primary);
+  background: rgba(0,0,0,.15);
+  border-color: rgba(0,0,0,.24);
+}
+/* Aviso que aparece só quando o sabor escolhido é de outra versão. No celular
+   ele é o que mais trabalha: a foto do topo é pequena demais para a diferença
+   física entre padrão e slim aparecer sozinha. */
+.flavor-disclaimer {
+  display: flex; gap: 9px; align-items: flex-start;
+  font-size: .78rem; line-height: var(--lh-base); color: var(--text-dim);
+  background: var(--surf-2);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--brand);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  margin: -12px 0 22px;
+}
+/* Sem isto o aviso ficaria SEMPRE visível: estilo de autor vence o
+   [hidden]{display:none} do navegador, e este bloco declara display:flex.
+   Mesmo tratamento que .promo-pop[hidden] mais abaixo. */
+.flavor-disclaimer[hidden] { display: none; }
+.flavor-disclaimer .fd-ic { color: var(--brand); font-weight: var(--fw-bold); flex-shrink: 0; }
+.flavor-disclaimer b { color: var(--text); font-weight: var(--fw-medium); }
 .modal-foot {
   margin-top: auto;
   position: sticky;
@@ -3030,6 +3070,7 @@ body.editor-mode .model-card { cursor: default; }
   .modal-body .puffs { margin-bottom: 18px; }
   .flavor-grid { gap: 8px; margin-bottom: 20px; }
   .flavor-pill { padding: 11px 15px; font-size: .85rem; } /* alvo de toque maior */
+  .flavor-disclaimer { margin: -12px 0 18px; }
   .modal-close { width: 36px; height: 36px; top: 12px; right: 12px; }
   .add-btn { padding: 17px; font-size: 1.02rem; }
   .qty-ctrl button { width: 38px; height: 38px; }      /* toque confortável */

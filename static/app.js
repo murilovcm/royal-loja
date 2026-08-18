@@ -527,6 +527,55 @@
     return `<span class="ph">${escapeHtml(model.name[0])}</span>`;
   }
 
+  // Foto/puffs/título do modal seguem a VERSÃO do sabor escolhido. Sem sabor
+  // escolhido, mostram o modelo principal. É o que deixa claro que "Lush Ice"
+  // vem no aparelho Slim, e não no que o cliente clicou na grade.
+  function applyFlavorContext(model, flavor) {
+    const alt = flavor && flavor.version_label;
+    // Versão sem foto própria cai na foto do principal: melhor mostrar o produto
+    // certo com a foto da geração anterior do que o placeholder de letra.
+    byId("modalImg").innerHTML = imgHTML(
+      alt
+        ? { ...model, name: flavor.version_name, image_url: flavor.version_image || model.image_url }
+        : model
+    );
+    byId("modalName").textContent = alt ? flavor.version_name : model.name;
+
+    const puffsEl = byId("modalPuffs");
+    puffsEl.innerHTML = '<i class="ico-bolt"></i> ';
+    puffsEl.append(alt ? flavor.version_puffs : model.puff_count);
+
+    // Texto do aviso montado com nós de texto, nunca innerHTML com dado do
+    // painel — mesma regra do badge de puffs logo acima.
+    const disc = byId("modalDisclaimer");
+    if (!alt) {
+      disc.hidden = true;
+      disc.textContent = "";
+      return;
+    }
+    disc.hidden = false;
+    disc.textContent = "";
+    const ic = document.createElement("span");
+    ic.className = "fd-ic";
+    ic.setAttribute("aria-hidden", "true");
+    ic.textContent = "ⓘ";
+    const txt = document.createElement("span");
+    txt.append("Este sabor é da versão ");
+    const b = document.createElement("b");
+    b.textContent = flavor.version_label;
+    txt.append(b);
+    // O lojista digita a nota sem se preocupar com pontuação, então fecha-se a
+    // frase aqui — senão sai "mesma bateria 8.000 puffs." tudo emendado.
+    if (flavor.version_note) {
+      const note = flavor.version_note.trim();
+      txt.append(` — ${note}${/[.!?…]$/.test(note) ? "" : "."}`);
+    } else {
+      txt.append(".");
+    }
+    if (flavor.version_puffs) txt.append(` ${flavor.version_puffs}.`);
+    disc.append(ic, txt);
+  }
+
   function openModal(model) {
     // O cliente abriu um produto: a faixa de avisos sai de cena para não roubar
     // espaço de quem está decidindo. Volta quando ele fecha o produto e retoma a
@@ -535,16 +584,10 @@
     if (announceBar) announceBar.classList.add("is-done");
 
     modalState = { model, flavor: null, qty: 1 };
-    byId("modalImg").innerHTML = imgHTML(model);
     byId("modalBrand").textContent = model.brand_name;
-    byId("modalName").textContent = model.name;
-    // Ícone de raio temável (segue currentColor) + texto como nó de texto
-    // (nunca innerHTML com dado do produto — evita injeção de HTML).
-    const puffsEl = byId("modalPuffs");
-    // Mesmo raio preenchido do badge do card. O texto entra como nó de texto,
-    // nunca via innerHTML com dado do produto, para não abrir injeção.
-    puffsEl.innerHTML = '<i class="ico-bolt"></i> ';
-    puffsEl.append(model.puff_count);
+    // Sem sabor escolhido ainda, o contexto é o do modelo principal (foto,
+    // puffs e título), e o aviso de versão fica escondido.
+    applyFlavorContext(model, null);
     byId("qtyVal").textContent = "1";
 
     const inStock = model.flavors.filter((f) => f.is_in_stock);
@@ -552,9 +595,14 @@
     if (inStock.length === 0) {
       fg.innerHTML = `<span style="color:var(--text-dim);font-size:.85rem">Sem sabores em estoque no momento.</span>`;
     } else {
+      // A etiqueta da versão vai DENTRO do pill: o mesmo sabor pode existir em
+      // duas versões com preços diferentes ("Grape Ice" no padrão e no antigo),
+      // então ela precisa viajar colada ao nome para o cliente saber qual é qual.
       fg.innerHTML = inStock.map((f, i) =>
-        `<button class="flavor-pill" data-fid="${f.id}" data-price="${f.price}" data-name="${f.name}">
-           <span class="dot" style="background:${f.color || PALETTE[i % PALETTE.length]}"></span>${f.name}
+        `<button class="flavor-pill" data-fid="${f.id}">
+           <span class="dot" style="background:${f.color || PALETTE[i % PALETTE.length]}"></span>${escapeHtml(f.name)}${
+             f.version_label ? `<span class="vtag">${escapeHtml(f.version_label)}</span>` : ""
+           }
          </button>`).join("");
     }
     updateModalTotal();
@@ -589,13 +637,17 @@
   byId("modalFlavors").addEventListener("click", (e) => {
     const pill = e.target.closest(".flavor-pill");
     if (!pill) return;
+    const fid = Number(pill.dataset.fid);
+    // Resolve o sabor no catálogo em vez de ler nome/preço de volta do DOM:
+    // assim o objeto vem completo (inclusive os campos de versão) e nenhum dado
+    // do painel precisa transitar por atributo HTML.
+    const flavor = modalState.model.flavors.find((f) => f.id === fid);
+    if (!flavor) return;
     byId("modalFlavors").querySelectorAll(".flavor-pill").forEach((p) => p.classList.remove("selected"));
     pill.classList.add("selected");
-    modalState.flavor = {
-      id: Number(pill.dataset.fid),
-      name: pill.dataset.name,
-      price: parseFloat(pill.dataset.price),
-    };
+    modalState.flavor = flavor;
+    // Trocou para um sabor de outra versão: foto, puffs, título e aviso acompanham.
+    applyFlavorContext(modalState.model, flavor);
     updateModalTotal();
   });
 
@@ -610,22 +662,25 @@
     if (!modalState.flavor) return;
     const m = modalState.model;
     const f = modalState.flavor;
+    // Nome e foto vêm da VERSÃO do sabor, não do card que o cliente clicou:
+    // o pedido precisa dizer "V150 Slim" para o lojista separar o aparelho certo.
+    const versionName = f.version_name || m.name;
     const existing = cart.find((it) => it.flavor_id === f.id);
     if (existing) existing.qty += modalState.qty;
     else cart.push({
       flavor_id: f.id,
-      model_name: m.name,
+      model_name: versionName,
       brand_name: m.brand_name,
       flavor_name: f.name,
       price: f.price,
       qty: modalState.qty,
-      image_url: m.image_url || "",
+      image_url: f.version_image || m.image_url || "",
     });
     saveCart();
     renderCart();
     closeModal();
     openCart();
-    toast("Adicionado ao carrinho", `${m.name} • ${f.name}`, "success");
+    toast("Adicionado ao carrinho", `${versionName} • ${f.name}`, "success");
   });
 
   byId("modalClose").addEventListener("click", closeModal);
