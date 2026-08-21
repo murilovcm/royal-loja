@@ -26,6 +26,30 @@
     .brand-head .b-name:focus { outline:none; border-color:var(--primary-yellow); background:var(--bg-2); }
     .brand-head .b-icon { font-size:1.3rem; }
 
+    /* --- Aba "Ordem do catálogo": a lista plana que espelha a grade da loja --- */
+    .order-list { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .order-item { display:flex; align-items:center; gap:12px; padding:10px 14px; border-top:1px solid var(--border); background:var(--surface); cursor:grab; }
+    .order-item:first-child { border-top:none; }
+    .order-item.dragging { opacity:.4; cursor:grabbing; }
+    /* Faixa amarela mostrando ONDE o card vai cair. Sem ela, soltar é adivinhação. */
+    .order-item.drop-before { box-shadow:inset 0 3px 0 0 var(--primary-yellow); }
+    .order-item.drop-after  { box-shadow:inset 0 -3px 0 0 var(--primary-yellow); }
+    .order-grip { color:var(--text-dim); letter-spacing:-3px; cursor:grab; }
+    .order-num { min-width:26px; font-weight:800; color:var(--primary-yellow); }
+    .order-thumb { width:44px; height:44px; flex-shrink:0; border:1px solid var(--border); border-radius:8px; background:var(--bg-2); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .order-thumb img { width:100%; height:100%; object-fit:cover; }
+    .order-name { font-weight:700; }
+    .order-item .spacer { flex:1; }
+    .order-brand { color:var(--text-dim); font-weight:600; }
+    .order-star { color:var(--primary-yellow); }
+    .order-moves { display:flex; gap:4px; }
+    .order-move { padding:4px 9px; border-radius:8px; border:1px solid var(--border); background:none; color:var(--text-dim); font-weight:700; transition:.2s; }
+    .order-move:hover:not(:disabled) { color:var(--primary-yellow); border-color:var(--primary-yellow); }
+    .order-move:disabled { opacity:.3; cursor:default; }
+    .order-empty { color:var(--text-dim); padding:18px 0; }
+    /* No celular o arrasto HTML5 não dispara: sobram as setas, então a pegada sai. */
+    @media (max-width:520px){ .order-grip { display:none; } .order-item { cursor:default; } }
+
     .model-row { border-top:1px solid var(--border); }
     /* Modelo esgotado/oculto: some do site, e no painel fica esmaecido com faixa. */
     .model-row.model-inactive .model-line { opacity:.55; }
@@ -361,6 +385,7 @@
 
     <div class="admin-tabs" id="adminTabs">
       <button class="tab-btn active" data-tab="catalog" type="button">📦 Catálogo</button>
+      <button class="tab-btn" data-tab="order" type="button">↕️ Ordem do catálogo</button>
       <button class="tab-btn" data-tab="coupons" type="button">🏷️ Cupons</button>
       <button class="tab-btn" data-tab="shipping" type="button">🗺️ Frete</button>
       <button class="tab-btn" data-tab="identity" type="button">🎨 Identidade Visual</button>
@@ -488,6 +513,34 @@
         </div>
         {% endfor %}
       </div>
+      </div>
+    </div>
+
+    <div class="admin-tab-panel" data-tab-panel="order">
+      {% if not can_catalog %}<div class="readonly-banner">🔒 Somente leitura — fale com o dono da loja para poder ordenar o catálogo.</div>{% endif %}
+      <div class="{{ 'readonly-lock' if not can_catalog }}">
+      {% if catalog_order %}
+      <div class="order-list" id="orderList">
+        {% for m in catalog_order %}
+        <div class="order-item" data-mid="{{ m.id }}" draggable="true">
+          <span class="order-grip" title="Arraste para reordenar" aria-hidden="true">⠿</span>
+          <span class="order-num">{{ loop.index }}</span>
+          <div class="order-thumb">
+            {% if m.image_url %}<img src="{{ m.image_url }}" alt="">{% else %}<span>📷</span>{% endif %}
+          </div>
+          <span class="order-name"><span class="order-brand">{{ m.brand_name }}</span> {{ m.name }}</span>
+          {% if m.is_best_seller %}<span class="order-star" title="Também aparece na seção Mais Vendidos">★</span>{% endif %}
+          <span class="spacer"></span>
+          <div class="order-moves">
+            <button type="button" class="order-move" data-dir="up" onclick="moveOrderItem(this, -1)" title="Mover para cima" aria-label="Mover para cima">↑</button>
+            <button type="button" class="order-move" data-dir="down" onclick="moveOrderItem(this, 1)" title="Mover para baixo" aria-label="Mover para baixo">↓</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="order-empty">Nenhum produto no site ainda. Cadastre um modelo na aba 📦 Catálogo e ele aparece aqui.</p>
+      {% endif %}
       </div>
     </div>
 
@@ -1223,6 +1276,7 @@
         document.querySelectorAll('.admin-tab-panel').forEach((p) => p.classList.remove('active'));
         btn.classList.add('active');
         document.querySelector('.admin-tab-panel[data-tab-panel="'+btn.dataset.tab+'"]').classList.add('active');
+        if (btn.dataset.tab === 'order' && ordemDesatualizada) location.reload();
       });
     });
 
@@ -1377,8 +1431,96 @@
       const label = el.querySelector('.model-active-label');
       if (label) label.textContent = on ? 'No site' : 'Esgotado';
       await api('/api/model/'+id,'POST',{active: on ? 1 : 0});
-      toast(on ? "Modelo reativado no site" : "Modelo ocultado do site (esgotado)");
+      // Ligar/desligar muda QUEM está na lista da aba de ordem (o religado volta
+      // pelo topo). Como esta aba não recarrega a página, a outra fica velha:
+      // marcamos para recarregar na hora em que ela for aberta.
+      ordemDesatualizada = true;
+      toast(on ? "Modelo reativado no site (voltou para o topo do catálogo)" : "Modelo ocultado do site (esgotado)");
     }
+    // --- Ordem do catálogo ---------------------------------------------------
+    // Arrastar (computador) e as setas ↑↓ (celular, teclado) terminam na MESMA
+    // função: reposicionam a linha no DOM e mandam a lista inteira de ids para
+    // o servidor, que renumera catalog_pos em 0..n.
+    let ordemDesatualizada = false;
+
+    function renumberOrder() {
+      const itens = [...document.querySelectorAll('#orderList .order-item')];
+      itens.forEach((it, i) => {
+        it.querySelector('.order-num').textContent = i + 1;
+        it.querySelector('.order-move[data-dir="up"]').disabled = (i === 0);
+        it.querySelector('.order-move[data-dir="down"]').disabled = (i === itens.length - 1);
+      });
+      return itens.map((it) => Number(it.dataset.mid));
+    }
+
+    async function saveOrder() {
+      const ids = renumberOrder();
+      const r = await api('/api/catalog/order', 'POST', { ids });
+      if (r && r.ok) { toast("Ordem salva ✓"); return; }
+      // 409: alguém criou, religou ou excluiu um produto depois que esta página
+      // carregou. Recarregar é o único jeito de voltar a ver a lista de verdade.
+      toast((r && r.error) || "Não foi possível salvar a ordem");
+      setTimeout(() => location.reload(), 1800);
+    }
+
+    function moveOrderItem(btn, passo) {
+      const item = btn.closest('.order-item');
+      const vizinho = passo < 0 ? item.previousElementSibling : item.nextElementSibling;
+      if (!vizinho) return;
+      if (passo < 0) vizinho.before(item); else vizinho.after(item);
+      saveOrder();
+      // O botão clicado foi junto com a linha. Devolver o foco a ele deixa tocar
+      // várias vezes seguidas sem caçar o botão na tela a cada movimento; se ele
+      // acabou de chegar na ponta e desabilitou, o foco passa para o irmão.
+      const mesmo = item.querySelector('.order-move[data-dir="' + (passo < 0 ? 'up' : 'down') + '"]');
+      const outro = item.querySelector('.order-move[data-dir="' + (passo < 0 ? 'down' : 'up') + '"]');
+      (mesmo && !mesmo.disabled ? mesmo : outro).focus();
+    }
+
+    (function initOrderDrag() {
+      const lista = document.getElementById('orderList');
+      if (!lista) return;
+      let arrastado = null;
+      const limpaMarcas = () => lista.querySelectorAll('.order-item')
+        .forEach((i) => i.classList.remove('drop-before', 'drop-after'));
+      // Acima ou abaixo do alvo? Decidido pela metade da altura da linha, que é
+      // como o cursor "empurra" o card para o lugar certo.
+      const antesDoMeio = (alvo, y) => y < alvo.getBoundingClientRect().top + alvo.offsetHeight / 2;
+
+      lista.addEventListener('dragstart', (e) => {
+        const item = e.target.closest('.order-item');
+        if (!item) return;
+        arrastado = item;
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        // O Firefox só começa o arrasto se algum dado for gravado.
+        e.dataTransfer.setData('text/plain', item.dataset.mid);
+      });
+      lista.addEventListener('dragover', (e) => {
+        if (!arrastado) return;
+        e.preventDefault();
+        const alvo = e.target.closest('.order-item');
+        limpaMarcas();
+        if (!alvo || alvo === arrastado) return;
+        alvo.classList.add(antesDoMeio(alvo, e.clientY) ? 'drop-before' : 'drop-after');
+      });
+      lista.addEventListener('drop', (e) => {
+        if (!arrastado) return;
+        e.preventDefault();
+        const alvo = e.target.closest('.order-item');
+        limpaMarcas();
+        if (!alvo || alvo === arrastado) return;
+        if (antesDoMeio(alvo, e.clientY)) alvo.before(arrastado); else alvo.after(arrastado);
+        saveOrder();
+      });
+      lista.addEventListener('dragend', () => {
+        if (arrastado) arrastado.classList.remove('dragging');
+        arrastado = null;
+        limpaMarcas();
+      });
+      renumberOrder();  // desabilita ↑ do primeiro e ↓ do último já na carga
+    })();
+
     function toggleFlavors(id, el) {
       const box = document.getElementById('flavors-'+id);
       const open = box.classList.toggle('open');

@@ -466,6 +466,9 @@ def init_db():
             variant_label  TEXT,     -- etiqueta curta dentro do pill: "Slim", "Antiga"
             variant_note   TEXT,     -- aviso ao cliente ao escolher o sabor
             variant_pos    INTEGER NOT NULL DEFAULT 0,
+            -- Ordem MANUAL do card no catálogo, definida na aba "Ordem do
+            -- catálogo" do painel. Menor = mais perto do começo da grade.
+            catalog_pos    INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (brand_id) REFERENCES brands(id) ON DELETE CASCADE
         );
 
@@ -586,6 +589,25 @@ def init_db():
         db.commit()
     if "variant_pos" not in model_cols:
         db.execute("ALTER TABLE vape_models ADD COLUMN variant_pos INTEGER NOT NULL DEFAULT 0")
+        db.commit()
+
+    # Migração: catalog_pos guarda a ORDEM MANUAL do catálogo, escolhida na aba
+    # "Ordem do catálogo". Ela SUBSTITUI a antiga regra automática (mais
+    # vendidos primeiro, depois o mais novo), e por isso a estrela ★ deixa de
+    # ordenar: ela continua sendo o selo do card e a fonte da seção "Mais
+    # Vendidos", mas quem decide a posição agora é o lojista.
+    #
+    # A semeadura copia exatamente a ordem que a loja já exibia. Assim publicar
+    # esta versão não reordena nada na frente do cliente: a vitrine só muda no
+    # primeiro arrasto dentro do painel.
+    if "catalog_pos" not in model_cols:
+        db.execute("ALTER TABLE vape_models ADD COLUMN catalog_pos INTEGER NOT NULL DEFAULT 0")
+        atuais = db.execute(
+            "SELECT id FROM vape_models WHERE parent_id IS NULL "
+            "ORDER BY is_best_seller DESC, id DESC"
+        ).fetchall()
+        for pos, row in enumerate(atuais):
+            db.execute("UPDATE vape_models SET catalog_pos = ? WHERE id = ?", (pos, row["id"]))
         db.commit()
     db.execute("CREATE INDEX IF NOT EXISTS idx_models_parent ON vape_models(parent_id)")
     db.commit()
@@ -1086,6 +1108,12 @@ def build_catalog():
     Como `min_price`, `flavor_names` e a contagem de sabores do card já são
     calculados sobre `flavors`, todos passam a considerar as versões sem
     nenhuma mudança no template.
+
+    A ORDEM é a manual (`catalog_pos`), definida na aba "Ordem do catálogo" do
+    painel — a estrela ★ não ordena mais, só marca o card e alimenta a seção
+    "Mais Vendidos", que é derivada desta mesma lista e portanto herda a ordem.
+    O desempate por `id DESC` só entra em cena entre posições iguais, o que
+    acontece de forma passageira quando um modelo entra no catálogo pelo topo.
     """
     db = get_db()
     models = db.execute(
@@ -1093,7 +1121,7 @@ def build_catalog():
         SELECT m.*, b.name AS brand_name
         FROM vape_models m JOIN brands b ON b.id = m.brand_id
         WHERE m.active = 1 AND m.parent_id IS NULL
-        ORDER BY m.is_best_seller DESC, m.id DESC
+        ORDER BY m.catalog_pos, m.id DESC
         """
     ).fetchall()
 
@@ -1528,6 +1556,22 @@ def admin():
             node["versions"] = [_node(v) for v in versions]
             mlist.append(node)
         tree.append({"brand": dict(b), "models": mlist})
+
+    # Lista PLANA da aba "Ordem do catálogo": os mesmos cards que a loja mostra,
+    # na mesma sequência. É por isso que ela ignora as versões (não viram card)
+    # e os esgotados (não aparecem na loja) — a aba é um espelho da grade, não
+    # um segundo inventário.
+    catalog_order = [
+        dict(r)
+        for r in db.execute(
+            """
+            SELECT m.id, m.name, m.image_url, m.is_best_seller, b.name AS brand_name
+            FROM vape_models m JOIN brands b ON b.id = m.brand_id
+            WHERE m.parent_id IS NULL AND m.active = 1
+            ORDER BY m.catalog_pos, m.id DESC
+            """
+        ).fetchall()
+    ]
     special_zones, concentric_zones = get_shipping_zones()
     user = _current_user()
     is_owner = user["role"] == "owner"
@@ -1541,6 +1585,7 @@ def admin():
     return render_template(
         "admin.html",
         tree=tree,
+        catalog_order=catalog_order,
         config=get_config(),
         coupons=get_coupons(),
         special_zones=special_zones,
@@ -2319,6 +2364,69 @@ def api_delete_brand(bid):
 
 
 # ---- Models ----
+def _pos_de_entrada(db):
+    """Posição de quem ENTRA no catálogo: sempre à frente do primeiro card.
+
+    Vale para os dois casos em que um card aparece do nada na loja — o modelo
+    recém-criado e o que volta do estoque (`active` 0 → 1). Nenhum dos dois
+    estava na lista da aba de ordem, então precisam de um destino definido;
+    entrar pelo topo é o que os torna visíveis na hora, e descer é um arrasto.
+    Também preserva o comportamento antigo, em que o mais novo vinha primeiro.
+
+    Valor negativo aqui é esperado e inofensivo: o próximo salvamento da aba
+    renumera a coluna inteira em 0..n.
+    """
+    row = db.execute(
+        "SELECT MIN(catalog_pos) AS menor FROM vape_models "
+        "WHERE parent_id IS NULL AND active = 1"
+    ).fetchone()
+    return (row["menor"] - 1) if row and row["menor"] is not None else 0
+
+
+@app.route("/api/catalog/order", methods=["POST"])
+@api_catalog_required
+def api_catalog_order():
+    """Grava a ordem manual do catálogo inteira, de uma vez só.
+
+    O painel manda a lista completa de ids já na ordem final e o servidor
+    renumera 0..n. Reescrever tudo — em vez de trocar dois vizinhos como fazem
+    os blocos promo — é o que mantém a coluna sem buracos nem empates depois de
+    um modelo ter entrado pelo topo com posição negativa.
+    """
+    ids = (request.get_json(force=True) or {}).get("ids") or []
+    db = get_db()
+    validos = {
+        r["id"]
+        for r in db.execute(
+            "SELECT id FROM vape_models WHERE parent_id IS NULL AND active = 1"
+        ).fetchall()
+    }
+    ordem = []
+    for bruto in ids:
+        try:
+            mid = int(bruto)
+        except (TypeError, ValueError):
+            continue
+        # Só produtos principais ativos, e sem repetir: a lista vem da tela, e
+        # a API é chamável direto.
+        if mid in validos and mid not in ordem:
+            ordem.append(mid)
+
+    # Faltou algum ativo? A tela está velha — outra aba (ou outro funcionário)
+    # criou ou religou um modelo depois que esta página carregou. Recusar é
+    # melhor do que gravar: gravar zeraria a posição de quem ficou de fora.
+    if len(ordem) != len(validos):
+        return jsonify({
+            "ok": False,
+            "error": "a lista mudou em outro lugar — recarregue a página",
+        }), 409
+
+    for pos, mid in enumerate(ordem):
+        db.execute("UPDATE vape_models SET catalog_pos = ? WHERE id = ?", (pos, mid))
+    db.commit()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/model", methods=["POST"])
 @api_catalog_required
 def api_create_model():
@@ -2330,8 +2438,10 @@ def api_create_model():
         return jsonify({"ok": False, "error": "dados incompletos"}), 400
     db = get_db()
     cur = db.execute(
-        "INSERT INTO vape_models (brand_id, name, puff_count, image_url, is_best_seller) VALUES (?,?,?,?,0)",
-        (brand_id, name, puff, ""),
+        "INSERT INTO vape_models "
+        "(brand_id, name, puff_count, image_url, is_best_seller, catalog_pos) "
+        "VALUES (?,?,?,?,0,?)",
+        (brand_id, name, puff, "", _pos_de_entrada(db)),
     )
     db.commit()
     return jsonify({"ok": True, "id": cur.lastrowid})
@@ -2351,8 +2461,20 @@ def api_update_model(mid):
     # `active` controla se o modelo aparece no site (0 = esgotado/oculto).
     # Normalizado para 0/1 para nunca gravar lixo na coluna.
     if "active" in d:
+        ativo = 1 if d["active"] else 0
         fields.append("active = ?")
-        vals.append(1 if d["active"] else 0)
+        vals.append(ativo)
+        # Enquanto esteve esgotado, o modelo ficou FORA da aba de ordem e os
+        # ativos foram renumerados sem ele — seu catalog_pos envelheceu e hoje
+        # empata com algum vizinho. Religar sem reposicionar jogaria o card num
+        # ponto imprevisível do meio da grade, então ele volta pelo topo.
+        if ativo:
+            antes = db.execute(
+                "SELECT active, parent_id FROM vape_models WHERE id = ?", (mid,)
+            ).fetchone()
+            if antes and not antes["active"] and antes["parent_id"] is None:
+                fields.append("catalog_pos = ?")
+                vals.append(_pos_de_entrada(db))
 
     # Etiqueta e aviso da versão. Texto livre, mas guardado limpo: a etiqueta é
     # curta porque cabe dentro do pill do sabor.
