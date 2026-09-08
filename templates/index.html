@@ -521,6 +521,10 @@
         {# Só aparece quando o sabor escolhido é de outra versão do aparelho
            (Slim, geração anterior). Preenchido em app.js. #}
         <p class="flavor-disclaimer" id="modalDisclaimer" hidden></p>
+        {# Aviso do SABOR em si, independente da versão. Elemento separado (e não
+           mais texto dentro do de cima) porque os dois podem aparecer juntos:
+           um sabor de versão pode ter aviso próprio. Preenchido em app.js. #}
+        <p class="flavor-disclaimer" id="modalFlavorNote" hidden></p>
         <div class="modal-foot">
           <div class="qty-row">
             <div class="qty-ctrl">

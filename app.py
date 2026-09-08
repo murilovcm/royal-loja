@@ -479,6 +479,10 @@ def init_db():
             price       REAL DEFAULT 0,
             is_in_stock INTEGER DEFAULT 1,
             color       TEXT,                -- cor do ponto (•) do sabor no card; NULL = usa a paleta padrão
+            -- Aviso do SABOR, mostrado quando o cliente clica no pill dele. É
+            -- irmão de variant_note (que é da versão do aparelho) e não o
+            -- substitui: um sabor de versão com aviso próprio mostra os dois.
+            note        TEXT,
             FOREIGN KEY (model_id) REFERENCES vape_models(id) ON DELETE CASCADE
         );
 
@@ -557,6 +561,11 @@ def init_db():
     prod_cols = {row["name"] for row in db.execute("PRAGMA table_info(products)").fetchall()}
     if "color" not in prod_cols:
         db.execute("ALTER TABLE products ADD COLUMN color TEXT")
+        db.commit()
+    # Migração: products ganhou `note`, o aviso por sabor. Nasce NULL em todo
+    # sabor antigo, então nenhum deles passa a mostrar aviso nenhum.
+    if "note" not in prod_cols:
+        db.execute("ALTER TABLE products ADD COLUMN note TEXT")
         db.commit()
 
     # Migração: vape_models ganhou a coluna `active` (permite desativar/ocultar
@@ -1094,6 +1103,9 @@ def _flavors_of(db, model):
         f["version_note"] = (model["variant_note"] or "").strip()
         f["version_puffs"] = model["puff_count"]
         f["version_image"] = model["image_url"]
+        # Normalizado aqui, igual a version_note: o front só testa se a string
+        # está vazia, sem precisar lidar com NULL vindo do banco.
+        f["note"] = (f.get("note") or "").strip()
         flavors.append(f)
     return flavors
 
@@ -2611,6 +2623,11 @@ def api_update_product(pid):
     if "color" in d:
         fields.append("color = ?")
         vals.append(clean_hex_color(d["color"]))
+    # Aviso do sabor. Mesmo teto de 200 do aviso da versão: é uma frase que
+    # divide espaço com ela dentro do modal, não um parágrafo.
+    if "note" in d:
+        fields.append("note = ?")
+        vals.append((d["note"] or "").strip()[:200])
     if not fields:
         return jsonify({"ok": False}), 400
     vals.append(pid)

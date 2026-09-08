@@ -547,33 +547,55 @@
 
     // Texto do aviso montado com nós de texto, nunca innerHTML com dado do
     // painel — mesma regra do badge de puffs logo acima.
+    //
+    // São DOIS avisos independentes, empilhados: o de versão (fato sobre o
+    // aparelho) e o do próprio sabor. Um sabor de versão com aviso próprio
+    // mostra os dois, nessa ordem — o de versão nunca é engolido, porque é ele
+    // que diz qual aparelho o cliente vai receber.
     const disc = byId("modalDisclaimer");
-    if (!alt) {
-      disc.hidden = true;
-      disc.textContent = "";
-      return;
-    }
-    disc.hidden = false;
     disc.textContent = "";
+    disc.hidden = !alt;
+    if (alt) {
+      const txt = document.createElement("span");
+      txt.append("Este sabor é da versão ");
+      const b = document.createElement("b");
+      b.textContent = flavor.version_label;
+      txt.append(b);
+      // O lojista digita a nota sem se preocupar com pontuação, então fecha-se a
+      // frase aqui — senão sai "mesma bateria 8.000 puffs." tudo emendado.
+      if (flavor.version_note) {
+        txt.append(` — ${fecharFrase(flavor.version_note)}`);
+      } else {
+        txt.append(".");
+      }
+      if (flavor.version_puffs) txt.append(` ${flavor.version_puffs}.`);
+      disc.append(iconeAviso(), txt);
+    }
+
+    const fnote = byId("modalFlavorNote");
+    const note = flavor ? (flavor.note || "").trim() : "";
+    fnote.textContent = "";
+    fnote.hidden = !note;
+    if (note) {
+      const txt = document.createElement("span");
+      txt.textContent = fecharFrase(note);
+      fnote.append(iconeAviso(), txt);
+    }
+  }
+
+  function iconeAviso() {
     const ic = document.createElement("span");
     ic.className = "fd-ic";
     ic.setAttribute("aria-hidden", "true");
     ic.textContent = "ⓘ";
-    const txt = document.createElement("span");
-    txt.append("Este sabor é da versão ");
-    const b = document.createElement("b");
-    b.textContent = flavor.version_label;
-    txt.append(b);
-    // O lojista digita a nota sem se preocupar com pontuação, então fecha-se a
-    // frase aqui — senão sai "mesma bateria 8.000 puffs." tudo emendado.
-    if (flavor.version_note) {
-      const note = flavor.version_note.trim();
-      txt.append(` — ${note}${/[.!?…]$/.test(note) ? "" : "."}`);
-    } else {
-      txt.append(".");
-    }
-    if (flavor.version_puffs) txt.append(` ${flavor.version_puffs}.`);
-    disc.append(ic, txt);
+    return ic;
+  }
+
+  // Fecha a frase que o lojista digitou solta, sem duplicar pontuação que ele
+  // já tenha posto.
+  function fecharFrase(txt) {
+    const t = txt.trim();
+    return `${t}${/[.!?…]$/.test(t) ? "" : "."}`;
   }
 
   function openModal(model) {

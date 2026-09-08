@@ -124,6 +124,16 @@
     .flavor-line input[type=text] { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); font-size:.85rem; width:160px; }
     .flavor-line input[type=number] { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); font-size:.85rem; width:100px; }
     .flavor-line input:focus { outline:none; border-color:var(--primary-yellow); }
+    /* Botão do aviso do sabor. Apagado é só mais um ícone discreto; aceso
+       (amarelo) significa "este sabor já mostra um aviso na loja". */
+    .note-btn { background:none; border:1px solid var(--border); border-radius:8px; color:var(--text-dim); cursor:pointer; padding:4px 9px; font-size:.9rem; line-height:1; transition:.2s; }
+    .note-btn:hover { color:var(--text); border-color:rgba(255,214,10,.4); }
+    .note-btn.on { color:var(--primary-yellow); border-color:var(--primary-yellow); }
+    /* flex-basis 100% joga a caixa para a linha de baixo inteira, dentro da
+       mesma .flavor-line — assim ela continua sob o sabor a que pertence. */
+    .flavor-note-box { display:none; flex:0 0 100%; flex-direction:column; gap:3px; padding:2px 0 6px 46px; }
+    .flavor-note-box.open { display:flex; }
+    .flavor-note-box input { width:100%; max-width:520px; }
     .stock-toggle { display:inline-flex; align-items:center; gap:6px; font-size:.78rem; cursor:pointer; user-select:none; }
     .switch { width:38px; height:22px; background:var(--border); border-radius:999px; position:relative; transition:.2s; }
     .switch::after { content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#fff; transition:.2s; }
@@ -488,8 +498,16 @@
                   <span class="switch {{ 'on' if f.is_in_stock }}"></span>
                   <span>Estoque</span>
                 </span>
+                {# O aviso fica atrás de um clique porque um modelo tem dezenas de
+                   sabores e quase nenhum precisa de aviso — campo aberto em todos
+                   viraria ruído. O ⓘ aceso é o que denuncia quais já têm. #}
+                <button class="note-btn {{ 'on' if f.note }}" id="notebtn-{{ f.id }}" onclick="toggleFlavorNote({{ f.id }})" title="Aviso mostrado ao cliente quando ele escolhe este sabor">ⓘ</button>
                 <button class="del-btn" onclick="delProduct({{ f.id }})" title="Excluir sabor">🗑</button>
                 <span class="save-flag">salvo ✓</span>
+                <div class="flavor-note-box {{ 'open' if f.note }}" id="fnote-{{ f.id }}">
+                  <span class="m-variant-lbl">Aviso ao cliente</span>
+                  <input type="text" class="f-note" maxlength="200" placeholder="Sabor bem gelado, mentol forte" value="{{ f.note or '' }}" onchange="updateFlavorNote({{ f.id }}, this)">
+                </div>
               </div>
               {% endfor %}
               <div class="add-inline">
@@ -1530,6 +1548,21 @@
       const body = {}; body[field] = value;
       await api('/api/product/'+id,'POST',body);
       flag(el); toast("Salvo ✓");
+    }
+    // O ⓘ só abre/fecha a caixa; quem grava é o onchange do input. Fechar não
+    // descarta nada: o valor já foi salvo (ou nunca chegou a mudar).
+    function toggleFlavorNote(id) {
+      const box = document.getElementById('fnote-'+id);
+      if (!box) return;
+      if (box.classList.toggle('open')) box.querySelector('input').focus();
+    }
+    async function updateFlavorNote(id, el) {
+      const v = el.value.trim();
+      el.value = v;
+      await api('/api/product/'+id,'POST',{note: v});
+      // O ⓘ acende/apaga junto para a lista continuar dizendo a verdade sem F5.
+      document.getElementById('notebtn-'+id)?.classList.toggle('on', !!v);
+      flag(el); toast(v ? "Aviso salvo ✓" : "Aviso removido");
     }
     async function toggleStock(id, el) {
       const sw = el.querySelector('.switch');
