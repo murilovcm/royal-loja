@@ -228,18 +228,38 @@
      gruda abaixo do header ao rolar, e um sticky só funciona enquanto o pai
      estiver na tela. Como irmã direta do fluxo da página, acompanha o scroll
      inteiro.
-     Teto de 6 mensagens: o limite é de composição, não técnico. Uma faixa
-     girando entre dez frases vira ruído e ninguém lê nenhuma. #}
-  {% set announce = (config.announce_messages or '').split('\n') | map('trim') | select | list %}
+     As mensagens chegam de parse_announce() (app.py), já com o teto de 6 e com
+     os trechos que o lojista coloriu no painel separados em {text, color}. A
+     cor só existe se for hex válido, então o style="color" não aceita CSS.
+
+     Sem aria-live: uma área que muda a cada 4,8s fazia o leitor de tela
+     anunciar a faixa sem parar, interrompendo quem estava navegando. Todas as
+     mensagens continuam no DOM (só a opacidade muda), então quem chega na
+     faixa ouve todas em sequência.
+
+     Com 2 mensagens ou mais a faixa gira e responde ao dedo (app.js,
+     initAnnounce): tocar avança, segurar pausa, deslizar navega. Os traços de
+     .announce-segs mostram quantas são e quanto falta para a próxima, e a seta
+     .announce-hint avisa que dá para tocar. #}
   {% if config.announce_enabled == '1' and announce %}
-  <div class="announce-bar" id="announceBar">
-    <div class="container announce{{ ' announce-single' if announce | length == 1 }}" aria-live="polite">
+  {% set rotates = announce | length > 1 %}
+  <div class="announce-bar{{ ' announce-rotates' if rotates }}" id="announceBar"
+       {%- if rotates %} tabindex="0" role="group" aria-roledescription="carrossel" aria-label="Avisos da loja. Toque ou use as setas para trocar."{% endif %}>
+    <div class="container announce{{ ' announce-single' if not rotates }}">
       <span class="announce-dot" aria-hidden="true"></span>
       <div class="announce-track">
-        {% for msg in announce[:6] %}
-        <span class="announce-msg{{ ' is-on' if loop.first }}">{{ msg }}</span>
+        {% for msg in announce %}
+        <span class="announce-msg{{ ' is-on' if loop.first }}">
+          {%- for seg in msg -%}
+            {%- if seg.color -%}<span class="announce-color" style="color: {{ seg.color }}">{{ seg.text }}</span>{%- else -%}{{ seg.text }}{%- endif -%}
+          {%- endfor -%}
+        </span>
         {% endfor %}
       </div>
+      {% if rotates %}
+      <svg class="ico announce-hint" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      <div class="announce-segs" aria-hidden="true">{% for msg in announce %}<i></i>{% endfor %}</div>
+      {% endif %}
     </div>
   </div>
   {% endif %}

@@ -1294,6 +1294,50 @@ def parse_hero(config):
     return {"segments": segments, "subtitle": subtitle}
 
 
+# Marcador de cor dos avisos rotativos: "[#FF3B30]R$ 250[/]". Só casa com hex
+# válido e com o par completo; qualquer outra coisa (colchete solto, cor
+# inventada, "[/]" sem abertura) fica como texto literal na faixa. A cor sai
+# num style="color: ..." no template, então aceitar SÓ hex é o que impede
+# injeção de CSS pelo painel — mesma regra do clean_hex_color().
+_ANNOUNCE_COLOR_RE = re.compile(r"\[(#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}))\](.+?)\[/\]")
+# Teto de composição, não técnico: uma faixa girando entre dez frases vira
+# ruído e ninguém lê nenhuma.
+ANNOUNCE_MAX = 6
+
+
+def parse_announce(config):
+    """Mensagens da faixa rotativa, uma por linha de `announce_messages`, cada
+    uma quebrada em trechos {text, color}. `color` é None no texto normal (sai
+    na cor da marca) ou o hex que o lojista escolheu no painel para aquele
+    trecho.
+
+        "Frete grátis acima de [#FF3B30]R$ 250[/]"
+        -> [{"text": "Frete grátis acima de ", "color": None},
+            {"text": "R$ 250", "color": "#FF3B30"}]
+
+    O painel monta o marcador sozinho (seleciona a palavra, clica na cor), mas
+    ele também pode ser digitado à mão.
+    """
+    msgs = []
+    for linha in (config.get("announce_messages") or "").split("\n"):
+        linha = linha.strip()
+        if not linha:
+            continue
+        segments = []
+        pos = 0
+        for m in _ANNOUNCE_COLOR_RE.finditer(linha):
+            if m.start() > pos:
+                segments.append({"text": linha[pos:m.start()], "color": None})
+            segments.append({"text": m.group(2), "color": m.group(1)})
+            pos = m.end()
+        if pos < len(linha):
+            segments.append({"text": linha[pos:], "color": None})
+        msgs.append(segments)
+        if len(msgs) == ANNOUNCE_MAX:
+            break
+    return msgs
+
+
 def build_seo(config):
     """Título, descrição e imagem da página, tudo derivado de site_config.
 
@@ -1422,6 +1466,7 @@ def home():
         seo=build_seo(config),
         faq=faq,
         hero=parse_hero(config),
+        announce=parse_announce(config),
         jsonld=build_jsonld(config, faq),
     )
 

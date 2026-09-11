@@ -676,6 +676,12 @@ html.age-ok .age-gate-card,
   border-bottom: 1px solid rgba(var(--primary-rgb),.24);
   box-shadow: var(--shadow-md);
   padding: 9px 0;
+  /* Recorta o rolo das mensagens na borda da faixa: a que sai some pela aresta
+     de cima e a que entra nasce da de baixo, como uma janela de painel de
+     aeroporto. Sem isto o texto em saída vazaria por cima do header. O recorte
+     é no PRÓPRIO sticky, então o sticky continua funcionando (só quebra se um
+     ancestral recortar). O box-shadow fica fora e não é cortado. */
+  overflow: hidden;
   /* Nasce recolhida quando o cliente já escolheu um produto (ver .is-done). */
   transition: opacity .3s var(--ease-out), transform .3s var(--ease-out);
 }
@@ -711,8 +717,7 @@ html.age-ok .age-gate-card,
   100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb),0), 0 0 10px rgba(var(--primary-rgb),.6); }
 }
 /* Empilhada em grid: todas as mensagens ocupam a MESMA célula, então a faixa
-   tem altura fixa e a troca não empurra a página (zero CLS). A que sai e a que
-   entra se cruzam em opacidade e um deslize curto de 6px. */
+   tem altura fixa e a troca não empurra a página (zero CLS). */
 .announce-track {
   display: grid;
   align-items: center;
@@ -733,17 +738,149 @@ html.age-ok .age-gate-card,
      preço dos cards). */
   color: var(--brand);
   text-align: center;
-  opacity: 0;
-  transform: translateY(6px);
-  transition: opacity .45s var(--ease-out), transform .45s var(--ease-out);
   pointer-events: none;
+  /* Rolo vertical com UMA direção só: a mensagem espera embaixo, entra subindo
+     e sai subindo. Antes a que saía descia 6px e a que entrava subia do mesmo
+     ponto, então as duas se cruzavam no mesmo lugar e liam como sobrepostas.
+     Três estados, e cada um carrega a própria transição (o navegador usa a do
+     estado de DESTINO):
+       repouso  -> embaixo, sem transição: volta para cá num salto invisível
+       .is-on   -> no centro, entrada de 380ms
+       .is-off  -> em cima, saída de 220ms, mais rápida que a entrada
+     O blur(2px) nas pontas funde a que sai com a que entra: sem ele o olho vê
+     dois textos trocando de lugar, com ele vê um só rolando. Percentual no
+     translate = a própria altura da mensagem, vale com uma ou duas linhas. */
+  opacity: 0;
+  transform: translateY(100%);
+  filter: blur(2px);
+  transition: none;
 }
-.announce-msg.is-on { opacity: 1; transform: none; }
+.announce-msg.is-on {
+  opacity: 1;
+  transform: none;
+  filter: none;
+  /* 60ms de atraso: a que sai começa a subir antes, e a troca lê como um rolo
+     empurrando a próxima em vez de duas mensagens se atropelando. */
+  transition:
+    opacity 380ms var(--ease-out) 60ms,
+    transform 380ms var(--ease-out) 60ms,
+    filter 380ms var(--ease-out) 60ms;
+}
+.announce-msg.is-off {
+  opacity: 0;
+  transform: translateY(-100%);
+  filter: blur(2px);
+  transition:
+    opacity 220ms var(--ease-out),
+    transform 220ms var(--ease-out),
+    filter 220ms var(--ease-out);
+}
+/* Voltando uma mensagem (deslize para a direita), o rolo inverte: a que sai
+   desce e a anterior entra por cima. data-dir é posto em app.js a cada troca.
+   O :not(.is-on) existe porque este seletor é mais específico que o
+   .announce-msg.is-on e, sem ele, travaria a mensagem atual fora do centro. */
+.announce-bar[data-dir="back"] .announce-msg:not(.is-on) { transform: translateY(-100%); }
+.announce-bar[data-dir="back"] .announce-msg.is-off { transform: translateY(100%); }
 /* Mensagem única: sem transição de entrada, aparece e fica. */
 .announce-single .announce-msg { transition: none; }
-/* Acessibilidade: quem pede menos movimento não vê o ponto pulsando. */
+
+/* ---- Progresso + toque (itens 4 e 5) ----
+   Só com 2 mensagens ou mais (.announce-rotates). Os traços embaixo dizem ao
+   cliente que existem outras mensagens e quanto falta para a próxima; a faixa
+   inteira vira área de toque. touch-action: pan-y deixa a rolagem vertical da
+   página com o navegador e entrega só o gesto lateral para o app.js. */
+.announce-bar.announce-rotates {
+  padding-bottom: 14px;
+  cursor: pointer;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Afunda o CONTEÚDO, não a faixa: encolher a faixa inteira abriria uma fresta
+   nas laterais mostrando a página por trás. */
+.announce-rotates .announce { transition: transform 160ms var(--ease-out); }
+.announce-rotates:active .announce { transform: scale(.97); }
+/* Faixa de largura total: o anel de foco vai para dentro, senão sai da tela. */
+.announce-bar:focus-visible { outline-offset: -3px; border-radius: 0; }
+
+.announce-segs {
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  /* No desktop a faixa tem 1200px; traços desse tamanho perderiam a leitura
+     de "3 mensagens". Ficam num trilho curto e centralizado. */
+  width: min(280px, calc(100% - 40px));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  pointer-events: none;
+}
+.announce-segs i {
+  flex: 1;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(var(--primary-rgb),.18);
+  overflow: hidden;
+  position: relative;
+}
+/* Enche por scaleX, não por width: fica no compositor, sem layout por quadro. */
+.announce-segs i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--brand);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.announce-segs i.done::after { transform: scaleX(1); }
+/* Movimento contínuo = linear. A duração vem do mesmo HOLD_MS do app.js. */
+.announce-segs i.run::after { animation: announceSeg var(--seg-dur, 4800ms) linear forwards; }
+/* Segurando o dedo (ou faixa escondida): o traço congela onde está e continua
+   de onde parou, casando com o tempo restante que o app.js guarda. */
+.announce-bar.is-paused .announce-segs i.run::after { animation-play-state: paused; }
+.announce-bar.is-paused .announce-dot { animation-play-state: paused; }
+@keyframes announceSeg { to { transform: scaleX(1); } }
+
+/* Seta de pista: mora dentro do padding lateral do container (20px), então
+   não rouba largura do texto. Acena duas vezes depois da primeira troca e some
+   no primeiro toque (.touched), que fica lembrado na sessão. */
+.announce-hint {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  color: var(--brand);
+  stroke-width: 2.4;
+  opacity: .55;
+  pointer-events: none;
+  transition: opacity .2s ease-out;
+}
+.announce-bar.hint-go .announce-hint { animation: announceHint 700ms cubic-bezier(.65,0,.35,1) 2; }
+@keyframes announceHint {
+  0%, 100% { transform: translateX(0); }
+  45%      { transform: translateX(4px); opacity: 1; }
+}
+.announce-bar.touched .announce-hint { opacity: 0; }
+
+/* Acessibilidade: menos movimento NÃO é menos informação. Antes o JS parava a
+   rotação aqui e essas pessoas só viam a primeira mensagem. Agora a faixa gira
+   do mesmo jeito, mas só com troca de opacidade: sem deslize, sem blur, sem o
+   ponto pulsando, sem o aceno da seta. Os seletores de estado precisam ser
+   repetidos porque têm especificidade maior que o .announce-msg sozinho. O
+   traço de progresso continua: é um indicador de tempo, não deslocamento. */
 @media (prefers-reduced-motion: reduce) {
   .announce-dot { animation: none; }
+  .announce-msg,
+  .announce-msg.is-off,
+  .announce-bar[data-dir] .announce-msg:not(.is-on),
+  .announce-bar[data-dir] .announce-msg.is-off { transform: none; filter: none; }
+  .announce-msg.is-on  { transition: opacity 300ms ease; }
+  .announce-msg.is-off { transition: opacity 200ms ease; }
+  .announce-bar.hint-go .announce-hint { animation: none; }
 }
 
 /* ---------- Header ---------- */

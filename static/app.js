@@ -338,25 +338,194 @@
     const msgs = Array.from(bar.querySelectorAll(".announce-msg"));
     // Uma mensagem só não gira: ficaria piscando sem motivo.
     if (msgs.length < 2) return;
-    // Respeita quem pediu menos movimento: mostra a primeira e para por aí.
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Quem pede menos movimento TAMBÉM vê todas as mensagens: o CSS troca o
+    // rolo por um fade simples dentro do prefers-reduced-motion. Parar aqui
+    // escondia o frete grátis e as formas de pagamento dessas pessoas.
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const segs = Array.from(bar.querySelectorAll(".announce-segs i"));
 
     const HOLD_MS = 4800;
-    let i = 0;
-    let timer = setInterval(next, HOLD_MS);
+    // Casa com a saída de .announce-msg.is-off no CSS (220ms), com folga.
+    const EXIT_MS = 300;
+    // Dedo parado mais que isso deixa de ser toque e vira "segurar": pausa.
+    const PRESS_MS = 220;
+    // Deslocamento lateral mínimo para o gesto contar como deslize.
+    const SWIPE_PX = 30;
+    const HINT_KEY = "announceHintSeen";
 
-    function next() {
-      msgs[i].classList.remove("is-on");
-      i = (i + 1) % msgs.length;
-      msgs[i].classList.add("is-on");
+    let i = 0;
+    let timer = null;
+    let startedAt = 0;
+    let remaining = HOLD_MS;
+    let held = false;
+    let rotations = 0;
+
+    // Os traços usam a MESMA duração da rotação; um valor só, aqui.
+    segs.forEach((s) => s.style.setProperty("--seg-dur", HOLD_MS + "ms"));
+
+    // A seta de pista aparece até o primeiro toque. Depois some pelo resto da
+    // sessão: quem já descobriu o gesto não precisa ser lembrado a cada página.
+    let hintSeen = false;
+    try { hintSeen = sessionStorage.getItem(HINT_KEY) === "1"; } catch (e) {}
+    if (hintSeen) bar.classList.add("touched");
+    function markTouched() {
+      bar.classList.add("touched");
+      bar.classList.remove("hint-go");
+      if (hintSeen) return;
+      hintSeen = true;
+      try { sessionStorage.setItem(HINT_KEY, "1"); } catch (e) {}
     }
 
-    // Aba em segundo plano não precisa girar: economiza bateria no celular e
-    // evita a fila de trocas acumuladas ao voltar.
-    document.addEventListener("visibilitychange", () => {
-      clearInterval(timer);
-      if (!document.hidden) timer = setInterval(next, HOLD_MS);
+    // Traço da mensagem atual recomeça do zero; os anteriores ficam cheios.
+    function paintSegs() {
+      segs.forEach((s, k) => {
+        s.classList.toggle("done", k < i);
+        s.classList.remove("run");
+      });
+      if (!segs[i]) return;
+      void segs[i].offsetWidth; // reinicia a animação do traço
+      segs[i].classList.add("run");
+    }
+
+    function show(n, dir) {
+      if (n === i) return;
+      const prev = msgs[i];
+      const nx = msgs[n];
+      // A direção muda onde as mensagens em repouso esperam (embaixo ao
+      // avançar, em cima ao voltar). O reflow aplica esse repouso ANTES da
+      // entrada, senão a anterior entraria pelo lado errado.
+      bar.dataset.dir = dir;
+      nx.classList.remove("is-off");
+      void nx.offsetWidth;
+      prev.classList.remove("is-on");
+      prev.classList.add("is-off");
+      // Terminada a saída, volta ao repouso num salto invisível. A checagem
+      // cobre o toque rápido que traz a mesma mensagem de volta nesse meio-tempo.
+      setTimeout(() => {
+        if (!prev.classList.contains("is-on")) prev.classList.remove("is-off");
+      }, EXIT_MS);
+      nx.classList.add("is-on");
+      i = n;
+      paintSegs();
+      rotations++;
+      if (rotations === 1 && !hintSeen && !reduceMotion) bar.classList.add("hint-go");
+    }
+
+    // Só gira quando alguém pode ver e ninguém está segurando: aba em segundo
+    // plano (bateria, e sem a fila de trocas acumuladas ao voltar), faixa
+    // recolhida porque o cliente abriu um produto (.is-done) ou dedo apoiado.
+    const canRun = () => !document.hidden && !bar.classList.contains("is-done") && !held;
+
+    function schedule(ms = HOLD_MS) {
+      clearTimeout(timer);
+      timer = null;
+      if (!canRun()) {
+        bar.classList.add("is-paused");
+        return;
+      }
+      bar.classList.remove("is-paused");
+      remaining = ms;
+      startedAt = performance.now();
+      timer = setTimeout(() => {
+        show((i + 1) % msgs.length, "fwd");
+        schedule();
+      }, ms);
+    }
+
+    // Segurar: guarda quanto faltava para o traço congelado continuar de onde
+    // parou quando o dedo sair.
+    function pause() {
+      if (!timer) return;
+      clearTimeout(timer);
+      timer = null;
+      remaining = Math.max(remaining - (performance.now() - startedAt), 250);
+      bar.classList.add("is-paused");
+    }
+
+    function go(step) {
+      show((i + step + msgs.length) % msgs.length, step > 0 ? "fwd" : "back");
+      schedule();
+    }
+
+    // Ao reaparecer (aba de volta, produto fechado), a mensagem em tela ganha
+    // o tempo inteiro de novo, em vez de trocar logo depois de voltar.
+    function sync() {
+      if (canRun()) {
+        paintSegs();
+        schedule();
+      } else {
+        clearTimeout(timer);
+        timer = null;
+        bar.classList.add("is-paused");
+      }
+    }
+    document.addEventListener("visibilitychange", sync);
+    // .is-done é ligado e desligado por openModal/closeModal. Observar a classe
+    // aqui mantém a regra da rotação num lugar só. Filtra só a virada de
+    // .is-done: esta mesma função mexe em is-paused/hint-go/touched na faixa, e
+    // reagir a elas reiniciaria o traço a cada pausa.
+    let wasDone = bar.classList.contains("is-done");
+    new MutationObserver(() => {
+      const isDone = bar.classList.contains("is-done");
+      if (isDone === wasDone) return;
+      wasDone = isDone;
+      sync();
+    }).observe(bar, { attributes: true, attributeFilter: ["class"] });
+
+    // ---- Toque: tocar avança, segurar pausa, deslizar navega ----
+    let down = false;
+    let x0 = 0;
+    let y0 = 0;
+    let pressTimer = null;
+    bar.addEventListener("pointerdown", (e) => {
+      if (e.button > 0) return;
+      down = true;
+      x0 = e.clientX;
+      y0 = e.clientY;
+      markTouched();
+      // Captura: o pointerup chega mesmo se o dedo sair da faixa no deslize.
+      try { bar.setPointerCapture(e.pointerId); } catch (err) {}
+      pressTimer = setTimeout(() => {
+        held = true;
+        pause();
+      }, PRESS_MS);
     });
+    bar.addEventListener("pointerup", (e) => {
+      if (!down) return;
+      down = false;
+      clearTimeout(pressTimer);
+      const wasHeld = held;
+      held = false;
+      const dx = e.clientX - x0;
+      const dy = e.clientY - y0;
+      if (Math.abs(dx) >= SWIPE_PX && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1);
+      else if (wasHeld) schedule(remaining);
+      else go(1);
+    });
+    // O navegador assumiu o gesto (rolagem vertical da página): solta a pausa.
+    bar.addEventListener("pointercancel", () => {
+      if (!down) return;
+      down = false;
+      clearTimeout(pressTimer);
+      if (held) {
+        held = false;
+        schedule(remaining);
+      }
+    });
+    // Teclado: a faixa é focável (tabindex no template).
+    bar.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" || e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        markTouched();
+        go(1);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        markTouched();
+        go(-1);
+      }
+    });
+
+    sync();
   })();
 
   // ---------------------------------------------------------------

@@ -359,6 +359,27 @@
     .pp-field input[type=text]:focus, .pp-field textarea:focus, .pp-field select:focus { outline:none; border-color:var(--primary-yellow); }
     .pp-field textarea { resize:vertical; }
     .pp-hint { font-size:.72rem; color:var(--text-dim); }
+
+    /* --- Avisos rotativos: cor por palavra + prévia da faixa --- */
+    .announce-colorbar { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+    .acb-label { font-size:.72rem; font-weight:700; color:var(--text-dim); margin-right:2px; }
+    .acb-swatch { width:26px; height:26px; padding:0; border-radius:50%; background:var(--sw); border:2px solid var(--border); box-shadow:inset 0 0 0 2px rgba(0,0,0,.25); transition:transform .12s ease-out, border-color .15s; }
+    .acb-swatch:hover { border-color:var(--text); }
+    .acb-swatch:active, .acb-clear:active, .acb-custom:active { transform:scale(.94); }
+    .acb-custom { display:inline-flex; align-items:center; gap:6px; padding:3px 10px 3px 4px; border:1px solid var(--border); border-radius:999px; font-size:.72rem; font-weight:700; color:var(--text-dim); cursor:pointer; transition:transform .12s ease-out; }
+    .acb-custom input[type=color] { width:20px; height:20px; padding:0; border:0; border-radius:50%; background:none; cursor:pointer; }
+    .acb-clear { padding:5px 11px; border:1px solid var(--border); border-radius:999px; background:transparent; color:var(--text-dim); font-size:.72rem; font-weight:700; transition:transform .12s ease-out, color .15s; }
+    .acb-clear:hover { color:var(--text); }
+    /* Prévia no mesmo visual da faixa da loja: fundo escuro, texto na cor da
+       marca e os trechos coloridos por cima. Mostra todas as mensagens juntas
+       (a loja mostra uma por vez) para conferir tudo de uma olhada. */
+    .announce-preview { display:grid; gap:6px; padding:10px 14px; border:1px solid rgba(var(--primary-rgb),.24); border-radius:12px; background:radial-gradient(120% 180% at 50% -40%, rgba(var(--primary-rgb),.1), transparent 60%), var(--bg-2); }
+    .ap-title { font-size:.68rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--text-dim); }
+    .ap-row { display:flex; align-items:center; gap:9px; font-size:.86rem; font-weight:700; line-height:1.35; color:var(--ap-brand); }
+    .ap-dot { flex:none; width:6px; height:6px; border-radius:50%; background:var(--ap-brand); }
+    .ap-row.ap-over { opacity:.4; }
+    .ap-row small { margin-left:auto; flex:none; font-size:.68rem; font-weight:600; color:var(--text-dim); }
+    .ap-empty { font-size:.8rem; color:var(--text-dim); }
     .favicon-row { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
     .favicon-preview { width:48px; height:48px; border-radius:10px; border:1px solid var(--border); background:var(--surface); object-fit:cover; flex:none; }
     .favicon-actions { display:flex; gap:8px; }
@@ -1180,8 +1201,24 @@
             <span>Mostrar avisos rotativos no topo do site</span>
           </label>
           <label for="cfgAnnounceMsgs">Avisos rotativos</label>
-          <textarea id="cfgAnnounceMsgs" rows="4" maxlength="600" placeholder="Frete grátis nos pedidos acima de R$ 250&#10;Entrega no mesmo dia para toda São Luís">{{ config.announce_messages or '' }}</textarea>
-          <small class="pp-hint">Uma mensagem por linha. O site alterna entre elas a cada 5 segundos, logo abaixo do aviso de idade. Máximo de 6 mensagens: acima disso ninguém lê nenhuma.</small>
+          {# Cor por palavra: seleciona o trecho no campo e clica numa cor. O
+             campo guarda o marcador [#RRGGBB]texto[/], o mesmo que
+             parse_announce() (app.py) lê. mousedown com preventDefault nos
+             botões mantém a seleção viva no campo. #}
+          <div class="announce-colorbar" role="toolbar" aria-label="Cor do trecho selecionado">
+            <span class="acb-label">Cor do trecho selecionado:</span>
+            <button type="button" class="acb-swatch" data-color="#FFFFFF" style="--sw:#FFFFFF" title="Branco" aria-label="Branco"></button>
+            <button type="button" class="acb-swatch" data-color="#25D366" style="--sw:#25D366" title="Verde" aria-label="Verde"></button>
+            <button type="button" class="acb-swatch" data-color="#FF3B30" style="--sw:#FF3B30" title="Vermelho" aria-label="Vermelho"></button>
+            <button type="button" class="acb-swatch" data-color="#FF9500" style="--sw:#FF9500" title="Laranja" aria-label="Laranja"></button>
+            <button type="button" class="acb-swatch" data-color="#FF4FA3" style="--sw:#FF4FA3" title="Rosa" aria-label="Rosa"></button>
+            <button type="button" class="acb-swatch" data-color="#4DA3FF" style="--sw:#4DA3FF" title="Azul" aria-label="Azul"></button>
+            <label class="acb-custom" title="Escolher outra cor"><input type="color" id="cfgAnnounceCustom" value="#FFD60A" aria-label="Outra cor"> Outra</label>
+            <button type="button" class="acb-clear" id="cfgAnnounceClear" title="Volta o trecho selecionado para a cor da marca. Sem seleção, limpa a linha inteira.">Tirar cor</button>
+          </div>
+          <textarea id="cfgAnnounceMsgs" rows="4" maxlength="900" placeholder="Frete grátis nos pedidos acima de R$ 250&#10;Entrega no mesmo dia para toda São Luís">{{ config.announce_messages or '' }}</textarea>
+          <small class="pp-hint">Uma mensagem por linha. O site alterna entre elas a cada 5 segundos, logo abaixo do aviso de idade, e o cliente pode tocar na faixa para passar. Máximo de 6 mensagens: acima disso ninguém lê nenhuma.<br>Para mudar a cor de uma palavra, selecione ela no campo e clique numa cor. No campo ela fica assim: <b style="white-space:nowrap">[#FF3B30]R$ 250[/]</b>. O resto da frase continua na cor da loja.</small>
+          <div class="announce-preview" id="cfgAnnouncePreview" style="--ap-brand: {{ config.theme_primary_color or '#FFD60A' }}" aria-label="Prévia da faixa"></div>
         </div>
       </div>
 
@@ -1958,6 +1995,144 @@
         btn.textContent = originalLabel;
       }
     }
+
+    // ---- Avisos rotativos: cor por palavra ----
+    // Mesmo marcador que parse_announce() (app.py) lê: [#RRGGBB]texto[/].
+    // Qualquer coisa fora desse formato é texto comum, lá e aqui.
+    const ANNOUNCE_COLOR_RE = /\[(#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}))\](.+?)\[\/\]/g;
+    const ANNOUNCE_MAX = 6;
+
+    // Quebra uma linha em caracteres VISÍVEIS, cada um com a cor que tem e a
+    // posição dele no texto cru. É essa posição que permite traduzir a seleção
+    // do campo (que inclui os marcadores) para o texto que o cliente vê.
+    function announceChars(line) {
+      const chars = [];
+      let pos = 0;
+      for (const m of line.matchAll(ANNOUNCE_COLOR_RE)) {
+        for (let k = pos; k < m.index; k++) chars.push({ ch: line[k], color: null, raw: k });
+        const start = m.index + m[1].length + 2; // pula o "[#hex]"
+        for (let k = 0; k < m[2].length; k++) chars.push({ ch: m[2][k], color: m[1].toUpperCase(), raw: start + k });
+        pos = m.index + m[0].length;
+      }
+      for (let k = pos; k < line.length; k++) chars.push({ ch: line[k], color: null, raw: k });
+      return chars;
+    }
+
+    // Caminho de volta: junta caracteres vizinhos da mesma cor num marcador só.
+    function announceSerialize(chars) {
+      let out = '';
+      let k = 0;
+      while (k < chars.length) {
+        const color = chars[k].color;
+        let run = '';
+        while (k < chars.length && chars[k].color === color) run += chars[k++].ch;
+        out += color ? '[' + color + ']' + run + '[/]' : run;
+      }
+      return out;
+    }
+
+    // color = hex para pintar; null para "Tirar cor".
+    function announceApplyColor(color) {
+      const ta = document.getElementById('cfgAnnounceMsgs');
+      const text = ta.value;
+      const s = ta.selectionStart;
+      const e = ta.selectionEnd;
+      const lineStart = text.lastIndexOf('\n', s - 1) + 1;
+      let lineEnd = text.indexOf('\n', s);
+      if (lineEnd === -1) lineEnd = text.length;
+      if (e > lineEnd) { toast('Selecione dentro de uma mensagem só'); return; }
+
+      const line = text.slice(lineStart, lineEnd);
+      const chars = announceChars(line);
+      let from = 0;
+      let to = chars.length;
+      if (s === e) {
+        // Sem seleção só faz sentido tirar cor, e aí vale a linha inteira.
+        if (color) { toast('Selecione a palavra que vai mudar de cor'); return; }
+      } else {
+        const rs = s - lineStart;
+        const re = e - lineStart;
+        from = chars.findIndex((c) => c.raw >= rs);
+        if (from === -1) from = chars.length;
+        to = chars.filter((c) => c.raw < re).length;
+        // Espaço nas pontas não ganha cor: "[#F00]R$ 250[/]", não "[#F00] R$ 250 [/]".
+        while (from < to && /\s/.test(chars[from].ch)) from++;
+        while (to > from && /\s/.test(chars[to - 1].ch)) to--;
+        if (from >= to) { toast('Selecione a palavra que vai mudar de cor'); return; }
+      }
+      for (let k = from; k < to; k++) chars[k].color = color ? color.toUpperCase() : null;
+
+      const newLine = announceSerialize(chars);
+      ta.value = text.slice(0, lineStart) + newLine + text.slice(lineEnd);
+      // Os marcadores mudaram de lugar: seleciona de novo o MESMO trecho
+      // visível, para dar para trocar de cor em seguida sem reselecionar.
+      const again = announceChars(newLine);
+      const a = from < again.length ? again[from].raw : newLine.length;
+      const b = to > 0 ? again[to - 1].raw + 1 : 0;
+      ta.focus();
+      ta.setSelectionRange(lineStart + a, lineStart + b);
+      renderAnnouncePreview();
+    }
+
+    // Monta a prévia com nós de texto (nunca innerHTML): a mensagem é texto
+    // livre do painel e a cor só entra se casar com o regex de hex.
+    function renderAnnouncePreview() {
+      const box = document.getElementById('cfgAnnouncePreview');
+      const ta = document.getElementById('cfgAnnounceMsgs');
+      if (!box || !ta) return;
+      const lines = ta.value.split('\n').map((l) => l.trim()).filter(Boolean);
+      const title = document.createElement('span');
+      title.className = 'ap-title';
+      title.textContent = 'Prévia · na loja aparece uma por vez';
+      box.replaceChildren(title);
+      if (!lines.length) {
+        const p = document.createElement('p');
+        p.className = 'ap-empty';
+        p.textContent = 'Nenhuma mensagem ainda.';
+        box.append(p);
+        return;
+      }
+      lines.forEach((line, idx) => {
+        const row = document.createElement('div');
+        row.className = 'ap-row' + (idx >= ANNOUNCE_MAX ? ' ap-over' : '');
+        const dot = document.createElement('span');
+        dot.className = 'ap-dot';
+        const msg = document.createElement('span');
+        let pos = 0;
+        for (const m of line.matchAll(ANNOUNCE_COLOR_RE)) {
+          if (m.index > pos) msg.append(line.slice(pos, m.index));
+          const part = document.createElement('span');
+          part.style.color = m[1];
+          part.textContent = m[2];
+          msg.append(part);
+          pos = m.index + m[0].length;
+        }
+        if (pos < line.length) msg.append(line.slice(pos));
+        row.append(dot, msg);
+        if (idx >= ANNOUNCE_MAX) {
+          const note = document.createElement('small');
+          note.textContent = 'não aparece: passa de 6';
+          row.append(note);
+        }
+        box.append(row);
+      });
+    }
+
+    (function initAnnounceColors() {
+      const ta = document.getElementById('cfgAnnounceMsgs');
+      if (!ta) return; // aba só existe para o dono da loja
+      document.querySelectorAll('.acb-swatch, .acb-clear').forEach((btn) => {
+        // Sem isto o clique tira o foco do campo e o navegador pode perder a seleção.
+        btn.addEventListener('mousedown', (ev) => ev.preventDefault());
+      });
+      document.querySelectorAll('.acb-swatch').forEach((btn) => {
+        btn.addEventListener('click', () => announceApplyColor(btn.dataset.color));
+      });
+      document.getElementById('cfgAnnounceClear').addEventListener('click', () => announceApplyColor(null));
+      document.getElementById('cfgAnnounceCustom').addEventListener('change', (ev) => announceApplyColor(ev.target.value));
+      ta.addEventListener('input', renderAnnouncePreview);
+      renderAnnouncePreview();
+    })();
 
     // ---- Editor de Q&A: pares pergunta/resposta ----
     const FAQ_MAX = 10;
