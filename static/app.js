@@ -1346,7 +1346,6 @@
   function isPickup() { return pickupCheckbox.checked; }
   pickupCheckbox.addEventListener("change", () => {
     addressField.style.display = isPickup() ? "none" : "";
-    if (isPickup()) setFieldError(byId("custAddress"), byId("errAddress"), false);
     updateTotals();
     updateCheckoutBtnState();
   });
@@ -1445,14 +1444,13 @@
   // de contato estão preenchidos — mesmo padrão do modal de produto ("Selecione
   // um sabor" + botão desabilitado). Telefone usa o mesmo limite da validação
   // (>=10 dígitos). Pagamento continua validado no clique (mostra erro no campo).
+  // Endereço é opcional: na entrega o botão de localização já é obrigatório.
   function updateCheckoutBtnState() {
     const nameOk = byId("custName").value.trim().length > 0;
     const phoneOk = byId("custPhone").value.replace(/\D/g, "").length >= 10;
-    const addressOk = isPickup() || byId("custAddress").value.trim().length > 0;
-    byId("checkoutConfirmBtn").disabled = !(nameOk && phoneOk && addressOk);
+    byId("checkoutConfirmBtn").disabled = !(nameOk && phoneOk);
   }
   byId("custName").addEventListener("input", updateCheckoutBtnState);
-  byId("custAddress").addEventListener("input", updateCheckoutBtnState);
   // Recalcula o total ao trocar a forma de pagamento (acréscimo do crédito).
   byId("custPayment").addEventListener("change", () => {
     setFieldError(byId("custPayment"), byId("errPayment"), false);
@@ -1477,7 +1475,6 @@
     let hasError = false;
     if (setFieldError(nameEl, byId("errName"), nameVal.length === 0)) hasError = true;
     if (setFieldError(phoneEl, byId("errPhone"), phoneDigits.length < 10)) hasError = true;
-    if (!pickup && setFieldError(addressEl, byId("errAddress"), addressVal.length === 0)) hasError = true;
     if (setFieldError(paymentEl, byId("errPayment"), paymentVal.length === 0)) hasError = true;
 
     if (hasError) {
@@ -1558,7 +1555,8 @@
     msg += `👤 *Cliente:* ${nameVal}\n`;
     msg += `📱 *Telefone:* ${phoneEl.value}\n`;
     if (pickup) msg += `🏪 *Retirada:* no local\n`;
-    else msg += `📍 *Endereço:* ${addressVal}\n`;
+    else if (addressVal) msg += `📍 *Endereço:* ${addressVal}\n`;
+    else msg += `📍 *Endereço:* não informado\n`;
     msg += `💳 *Pagamento:* ${paymentVal}\n`;
     if (byId("custLoyalty").checked) msg += `🎁 *Cartão fidelidade:* sim, quero receber\n`;
     if (notesEl.value.trim()) msg += `📝 *Obs:* ${notesEl.value.trim()}\n`;
@@ -1572,7 +1570,10 @@
       // Entrega sem coordenadas: o cliente apertou o botão mas a localização não
       // veio (permissão negada, timeout, sem suporte). Sinaliza para a equipe
       // calcular o frete na mão pelo endereço, já que não dá para calcular sozinho.
-      msg += `⚠️ *Localização não capturada, calcular o frete manualmente pelo endereço acima.*\n`;
+      // Sem endereço também, só resta combinar com o cliente.
+      msg += addressVal
+        ? `⚠️ *Localização não capturada, calcular o frete manualmente pelo endereço acima.*\n`
+        : `⚠️ *Localização e endereço não informados, confirmar com o cliente.*\n`;
     }
     msg += `\nOlá! Gostaria de finalizar este pedido. 🚀`;
 
