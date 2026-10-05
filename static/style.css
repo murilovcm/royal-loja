@@ -2287,6 +2287,120 @@ header.site-header::after {
 .freeship-bar.done .freeship-msg strong { color: var(--green); }
 .freeship-bar.done .freeship-fill { background: var(--green); }
 
+/* =====================================================================
+   ACESSÓRIO: CABO USB-C
+
+   Duas superfícies, uma decisão (ver addCable() em app.js):
+
+   .cable-offer    a LINHA discreta, colada no último produto da lista.
+                   Aparece em todo carrinho e NUNCA fala de frete grátis —
+                   essa promessa é exclusiva da alavanca, que só surge
+                   quando ela é verdadeira.
+   .freeship-upsell a ALAVANCA, dentro da própria barra de frete, porque é
+                   a barra que ela completa. Só aparece quando o cabo de
+                   fato fecha o frete (shouldShowLever).
+   ===================================================================== */
+
+.cable-offer {
+  width: 100%;
+  display: flex; align-items: center; gap: 10px;
+  margin: 10px 0 2px;
+  padding: 9px 11px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text-dim);
+  font-family: inherit; font-size: .78rem; text-align: left;
+  transition: border-color var(--dur) var(--ease-out),
+              background var(--dur) var(--ease-out),
+              color var(--dur) var(--ease-out);
+}
+.cable-offer:hover { border-color: rgba(255,255,255,.18); background: var(--surf-1); color: var(--text); }
+.cable-offer .co-ico {
+  width: 24px; height: 24px; flex-shrink: 0;
+  border-radius: 7px; background: var(--surf-1);
+  display: grid; place-items: center;
+}
+.cable-offer .co-ico .ico { width: 14px; height: 14px; }
+.cable-offer .co-txt { flex: 1; min-width: 0; }
+.cable-offer .co-txt strong { color: var(--text); font-weight: 600; }
+.cable-offer .co-price { color: var(--primary-yellow); font-weight: 700; white-space: nowrap; }
+.cable-offer .co-plus {
+  width: 26px; height: 26px; flex-shrink: 0;
+  border-radius: var(--r-pill);
+  background: var(--btn-grad); color: var(--text-on-primary);
+  display: grid; place-items: center;
+  font-size: 1rem; font-weight: 700; line-height: 1;
+  transition: transform .14s var(--ease-out);
+}
+.cable-offer:hover .co-plus { transform: scale(1.08); }
+.cable-offer:active .co-plus { transform: scale(.94); }
+
+/* O cabo já no pedido. Sem .ci-qty: a decisão dele é binária, então a
+   coluna da direita tem só o botão de remover e alinha ao topo. */
+.cart-item.is-cable .ci-right { justify-content: flex-start; }
+.cart-item.is-cable .ci-info .f.accessory,
+.checkout-item .f.accessory { color: var(--text-dim); }
+
+/* A listra do pedaço que o cabo completaria. `left` vem do app.js, medido
+   com a mesma conta do preenchimento, para as duas nunca discordarem. */
+.freeship-track { position: relative; }
+.freeship-ghost {
+  position: absolute; top: 0; bottom: 0; right: 0;
+  background: repeating-linear-gradient(115deg,
+    rgba(var(--primary-rgb), .45) 0 3px, transparent 3px 7px);
+}
+
+.freeship-upsell { margin-top: 10px; }
+.freeship-upsell .fu-offer {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; border-radius: var(--r-md);
+  background: linear-gradient(120deg, rgba(var(--primary-rgb),.10), rgba(var(--primary-rgb),.03));
+  border: 1px solid rgba(var(--primary-rgb), .30);
+}
+.freeship-upsell .fu-bolt {
+  width: 26px; height: 26px; flex-shrink: 0; border-radius: var(--r-pill);
+  background: var(--btn-grad); color: var(--text-on-primary);
+  display: grid; place-items: center;
+}
+.freeship-upsell .fu-bolt .ico { width: 14px; height: 14px; }
+.freeship-upsell .fu-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.freeship-upsell .fu-txt strong { font-size: .79rem; font-weight: 600; line-height: 1.35; }
+.freeship-upsell .fu-txt strong em { font-style: normal; color: var(--primary-yellow); }
+.freeship-upsell .fu-sub { font-size: .69rem; color: var(--text-dim); margin-top: 1px; }
+.freeship-upsell .fu-add {
+  flex-shrink: 0; padding: 7px 13px; border-radius: var(--r-pill);
+  background: var(--btn-grad); color: var(--text-on-primary);
+  font-size: .76rem; font-weight: 700; white-space: nowrap;
+  transition: transform .14s var(--ease-out);
+}
+.freeship-upsell .fu-add:hover { transform: translateY(-1px); }
+.freeship-upsell .fu-add:active { transform: scale(.97); }
+
+.freeship-upsell .fu-done {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; border-radius: var(--r-md);
+  background: rgba(37,211,102,.09); border: 1px solid rgba(37,211,102,.30);
+}
+.freeship-upsell .fu-ok {
+  display: flex; align-items: center; gap: 7px;
+  font-size: .78rem; font-weight: 600; color: var(--green);
+}
+.freeship-upsell .fu-ok .ico { width: 15px; height: 15px; }
+.freeship-upsell .fu-rm {
+  flex-shrink: 0; padding: 6px 12px; border-radius: var(--r-pill);
+  background: var(--surf-1); border: 1px solid var(--line); color: var(--text-dim);
+  font-size: .74rem; font-weight: 600; white-space: nowrap;
+  transition: color var(--dur) var(--ease-out);
+}
+.freeship-upsell .fu-rm:hover { color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cable-offer,
+  .cable-offer .co-plus,
+  .freeship-upsell .fu-add { transition: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .freeship-fill { transition: none; }
 }

@@ -583,8 +583,15 @@
         <div class="freeship-msg" id="freeShipMsg"></div>
         <div class="freeship-track">
           <div class="freeship-fill" id="freeShipFill"></div>
+          {# Listra tracejada mostrando o pedaço que o cabo completaria. Só
+             aparece quando o cabo REALMENTE fecha o frete — ver shouldShowLever()
+             em app.js. Fica dentro da trilha para herdar o recorte dela. #}
+          <div class="freeship-ghost" id="freeShipGhost" hidden></div>
         </div>
         <div class="freeship-note" id="freeShipNote"></div>
+        {# A oferta "alavanca": preenchida por app.js, some quando o cabo já
+           está no carrinho ou quando ele não fecharia o frete. #}
+        <div class="freeship-upsell" id="cableLever" hidden></div>
       </div>
       <div class="coupon-box">
         <div class="coupon-input-row">
@@ -798,6 +805,15 @@
         min: {{ (config.free_ship_min or 0) | float(0) }},
         maxZone: {{ (config.free_ship_max_zone or 0) | float(0) }},
         minSaving: {{ (config.free_ship_min_saving or 0) | float(0) }}
+      },
+      {# Acessório único, vindo do site_config (ver get_cable no app.py).
+         Nome e imagem saem por tojson e não por aspas na mão: o nome é texto
+         livre do painel e uma aspa dentro dele quebraria o <script> inteiro. #}
+      cable: {
+        enabled: {{ 'true' if cable.enabled else 'false' }},
+        name: {{ cable.name | tojson }},
+        price: {{ cable.price | float(0) }},
+        image: {{ cable.image | tojson }}
       }
     };
   </script>

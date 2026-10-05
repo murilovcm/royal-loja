@@ -226,6 +226,25 @@
     .logo-upload-box .lu-hint { font-size:.72rem; color:var(--text-dim); }
     .logo-upload-input { display:none; }
 
+    /* Cabo USB-C: acessório único do catálogo. Reaproveita a caixa de upload
+       dos logos para a foto, e só acrescenta a coluna de campos ao lado. */
+    .cable-admin { display:flex; gap:16px; flex-wrap:wrap; margin-top:14px; align-items:flex-start; }
+    .cable-admin .logo-upload-box { flex:0 0 190px; max-width:190px; }
+    .cable-admin .lu-preview-empty { font-size:.74rem; color:var(--text-dim); }
+    .cable-fields { flex:1; min-width:240px; display:flex; flex-direction:column; gap:12px; }
+    .cable-field { display:flex; flex-direction:column; gap:5px; }
+    .cable-field > span { font-size:.78rem; font-weight:600; color:var(--text-dim); }
+    .cable-field input {
+      background:var(--bg-2); border:1px solid var(--border); border-radius:10px;
+      padding:9px 11px; color:var(--text); font-size:.9rem; font-family:inherit;
+    }
+    .cable-field input:focus { outline:2px solid var(--purple-soft); outline-offset:1px; }
+    .cable-toggle { display:flex; align-items:center; gap:9px; font-size:.85rem; cursor:pointer; }
+    .cable-toggle input { width:17px; height:17px; accent-color:var(--primary-yellow); cursor:pointer; }
+    .cable-actions { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .cable-hint { font-size:.75rem; color:var(--text-dim); }
+    .cable-hint.warn { color:#ffb020; }
+
     .color-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; }
     .color-row:last-of-type { border-bottom:none; }
     .color-row .cr-label { flex:1; min-width:150px; font-size:.85rem; font-weight:600; }
@@ -428,6 +447,50 @@
     <div class="admin-tab-panel active" data-tab-panel="catalog">
       {% if not can_catalog %}<div class="readonly-banner">🔒 Somente leitura — fale com o dono da loja para poder editar o catálogo.</div>{% endif %}
       <div class="{{ 'readonly-lock' if not can_catalog }}">
+
+      {# Cabo USB-C: acessório oferecido no carrinho. É um formulário fixo e
+         não uma lista porque é UM produto só — todos os cabos são iguais.
+         Mora em site_config (ver get_cable no app.py), fora da árvore
+         marca > modelo > sabor, então nunca vira card do catálogo. #}
+      <div class="sections-block">
+        <div class="sections-head">
+          🔌 Cabo USB-C
+          <span class="sections-sub">Acessório oferecido no carrinho · produto único</span>
+        </div>
+        <div class="cable-admin">
+          <div class="logo-upload-box" onclick="document.getElementById('cableImgInput').click()">
+            <div class="lu-label">Foto do cabo</div>
+            <div class="lu-preview" id="cableImgPreview">
+              {% if config.cable_image %}
+              <img src="{{ config.cable_image }}" alt="">
+              {% else %}
+              <span class="lu-preview-empty">sem foto</span>
+              {% endif %}
+            </div>
+            <div class="lu-hint">Clique para enviar · PNG ou JPG</div>
+            <input type="file" accept="image/*" class="logo-upload-input" id="cableImgInput" onchange="handleCableImage(this)" onclick="event.stopPropagation()">
+          </div>
+          <div class="cable-fields">
+            <label class="cable-field">
+              <span>Nome do produto</span>
+              <input type="text" id="cableName" maxlength="80" value="{{ config.cable_name or '' }}" placeholder="Cabo USB-C 2 m">
+            </label>
+            <label class="cable-field">
+              <span>Preço (R$)</span>
+              <input type="number" id="cablePrice" min="0" step="0.01" value="{{ config.cable_price or '' }}" placeholder="25.00">
+            </label>
+            <label class="cable-toggle">
+              <input type="checkbox" id="cableEnabled" {{ 'checked' if config.cable_enabled == '1' }}>
+              <span>Oferecer no carrinho</span>
+            </label>
+            <div class="cable-actions">
+              <button class="mini-btn primary" onclick="saveCable()">Salvar cabo</button>
+              <span class="cable-hint" id="cableHint"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {% if can_catalog %}
       <div class="add-inline" id="addBrandForm" style="display:none; margin-bottom:18px;">
         <input type="text" id="newBrandName" placeholder="Nome da nova marca" onkeydown="if(event.key==='Enter') submitAddBrand()">
@@ -1432,6 +1495,65 @@
         `<input type="file" accept="image/*" class="m-photo-input" id="photo-input-${mid}" onchange="handlePhotoInput(${mid}, this)" onclick="event.stopPropagation()">`;
       toast("Foto removida");
     }
+
+    // ---- Cabo USB-C (acessório único do catálogo) ----
+    // A foto é enviada na hora, mas fica só na memória da página até o lojista
+    // clicar em "Salvar cabo": assim um upload abandonado no meio não troca a
+    // foto que a loja está exibindo.
+    let cableImageUrl = {{ (config.cable_image or '') | tojson }};
+
+    function setCableHint(text, warn) {
+      const el = document.getElementById('cableHint');
+      el.textContent = text || "";
+      el.classList.toggle('warn', !!warn);
+    }
+
+    async function handleCableImage(el) {
+      const file = el.files[0];
+      el.value = "";
+      if (!file || !file.type.startsWith('image/')) { toast("Selecione um arquivo de imagem"); return; }
+      const fd = new FormData();
+      fd.append('file', file);
+      toast("Enviando imagem...");
+      try {
+        const r = await fetch('/api/upload_image', { method: 'POST', body: fd, headers: { 'X-Admin-Token': CSRF_TOKEN } });
+        const data = await r.json();
+        if (!data.ok) { toast(data.error || "Erro no upload"); return; }
+        cableImageUrl = data.image_url;
+        document.getElementById('cableImgPreview').innerHTML = '<img src="' + data.image_url + '" alt="">';
+        setCableHint("Foto enviada — clique em Salvar cabo para aplicar.", true);
+      } catch (e) { toast("Erro no upload"); }
+    }
+
+    async function saveCable() {
+      const name = document.getElementById('cableName').value.trim();
+      const raw = document.getElementById('cablePrice').value.replace(',', '.');
+      const price = parseFloat(raw);
+      const enabled = document.getElementById('cableEnabled').checked;
+
+      // Avisa em vez de salvar calado. O get_cable() do servidor desliga a
+      // oferta quando falta nome ou preço, e sem este aviso o lojista sairia
+      // procurando na loja um cabo que ele acha que publicou.
+      if (enabled && (!name || !(price > 0))) {
+        setCableHint("Para oferecer o cabo, preencha o nome e um preço maior que zero.", true);
+        return;
+      }
+
+      const data = await api('/api/cable', 'POST', {
+        enabled: enabled,
+        name: name,
+        price: isNaN(price) ? 0 : price,
+        image: cableImageUrl || ''
+      });
+      if (data.ok) {
+        toast("Cabo salvo ✓");
+        setCableHint(enabled ? "Sendo oferecido no carrinho." : "Salvo, mas não está sendo oferecido.", !enabled);
+      } else {
+        toast(data.error || "Erro ao salvar");
+        setCableHint(data.error || "Erro ao salvar.", true);
+      }
+    }
+
     document.querySelectorAll('.m-photo').forEach((box) => {
       const mid = box.dataset.mid;
       box.addEventListener('dragover', (e) => { e.preventDefault(); box.classList.add('drag-over'); });

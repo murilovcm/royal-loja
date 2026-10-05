@@ -564,6 +564,25 @@
   try { localStorage.removeItem("royal_cart"); } catch (e) {}
   const saveCart = () => {};
 
+  // ---- Acessório: cabo USB-C ----
+  // Produto ÚNICO vindo do painel (site_config -> get_cable() no app.py). No
+  // carrinho ele usa um flavor_id RESERVADO, em string: os sabores têm id
+  // numérico, então "cable" nunca colide com eles — e, de quebra, um cupom
+  // restrito a modelos já o ignora sozinho, porque a lista de ids permitidos
+  // que vem de /api/coupon/apply só contém números.
+  const CABLE = CFG.cable || { enabled: false, name: "", price: 0, image: "" };
+  const CABLE_ID = "cable";
+  const cableIndex = () => cart.findIndex((it) => it.flavor_id === CABLE_ID);
+  const cableInCart = () => cableIndex() !== -1;
+  function cableSubtotal() {
+    const i = cableIndex();
+    return i === -1 ? 0 : cart[i].price * cart[i].qty;
+  }
+  // Rótulo de um item para os toasts. O cabo não tem sabor, e "Cabo USB-C • "
+  // com o bullet solto no fim parece texto quebrado.
+  const itemLabel = (it) =>
+    it.flavor_name ? `${it.model_name} • ${it.flavor_name}` : it.model_name;
+
   // ---------------------------------------------------------------
   // TOAST
   // ---------------------------------------------------------------
@@ -968,26 +987,50 @@
       return;
     }
 
+    // A linha de oferta do cabo fica colada no ÚLTIMO produto da lista, e uma
+    // só: o cabo é do pedido inteiro, não daquele sabor, então repeti-la sob
+    // cada item seria ruído sem oferecer nada a mais.
+    let lastProduct = -1;
+    for (let i = cart.length - 1; i >= 0; i--) {
+      if (!cart[i].is_cable) { lastProduct = i; break; }
+    }
+    const showOffer = CABLE.enabled && !cableInCart() && lastProduct !== -1;
+
     box.innerHTML = cart.map((it, idx) => {
       const img = it.image_url
         ? `<img src="${it.image_url}" alt="" decoding="async">`
         : `<span class="ph">${escapeHtml(it.model_name[0])}</span>`;
-      return `<div class="cart-item">
-        <div class="ci-img">${img}</div>
-        <div class="ci-info">
-          <div class="m">${it.model_name}</div>
-          <div class="f">${it.flavor_name}</div>
-          <div class="p">${brl(it.price)}</div>
-        </div>
-        <div class="ci-right">
-          <button class="rm" data-idx="${idx}" title="Remover" aria-label="Remover ${escapeHtml(it.model_name)} do carrinho"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg></button>
-          <div class="ci-qty">
-            <button data-act="dec" data-idx="${idx}">−</button>
-            <span>${it.qty}</span>
-            <button data-act="inc" data-idx="${idx}">+</button>
-          </div>
-        </div>
-      </div>`;
+      // O cabo é um item de pedido como os outros, mas sem sabor e sem
+      // controle de quantidade: a decisão dele é binária (ver addCable).
+      const row = it.is_cable
+        ? `<div class="cart-item is-cable">
+             <div class="ci-img">${img}</div>
+             <div class="ci-info">
+               <div class="m">${escapeHtml(it.model_name)}</div>
+               <div class="f accessory">Acessório</div>
+               <div class="p">${brl(it.price)}</div>
+             </div>
+             <div class="ci-right">
+               <button class="rm" data-idx="${idx}" title="Remover" aria-label="Remover ${escapeHtml(it.model_name)} do carrinho"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg></button>
+             </div>
+           </div>`
+        : `<div class="cart-item">
+             <div class="ci-img">${img}</div>
+             <div class="ci-info">
+               <div class="m">${it.model_name}</div>
+               <div class="f">${it.flavor_name}</div>
+               <div class="p">${brl(it.price)}</div>
+             </div>
+             <div class="ci-right">
+               <button class="rm" data-idx="${idx}" title="Remover" aria-label="Remover ${escapeHtml(it.model_name)} do carrinho"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg></button>
+               <div class="ci-qty">
+                 <button data-act="dec" data-idx="${idx}">−</button>
+                 <span>${it.qty}</span>
+                 <button data-act="inc" data-idx="${idx}">+</button>
+               </div>
+             </div>
+           </div>`;
+      return row + (showOffer && idx === lastProduct ? cableOfferHtml() : "");
     }).join("");
 
     updateTotals();
@@ -1014,7 +1057,12 @@
   // pertencem aos modelos permitidos (productIds vem da rota /api/coupon/apply).
   function couponBase(coupon) {
     if (!coupon) return 0;
-    if (!coupon.productIds) return cartTotal();
+    // O cabo fica FORA de qualquer cupom: é acessório de margem fina, e o papel
+    // dele é cruzar o limiar do frete, não ser descontado. No cupom restrito
+    // isso já aconteceria sozinho (o id dele não é numérico, então nunca está
+    // na lista de permitidos), mas o caso geral precisa ser explícito — senão
+    // as duas regras divergem e só uma delas protege o acessório.
+    if (!coupon.productIds) return cartTotal() - cableSubtotal();
     const allowed = new Set(coupon.productIds);
     return cart.reduce((s, it) => (allowed.has(it.flavor_id) ? s + it.price * it.qty : s), 0);
   }
@@ -1071,8 +1119,106 @@
       freeShipEnabled,
       freeShipMin: fs.min,
       remaining: freeShipEnabled ? Math.max(fs.min - discountedTotal, 0) : 0,
-      pct: freeShipEnabled ? Math.min(discountedTotal / fs.min, 1) : 0
+      pct: freeShipEnabled ? Math.min(discountedTotal / fs.min, 1) : 0,
+      // Quanto faltaria para o frete grátis SEM o cabo no carrinho. É sobre
+      // ESTE número que a oferta "alavanca" decide se aparece. Medida com o
+      // cabo já dentro, a condição viraria falsa no instante em que ele entra
+      // e a oferta se apagaria justo na hora de confirmar o sucesso.
+      // A subtração é exata porque o cabo nunca entra no desconto do cupom
+      // (ver couponBase), então ele não deixa resíduo em discountedTotal.
+      cableGap: freeShipEnabled
+        ? Math.max(fs.min - (discountedTotal - cableSubtotal()), 0)
+        : 0
     };
+  }
+
+  // A oferta "alavanca" só aparece quando o cabo REALMENTE fecha o frete:
+  // 0 < falta <= preço do cabo. Fora disso o cliente vê só a linha discreta
+  // na lista. A regra é de VALOR e não de quantidade de itens justamente por
+  // isso: dois vapes baratos ainda deixam faltar mais do que o cabo cobre, e
+  // prometer "o cabo fecha o frete" ali seria mentira.
+  function shouldShowLever(t) {
+    if (!CABLE.enabled || !t.freeShipEnabled) return false;
+    return t.cableGap > 0 && t.cableGap <= CABLE.price;
+  }
+
+  function addCable() {
+    if (!CABLE.enabled || cableInCart()) return;
+    // Sempre UM cabo. A oferta aparece em até dois lugares (a linha na lista e
+    // a alavanca na barra) e tocar os dois não pode somar dois cabos.
+    cart.push({
+      flavor_id: CABLE_ID,
+      is_cable: true,
+      model_name: CABLE.name,
+      brand_name: "Acessório",
+      flavor_name: "",
+      price: CABLE.price,
+      qty: 1,
+      image_url: CABLE.image || ""
+    });
+    saveCart();
+    renderCart();
+    toast("Adicionado ao carrinho", CABLE.name, "success");
+  }
+
+  function removeCable() {
+    const i = cableIndex();
+    if (i === -1) return;
+    const name = cart[i].model_name;
+    cart.splice(i, 1);
+    saveCart();
+    renderCart();
+    toast("Removido do carrinho", name);
+  }
+
+  // A linha discreta, colada no último produto da lista. Deliberadamente NÃO
+  // fala de frete grátis: essa promessa é exclusiva da alavanca, que só surge
+  // quando ela é verdadeira. Aqui a linha aparece em todo carrinho, inclusive
+  // nos que ainda precisam de R$ 150 — prometer o frete seria mentir.
+  // A linha inteira é o botão: alvo de toque grande e um único rótulo no
+  // leitor de tela, em vez de um "+" solto sem contexto.
+  function cableOfferHtml() {
+    return `<button type="button" class="cable-offer" data-cable="add"
+      aria-label="Adicionar ${escapeHtml(CABLE.name)} ao pedido por ${brl(CABLE.price)}">
+      <span class="co-ico"><svg class="ico" aria-hidden="true"><use href="#i-cable"></use></svg></span>
+      <span class="co-txt">Levar um <strong>${escapeHtml(CABLE.name)}</strong> para carregar</span>
+      <span class="co-price">${brl(CABLE.price)}</span>
+      <span class="co-plus" aria-hidden="true">+</span>
+    </button>`;
+  }
+
+  // A oferta "alavanca" vive DENTRO da barra de frete porque é a barra que ela
+  // completa: a listra tracejada marca exatamente o pedaço que o cabo cobre.
+  function renderCableLever(t, done, ico) {
+    const lever = byId("cableLever");
+    const ghost = byId("freeShipGhost");
+    const on = shouldShowLever(t);
+
+    // A listra só existe enquanto falta algo: depois de fechado não há pedaço
+    // a completar, e deixá-la ali sugeriria que ainda falta.
+    const showGhost = on && !done;
+    ghost.hidden = !showGhost;
+    if (showGhost) ghost.style.left = (t.pct * 100).toFixed(1) + "%";
+
+    if (!on) {
+      lever.hidden = true;
+      lever.innerHTML = "";
+      return;
+    }
+    lever.hidden = false;
+    lever.innerHTML = cableInCart()
+      ? `<div class="fu-done">
+           <span class="fu-ok">${ico("i-check")} O cabo fechou o frete</span>
+           <button type="button" class="fu-rm" data-cable="remove">Remover</button>
+         </div>`
+      : `<div class="fu-offer">
+           <span class="fu-bolt">${ico("i-bolt")}</span>
+           <span class="fu-txt">
+             <strong>Um ${escapeHtml(CABLE.name)} <em>fecha o frete</em></strong>
+             <span class="fu-sub">${brl(CABLE.price)} · a listra acima é o que falta</span>
+           </span>
+           <button type="button" class="fu-add" data-cable="add">Adicionar</button>
+         </div>`;
   }
 
   // Barra "faltam R$ X para o frete grátis", no rodapé do carrinho.
@@ -1100,6 +1246,7 @@
         ico("i-truck") + ` Faltam <strong>${brl(t.remaining)}</strong> para o frete grátis`;
       byId("freeShipNote").textContent = "";
     }
+    renderCableLever(t, done, ico);
   }
 
   function updateTotals() {
@@ -1236,7 +1383,19 @@
     if (e.key === "Enter") { e.preventDefault(); byId("couponApplyBtn").click(); }
   });
 
+  // Oferta do cabo. Vem ANTES das demais checagens: a linha é um <button> que
+  // não carrega data-idx, então cairia no ramo de quantidade com idx NaN.
+  function handleCableClick(e) {
+    const btn = e.target.closest("[data-cable]");
+    if (!btn) return false;
+    e.preventDefault();
+    if (btn.dataset.cable === "add") addCable();
+    else removeCable();
+    return true;
+  }
+
   byId("cartItems").addEventListener("click", (e) => {
+    if (handleCableClick(e)) return;
     const rm = e.target.closest(".rm");
     if (rm) {
       const idx = Number(rm.dataset.idx);
@@ -1245,7 +1404,7 @@
       const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (reduced || !row) {
         cart.splice(idx, 1); saveCart(); renderCart();
-        if (item) toast("Removido do carrinho", `${item.model_name} • ${item.flavor_name}`);
+        if (item) toast("Removido do carrinho", itemLabel(item));
         return;
       }
       row.style.maxHeight = row.offsetHeight + "px";
@@ -1253,7 +1412,7 @@
       void row.offsetHeight;
       row.style.maxHeight = "0px";
       setTimeout(() => { cart.splice(idx, 1); saveCart(); renderCart(); }, 320);
-      if (item) toast("Removido do carrinho", `${item.model_name} • ${item.flavor_name}`);
+      if (item) toast("Removido do carrinho", itemLabel(item));
       return;
     }
     const qb = e.target.closest("[data-act]");
@@ -1272,6 +1431,10 @@
       saveCart(); renderCart();
     }
   });
+
+  // A alavanca vive dentro da barra de frete, no rodapé do carrinho — fora do
+  // #cartItems, então precisa do seu próprio ponto de escuta.
+  byId("freeShipBar").addEventListener("click", handleCableClick);
 
   // ---------------------------------------------------------------
   // CHECKOUT PANEL
@@ -1308,7 +1471,7 @@
         <span class="qty">${it.qty}x</span>
         <div class="ci-info">
           <div class="m">${it.model_name}</div>
-          <div class="f">${it.flavor_name}</div>
+          <div class="f${it.is_cable ? " accessory" : ""}">${it.is_cable ? "Acessório" : it.flavor_name}</div>
         </div>
         <span class="p">${brl(sub)}</span>
       </div>`;
@@ -1504,7 +1667,9 @@
       const sub = it.price * it.qty;
       total += sub;
       msg += `*${i + 1}. ${it.model_name}*\n`;
-      msg += `   🍬 Sabor: ${it.flavor_name}\n`;
+      // O cabo não tem sabor. Mandar "Sabor:" vazio faria quem separa o pedido
+      // procurar um sabor que não existe.
+      msg += it.is_cable ? `   🔌 Acessório\n` : `   🍬 Sabor: ${it.flavor_name}\n`;
       msg += `   📦 Qtd: ${it.qty}x  •  ${brl(it.price)}\n`;
       msg += `   💰 Subtotal: ${brl(sub)}\n\n`;
     });

@@ -1451,6 +1451,68 @@ def build_jsonld(config, faq):
 # ---------------------------------------------------------------------------
 # Rotas públicas
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Acessório: cabo USB-C
+#
+# O cabo é um produto ÚNICO (todos iguais), então mora em site_config, junto
+# das demais configurações de instância — e NÃO em `products`, que exige um
+# model_id e o colocaria dentro da árvore marca > modelo > sabor, obrigando a
+# escondê-lo da grade, do "a partir de", dos mais vendidos e da lista de
+# modelos dos cupons. No carrinho ele entra com o id reservado "cable"
+# (string), que nunca colide com os ids numéricos dos sabores.
+# ---------------------------------------------------------------------------
+def get_cable(config):
+    """Config do cabo pronta para o template.
+
+    Preço inválido ou nome vazio DESLIGAM a oferta em vez de virarem 0/""
+    silenciosamente: melhor não oferecer nada do que oferecer um cabo sem
+    nome por R$ 0,00 porque o lojista salvou o formulário pela metade."""
+    try:
+        price = round(float(config.get("cable_price") or 0), 2)
+    except (TypeError, ValueError):
+        price = 0.0
+    name = (config.get("cable_name") or "").strip()
+    return {
+        "enabled": config.get("cable_enabled") == "1" and price > 0 and bool(name),
+        "name": name,
+        "price": price,
+        "image": config.get("cable_image") or "",
+    }
+
+
+@app.route("/api/cable", methods=["POST"])
+@api_catalog_required
+def api_cable():
+    data = request.get_json(force=True) or {}
+    name = (data.get("name") or "").strip()[:80]
+    image = (data.get("image") or "").strip()
+    try:
+        price = round(float(data.get("price") or 0), 2)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "preço inválido"}), 400
+    if price < 0:
+        return jsonify({"ok": False, "error": "preço não pode ser negativo"}), 400
+    # A URL vai parar num <img> da loja: só aceitamos caminho gerado pelo
+    # próprio uploader, nunca um endereço externo digitado à mão.
+    if image and not image.startswith("/static/uploads/"):
+        return jsonify({"ok": False, "error": "imagem inválida"}), 400
+
+    db = get_db()
+    for key, value in (
+        ("cable_enabled", "1" if data.get("enabled") else "0"),
+        ("cable_name", name),
+        ("cable_price", f"{price:.2f}"),
+        ("cable_image", image),
+    ):
+        db.execute(
+            "INSERT INTO site_config (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )
+    db.commit()
+    return jsonify({"ok": True})
+
+
 @app.route("/")
 def home():
     config = get_config()
@@ -1458,6 +1520,7 @@ def home():
     return render_template(
         "index.html",
         config=config,
+        cable=get_cable(config),
         catalog=build_catalog(),
         brands=[dict(b) for b in get_db().execute("SELECT * FROM brands ORDER BY name").fetchall()],
         whatsapp=WHATSAPP_PHONE,
