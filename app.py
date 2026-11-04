@@ -497,6 +497,22 @@ def init_db():
             btn_text_color TEXT NOT NULL DEFAULT '#0a0a0c'
         );
 
+        -- Avaliações do Google, cadastradas à mão no painel (sem API do
+        -- Google: a loja escolhe quais mostrar e não depende de chave/cobrança).
+        -- avatar_url = foto de perfil do cliente; photo_url = foto que ele
+        -- postou junto da avaliação (opcional; sem ela o card fica só texto).
+        CREATE TABLE IF NOT EXISTS google_reviews (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            position   INTEGER NOT NULL DEFAULT 0,
+            active     INTEGER NOT NULL DEFAULT 1,
+            author     TEXT NOT NULL DEFAULT '',
+            avatar_url TEXT NOT NULL DEFAULT '',
+            photo_url  TEXT NOT NULL DEFAULT '',
+            rating     INTEGER NOT NULL DEFAULT 5,
+            text       TEXT NOT NULL DEFAULT '',
+            when_label TEXT NOT NULL DEFAULT ''
+        );
+
         CREATE TABLE IF NOT EXISTS coupons (
             id     INTEGER PRIMARY KEY AUTOINCREMENT,
             code   TEXT NOT NULL UNIQUE,
@@ -759,6 +775,15 @@ def init_db():
         # anunciar "economia de R$ 8,00" encolhe a percepção do benefício em
         # vez de reforçá-la.
         "free_ship_min_saving": "12",
+        # Avaliações do Google (aba "Informações do site"). Começa OCULTO em
+        # todas as lojas: o dono cadastra, confere e só então liga. Oculto
+        # some com a seção "Quem compra, recomenda" e com a linha da nota no
+        # hero. Nota e total são texto livre do painel ("4,9" / "312"), porque
+        # vêm de olho no perfil do Google, não de uma API.
+        "reviews_enabled": "0",
+        "reviews_rating": "",
+        "reviews_count": "",
+        "reviews_url": "",
         # Pop-up de promoção do site (gerenciado na aba Cupons do painel).
         "promo_popup_enabled": "0",
         "promo_popup_badge": "OFERTA ESPECIAL",
@@ -984,6 +1009,39 @@ def get_promo_blocks(only_active=False):
             block[field] = config.get(f"promo_{pid}_{field}", default)
         blocks.append(block)
     return blocks
+
+
+REVIEWS_MAX = 12
+
+
+def get_google_reviews(only_active=False):
+    """Avaliações do Google na ordem escolhida no painel.
+
+    Na loja (only_active=True) só entram as ativas e com texto, até
+    REVIEWS_MAX: um carrossel com 30 cards ninguém percorre, e o cliente
+    precisa de uma amostra boa, não do arquivo inteiro.
+    """
+    rows = get_db().execute(
+        "SELECT * FROM google_reviews ORDER BY position, id"
+    ).fetchall()
+    reviews = [dict(r) for r in rows]
+    if only_active:
+        reviews = [r for r in reviews if r["active"] and r["text"].strip() and r["author"].strip()]
+        reviews = reviews[:REVIEWS_MAX]
+    return reviews
+
+
+def parse_reviews_summary(config):
+    """Resumo da nota para a linha do hero. Devolve None quando o recurso está
+    oculto ou a nota não foi preenchida — e o template simplesmente não
+    desenha a linha."""
+    if config.get("reviews_enabled") != "1":
+        return None
+    rating = (config.get("reviews_rating") or "").strip()
+    if not rating:
+        return None
+    count = (config.get("reviews_count") or "").strip()
+    return {"rating": rating, "count": count, "url": (config.get("reviews_url") or "").strip()}
 
 
 def create_promo_block(duplicate_from=None):
@@ -1517,9 +1575,12 @@ def api_cable():
 def home():
     config = get_config()
     faq = parse_faq(config)
+    reviews_on = config.get("reviews_enabled") == "1"
     return render_template(
         "index.html",
         config=config,
+        reviews=get_google_reviews(only_active=True) if reviews_on else [],
+        reviews_summary=parse_reviews_summary(config),
         cable=get_cable(config),
         catalog=build_catalog(),
         brands=[dict(b) for b in get_db().execute("SELECT * FROM brands ORDER BY name").fetchall()],
@@ -1707,6 +1768,7 @@ def admin():
         tree=tree,
         catalog_order=catalog_order,
         config=get_config(),
+        google_reviews=get_google_reviews() if is_owner else [],
         coupons=get_coupons(),
         special_zones=special_zones,
         concentric_zones=concentric_zones,
@@ -2087,6 +2149,190 @@ def api_move_promo_block(pid):
     db.execute("UPDATE promo_blocks SET position = ? WHERE id = ?", (a["position"], b["id"]))
     db.commit()
     return jsonify({"ok": True})
+
+
+# ---- Avaliações do Google ----
+_REVIEWS_RATING_RE = re.compile(r"^[0-5](?:[.,]\d)?$")
+
+
+def _upsert_config(db, key, value):
+    db.execute(
+        "INSERT INTO site_config (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value),
+    )
+
+
+@app.route("/api/reviews/settings", methods=["POST"])
+@api_owner_required
+def api_reviews_settings():
+    """Liga/oculta o recurso e grava o resumo (nota, total, link do perfil).
+
+    Cada campo é opcional no corpo: o botão Ativo/Oculto manda só `enabled`,
+    e o "Salvar resumo" manda os outros três."""
+    d = request.get_json(force=True) or {}
+    db = get_db()
+    if "enabled" in d:
+        _upsert_config(db, "reviews_enabled", "1" if d["enabled"] in (True, 1, "1", "true", "on") else "0")
+    if "rating" in d:
+        rating = str(d["rating"] or "").strip().replace(".", ",")
+        if rating and not _REVIEWS_RATING_RE.match(rating):
+            return jsonify({"ok": False, "error": "Nota inválida. Use algo como 4,9 (de 0 a 5)."}), 400
+        if rating and float(rating.replace(",", ".")) > 5:
+            return jsonify({"ok": False, "error": "A nota vai até 5."}), 400
+        _upsert_config(db, "reviews_rating", rating)
+    if "count" in d:
+        raw = str(d["count"] or "").strip().replace(".", "")
+        if raw and not raw.isdigit():
+            return jsonify({"ok": False, "error": "Total de avaliações deve ser um número."}), 400
+        _upsert_config(db, "reviews_count", raw[:7])
+    if "url" in d:
+        url = str(d["url"] or "").strip()
+        # O link vai para um <a href> público: só http(s), nunca javascript:.
+        if url and not url.startswith(("https://", "http://")):
+            return jsonify({"ok": False, "error": "O link do Google deve começar com https://"}), 400
+        _upsert_config(db, "reviews_url", url[:500])
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/review", methods=["POST"])
+@api_owner_required
+def api_create_review():
+    db = get_db()
+    max_pos = db.execute("SELECT COALESCE(MAX(position), 0) AS p FROM google_reviews").fetchone()["p"]
+    cur = db.execute("INSERT INTO google_reviews (position) VALUES (?)", (max_pos + 1,))
+    db.commit()
+    row = db.execute("SELECT * FROM google_reviews WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return jsonify({"ok": True, "review": dict(row)})
+
+
+@app.route("/api/review/<int:rid>", methods=["POST"])
+@api_owner_required
+def api_update_review(rid):
+    d = request.get_json(force=True) or {}
+    fields, vals = [], []
+    if "author" in d:
+        fields.append("author = ?")
+        vals.append(str(d["author"] or "").strip()[:60])
+    if "text" in d:
+        # Uma avaliação é um trecho, não a resenha inteira: o card mostra até
+        # 4 linhas, então o teto evita colar um texto enorme sem perceber.
+        fields.append("text = ?")
+        vals.append(re.sub(r"\s+", " ", str(d["text"] or "")).strip()[:400])
+    if "when_label" in d:
+        fields.append("when_label = ?")
+        vals.append(str(d["when_label"] or "").strip()[:30])
+    if "rating" in d:
+        try:
+            rating = int(d["rating"])
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "estrelas inválidas"}), 400
+        fields.append("rating = ?")
+        vals.append(max(1, min(5, rating)))
+    if "active" in d:
+        fields.append("active = ?")
+        vals.append(1 if d["active"] in (True, 1, "1", "true", "on") else 0)
+    for key in ("avatar_url", "photo_url"):
+        if key in d:
+            # Só aceita vazio (remover) ou caminho gerado pelo próprio uploader.
+            url = str(d[key] or "").strip()
+            if url and not url.startswith("/static/uploads/"):
+                return jsonify({"ok": False, "error": "imagem inválida"}), 400
+            fields.append(f"{key} = ?")
+            vals.append(url)
+    if not fields:
+        return jsonify({"ok": False, "error": "nada para salvar"}), 400
+    db = get_db()
+    vals.append(rid)
+    db.execute(f"UPDATE google_reviews SET {', '.join(fields)} WHERE id = ?", vals)
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/review/<int:rid>", methods=["DELETE"])
+@api_owner_required
+def api_delete_review(rid):
+    db = get_db()
+    db.execute("DELETE FROM google_reviews WHERE id = ?", (rid,))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/review/<int:rid>/move", methods=["POST"])
+@api_owner_required
+def api_move_review(rid):
+    direction = (request.get_json(force=True) or {}).get("direction")
+    db = get_db()
+    rows = db.execute("SELECT id, position FROM google_reviews ORDER BY position, id").fetchall()
+    ids = [r["id"] for r in rows]
+    if rid not in ids:
+        return jsonify({"ok": False}), 404
+    idx = ids.index(rid)
+    swap_idx = idx - 1 if direction == "up" else idx + 1
+    if swap_idx < 0 or swap_idx >= len(ids):
+        return jsonify({"ok": True})
+    # Renumera tudo em sequência antes de trocar: avaliações criadas com a
+    # mesma posição (ou após exclusões) não ficariam presas no lugar.
+    ids[idx], ids[swap_idx] = ids[swap_idx], ids[idx]
+    for pos, i in enumerate(ids):
+        db.execute("UPDATE google_reviews SET position = ? WHERE id = ?", (pos, i))
+    db.commit()
+    return jsonify({"ok": True})
+
+
+def _crop_to_ratio(img, ratio_w, ratio_h, out_w):
+    """Recorte central na proporção pedida e redimensiona para `out_w` de largura."""
+    w, h = img.size
+    target = ratio_w / ratio_h
+    if w / h > target:
+        new_w = int(h * target)
+        left = (w - new_w) // 2
+        img = img.crop((left, 0, left + new_w, h))
+    else:
+        new_h = int(w / target)
+        top = (h - new_h) // 2
+        img = img.crop((0, top, w, top + new_h))
+    out_h = round(out_w * ratio_h / ratio_w)
+    return img.resize((out_w, out_h), Image.LANCZOS)
+
+
+@app.route("/api/upload_review_image", methods=["POST"])
+@api_owner_required
+def api_upload_review_image():
+    """Foto de perfil (quadrada, 160px) ou foto da avaliação (4:3, 900px) de
+    uma avaliação. Grava direto na linha da avaliação e devolve a URL."""
+    kind = request.form.get("kind")
+    if kind not in ("avatar", "photo"):
+        return jsonify({"ok": False, "error": "tipo inválido"}), 400
+    try:
+        rid = int(request.form.get("review_id") or 0)
+    except ValueError:
+        rid = 0
+    db = get_db()
+    if not db.execute("SELECT 1 FROM google_reviews WHERE id = ?", (rid,)).fetchone():
+        return jsonify({"ok": False, "error": "avaliação não encontrada"}), 404
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify({"ok": False, "error": "sem arquivo"}), 400
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED_EXT:
+        return jsonify({"ok": False, "error": "formato inválido"}), 400
+    try:
+        img = ImageOps.exif_transpose(Image.open(file)).convert("RGB")
+        if kind == "avatar":
+            img = _crop_to_ratio(img, 1, 1, 160)
+        else:
+            img = _crop_to_ratio(img, 4, 3, 900)
+    except Exception:
+        return jsonify({"ok": False, "error": "não foi possível processar a imagem"}), 400
+    fname = f"review-{kind}-{uuid.uuid4().hex}.jpg"
+    img.save(os.path.join(app.config["UPLOAD_DIR"], secure_filename(fname)), "JPEG", quality=86, optimize=True)
+    url = url_for("uploaded_file", filename=fname)
+    col = "avatar_url" if kind == "avatar" else "photo_url"
+    db.execute(f"UPDATE google_reviews SET {col} = ? WHERE id = ?", (url, rid))
+    db.commit()
+    return jsonify({"ok": True, "url": url})
 
 
 # ---- Cupons de desconto ----

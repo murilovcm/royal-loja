@@ -266,12 +266,8 @@
 
   <!-- Hero -->
   <section class="hero container">
-    <div class="hero-chips" id="heroChips">
-      <button type="button" class="hero-chip" data-filter="best"><i class="ico-bolt"></i> Mais Vendidos</button>
-      {% for b in brands %}
-      <button type="button" class="hero-chip" data-filter="brand-{{ b.id }}">{{ b.name }}</button>
-      {% endfor %}
-    </div>
+    {# Os chips de marcas que ficavam aqui saíram: repetiam a barra de filtros
+       do catálogo logo abaixo e disputavam a primeira impressão com o título. #}
 
     {# Status da loja: voltou para dentro do hero e com presença. Quando está
        aberta a pill ganha tinta verde, porque isso é estado semântico real
@@ -304,12 +300,9 @@
         <svg class="ico hero-cta-icon" aria-hidden="true"><use href="#i-grid"></use></svg>
         Ver Catálogo
       </a>
-    </div>
-
-    {# Ações secundárias discretas: dois círculos, como na versão que você
-       aprovou. Um botão verde do tamanho do CTA principal disputava a atenção
-       com ele e desequilibrava o bloco inteiro. #}
-    <div class="hero-social">
+      {# Ações secundárias discretas: dois círculos na MESMA linha do CTA. Ficam
+         menores que ele (não disputam a atenção) e a linha separada que
+         ocupavam antes virou espaço para a nota do Google logo abaixo. #}
       <a href="https://wa.me/{{ config.whatsapp_phone or whatsapp }}?text={{ (config.wa_msg_hero or 'Olá! Vim pelo site e quero saber mais sobre os produtos.') | urlencode }}" target="_blank" rel="noopener" class="btn-social btn-social-wa" aria-label="Falar no WhatsApp">
         <svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg>
       </a>
@@ -319,6 +312,24 @@
       </a>
       {% endif %}
     </div>
+
+    {# Linha da nota do Google: a ÚNICA vez que a nota aparece na página. Leva
+       à seção "Quem compra, recomenda" (antes das perguntas frequentes); sem
+       avaliações cadastradas, leva direto ao perfil no Google. Some inteira
+       quando o recurso está oculto no painel (reviews_summary = None). #}
+    {% if reviews_summary %}
+    {% set rv_href = '#avaliacoes' if reviews else reviews_summary.url %}
+    {% if rv_href %}
+    <a class="hero-rating" href="{{ rv_href }}" {% if not reviews %}target="_blank" rel="noopener"{% endif %} id="heroRating"
+       aria-label="Nota {{ reviews_summary.rating }} de 5 no Google{% if reviews_summary.count %}, {{ reviews_summary.count }} avaliações{% endif %}. {{ 'Ver avaliações' if reviews else 'Abrir no Google' }}">
+      <svg class="hero-rating-g" aria-hidden="true"><use href="#i-google"></use></svg>
+      <b>{{ reviews_summary.rating }}</b>
+      <span class="hero-rating-stars" aria-hidden="true">★★★★★</span>
+      {% if reviews_summary.count %}<span>{{ reviews_summary.count }} avaliações no Google</span>{% else %}<span>no Google</span>{% endif %}
+      {% if reviews %}<svg class="ico hero-rating-arr" aria-hidden="true"><use href="#i-chevron-down"></use></svg>{% endif %}
+    </a>
+    {% endif %}
+    {% endif %}
   </section>
 
   {# A faixa de selos (Entrega Rápida / Produtos Originais / Atendimento Ágil)
@@ -411,6 +422,74 @@
      "terminá-la" numa posição de rolagem: o jeito é o conteúdo daqui em
      diante passar por cima com superfície própria. #}
   <div class="page-end">
+
+  {# ============ AVALIAÇÕES DO GOOGLE ============
+     Fica logo ANTES das perguntas frequentes de propósito: é onde moram as
+     dúvidas de quem ainda não comprou ("os produtos são originais?"), e é
+     para cá que a linha da nota no hero (#heroRating) rola.
+     Avaliações cadastradas à mão no painel (aba Informações do site), com
+     botão Ativo/Oculto; `reviews` chega vazio quando está oculto.
+     A nota NÃO se repete aqui: ela já está no hero; aqui o link é "Ver no
+     Google". Carrossel com scroll-snap nativo (o dedo arrasta de graça);
+     app.js (initReviewsCarousel) só cuida de pontos, setas e auto-avanço. #}
+  {% if reviews %}
+  <section class="section container reviews" id="avaliacoes" aria-labelledby="reviewsTitle">
+    <div class="section-head reviews-head">
+      <h2 id="reviewsTitle">
+        <svg class="ico reviews-title-icon" aria-hidden="true"><use href="#i-star"></use></svg>
+        Quem compra, recomenda
+      </h2>
+      {% if config.reviews_url %}
+      <a class="reviews-google-link" href="{{ config.reviews_url }}" target="_blank" rel="noopener">
+        <svg class="reviews-g" aria-hidden="true"><use href="#i-google"></use></svg>
+        Ver no Google
+        <svg class="ico" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+      </a>
+      {% endif %}
+    </div>
+    <div class="reviews-carousel" id="reviewsCarousel">
+      <div class="reviews-row" id="reviewsRow" tabindex="0" role="group" aria-roledescription="carrossel" aria-label="Avaliações de clientes no Google. Arraste para o lado ou use as setas.">
+        {% for r in reviews %}
+        <figure class="review-card{{ ' has-photo' if r.photo_url }}">
+          {% if r.photo_url %}
+          <div class="review-photo">
+            <img src="{{ r.photo_url }}" alt="Foto enviada por {{ r.author }} na avaliação" loading="lazy" decoding="async" width="900" height="675">
+            <span class="review-g-badge" aria-hidden="true"><svg><use href="#i-google"></use></svg></span>
+          </div>
+          {% endif %}
+          <div class="review-body">
+            <div class="review-who">
+              {% if r.avatar_url %}
+              <img class="review-avatar" src="{{ r.avatar_url }}" alt="" loading="lazy" decoding="async" width="44" height="44">
+              {% else %}
+              <span class="review-avatar review-avatar-initial" aria-hidden="true">{{ r.author[:1] | upper }}</span>
+              {% endif %}
+              <div class="review-meta">
+                <b class="review-author">{{ r.author }}</b>
+                <span class="review-sub">
+                  <span class="review-stars" role="img" aria-label="{{ r.rating }} de 5 estrelas">{{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }}</span>
+                  {% if r.when_label %}<span>{{ r.when_label }}</span>{% endif %}
+                </span>
+              </div>
+              {% if not r.photo_url %}<svg class="review-g" aria-hidden="true"><use href="#i-google"></use></svg>{% endif %}
+            </div>
+            <blockquote class="review-text">{{ r.text }}</blockquote>
+          </div>
+        </figure>
+        {% endfor %}
+      </div>
+      {% if reviews | length > 1 %}
+      <div class="reviews-ctrl">
+        <button type="button" class="reviews-arrow" data-dir="-1" aria-label="Avaliação anterior"><svg class="ico" aria-hidden="true"><use href="#i-chevron-left"></use></svg></button>
+        <div class="reviews-dots" role="group" aria-label="Escolher avaliação">
+          {% for r in reviews %}<button type="button" aria-label="Avaliação {{ loop.index }} de {{ reviews | length }}"></button>{% endfor %}
+        </div>
+        <button type="button" class="reviews-arrow" data-dir="1" aria-label="Próxima avaliação"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"></use></svg></button>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
 
   {# ============ PERGUNTAS FREQUENTES ============
      Respostas SEMPRE VISÍVEIS. Antes era um accordion <details name="faq">,

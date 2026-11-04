@@ -689,17 +689,131 @@
   byId("searchInput").addEventListener("input", applyFilter);
   applyFilter();
 
-  // Hero chips -> reusa o filtro do catálogo e rola até ele
-  const heroChips = byId("heroChips");
-  if (heroChips) {
-    heroChips.addEventListener("click", (e) => {
-      const chip = e.target.closest(".hero-chip");
-      if (!chip) return;
-      const pill = byId("filterBar").querySelector(`.pill[data-filter="${chip.dataset.filter}"]`);
-      if (pill) pill.click();
-      byId("catalogo").scrollIntoView({ behavior: "smooth", block: "start" });
+  // ---------------------------------------------------------------
+  // AVALIAÇÕES DO GOOGLE (carrossel antes das perguntas frequentes)
+  // ---------------------------------------------------------------
+  // A fileira é scroll-snap nativo: no celular o dedo arrasta sem nada daqui.
+  // Este bloco só acrescenta pontos, setas, teclado, arrasto com mouse e o
+  // auto-avanço (5s), que PAUSA enquanto o cliente está com o dedo/mouse/foco
+  // no carrossel e com a aba escondida. Sem aria-live, pela mesma razão da
+  // faixa de avisos: anunciar a troca a cada 5s atropela o leitor de tela.
+  (function initReviewsCarousel() {
+    const row = byId("reviewsRow");
+    if (!row) return;
+    const wrap = byId("reviewsCarousel");
+    const cards = Array.from(row.children);
+    const dots = Array.from(wrap.querySelectorAll(".reviews-dots button"));
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const n = cards.length;
+
+    const base = () => cards[0].offsetLeft;
+    const current = () => {
+      let best = 0, bestDist = Infinity;
+      cards.forEach((c, i) => {
+        const d = Math.abs(c.offsetLeft - base() - row.scrollLeft);
+        if (d < bestDist) { bestDist = d; best = i; }
+      });
+      return best;
+    };
+    const goTo = (i) => row.scrollTo({ left: cards[i].offsetLeft - base(), behavior: reduced ? "auto" : "smooth" });
+    const step = (dir) => {
+      const atEnd = row.scrollLeft >= row.scrollWidth - row.clientWidth - 2;
+      let i = current() + dir;
+      if (dir > 0 && atEnd) i = 0;          // no fim, volta ao começo
+      if (i < 0) i = n - 1;
+      goTo(Math.min(i, n - 1));
+    };
+    const markDots = () => {
+      const a = current();
+      dots.forEach((d, k) => {
+        d.classList.toggle("on", k === a);
+        if (k === a) d.setAttribute("aria-current", "true"); else d.removeAttribute("aria-current");
+      });
+    };
+    let raf = 0;
+    row.addEventListener("scroll", () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(markDots);
+    }, { passive: true });
+    markDots();
+    if (n < 2) return;
+
+    // Auto-avanço com pausa
+    let timer = null, hold = false;
+    const stop = () => { clearInterval(timer); timer = null; };
+    const start = () => {
+      if (reduced || hold || document.hidden) return;
+      stop();
+      timer = setInterval(() => step(1), 5000);
+    };
+    const restart = () => { stop(); start(); };
+    wrap.addEventListener("pointerenter", () => { hold = true; stop(); });
+    wrap.addEventListener("pointerleave", () => { hold = false; start(); });
+    wrap.addEventListener("focusin", () => { hold = true; stop(); });
+    wrap.addEventListener("focusout", () => { hold = false; start(); });
+    row.addEventListener("touchstart", () => { hold = true; stop(); }, { passive: true });
+    row.addEventListener("touchend", () => { hold = false; setTimeout(start, 4000); }, { passive: true });
+    document.addEventListener("visibilitychange", () => (document.hidden ? stop() : start()));
+
+    dots.forEach((d, i) => d.addEventListener("click", () => { goTo(i); restart(); }));
+    wrap.querySelectorAll(".reviews-arrow").forEach((b) =>
+      b.addEventListener("click", () => { step(Number(b.dataset.dir)); restart(); })
+    );
+    row.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") { step(1); e.preventDefault(); }
+      if (e.key === "ArrowLeft") { step(-1); e.preventDefault(); }
     });
-  }
+
+    // Arrasto com mouse (no toque, o scroll nativo já resolve)
+    let x0 = null, s0 = 0, i0 = 0, moved = false;
+    row.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "mouse" || e.button !== 0) return;
+      x0 = e.clientX; s0 = row.scrollLeft; i0 = current(); moved = false;
+      row.classList.add("is-dragging");
+      row.setPointerCapture(e.pointerId);
+    });
+    row.addEventListener("pointermove", (e) => {
+      if (x0 === null) return;
+      const dx = e.clientX - x0;
+      if (Math.abs(dx) > 3) moved = true;
+      row.scrollLeft = s0 - dx;
+    });
+    const endDrag = () => {
+      if (x0 === null) return;
+      const dx = row.scrollLeft - s0;
+      x0 = null;
+      row.classList.remove("is-dragging");
+      let i = current();
+      if (Math.abs(dx) > 40 && i === i0) i = Math.max(0, Math.min(n - 1, i0 + Math.sign(dx)));
+      goTo(i);
+    };
+    row.addEventListener("pointerup", endDrag);
+    row.addEventListener("pointercancel", endDrag);
+    // Um arrasto não pode virar clique (ex.: abrir a foto no futuro).
+    row.addEventListener("click", (e) => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
+
+    start();
+  })();
+
+  // Linha da nota no hero -> desce até as avaliações e acende os cards por
+  // um instante, para o olho achar onde chegou.
+  (function initHeroRating() {
+    const link = byId("heroRating");
+    const section = byId("avaliacoes");
+    if (!link || !section) return;
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      section.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+      const row = byId("reviewsRow");
+      if (!row || reduced) return;
+      setTimeout(() => {
+        row.classList.remove("is-flash");
+        void row.offsetWidth;
+        row.classList.add("is-flash");
+      }, 650);
+    });
+  })();
 
   // ---------------------------------------------------------------
   // MODAL

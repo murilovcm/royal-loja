@@ -417,6 +417,39 @@
     .pp-p-coupon > span:first-child { flex:1; display:flex; align-items:center; justify-content:center; font-weight:800; letter-spacing:1px; font-size:.9rem; color:var(--primary-yellow); padding:9px; }
     .pp-p-copy { flex-shrink:0; padding:9px 14px; background:var(--primary-yellow); color:var(--text-on-primary); font-weight:700; font-size:.72rem; display:flex; align-items:center; }
     .pp-p-cta { display:flex; align-items:center; justify-content:center; min-height:44px; border-radius:999px; background:var(--primary-yellow); color:var(--text-on-primary); font-weight:700; font-size:.88rem; }
+    /* ---- Avaliações do Google ---- */
+    .rv-state { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:14px 16px; margin:12px 0 18px; border-radius:12px; border:1px solid var(--border); background:var(--bg-2); }
+    .rv-state .pp-switch { margin:0; }
+    .rv-badge { font-size:.7rem; font-weight:800; letter-spacing:.08em; padding:4px 10px; border-radius:999px; }
+    .rv-badge.off { background:rgba(255,255,255,.08); color:var(--text-dim); }
+    .rv-badge.on { background:rgba(34,197,94,.15); color:#4ade80; }
+    .rv-state small { flex-basis:100%; }
+    .rv-summary { display:grid; grid-template-columns:120px 160px 1fr; gap:12px; align-items:end; }
+    @media (max-width:720px) { .rv-summary { grid-template-columns:1fr 1fr; } .rv-summary .rv-url { grid-column:1 / -1; } }
+    .rv-summary .pp-field { margin:0; }
+    .rv-list { display:grid; gap:12px; margin:18px 0 14px; }
+    .rv-empty { padding:18px; border:1px dashed var(--border); border-radius:12px; color:var(--text-dim); font-size:.85rem; text-align:center; }
+    .rv-item { display:grid; grid-template-columns:170px 1fr; gap:16px; padding:14px; border:1px solid var(--border); border-radius:14px; background:var(--bg-2); }
+    .rv-item.inactive { opacity:.6; }
+    @media (max-width:640px) { .rv-item { grid-template-columns:1fr; } }
+    .rv-media { display:grid; grid-template-columns:56px 1fr; gap:10px; align-content:start; }
+    .rv-avatar, .rv-photo { position:relative; border:1px dashed var(--border); background:var(--surface); cursor:pointer; display:grid; place-items:center; overflow:hidden; color:var(--text-dim); font-size:.68rem; text-align:center; line-height:1.25; }
+    .rv-avatar { width:56px; height:56px; border-radius:50%; }
+    .rv-photo { aspect-ratio:4 / 3; border-radius:10px; padding:4px; }
+    .rv-avatar img, .rv-photo img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+    .rv-avatar:hover, .rv-photo:hover { border-color:var(--primary-yellow); }
+    .rv-media-cap { grid-column:1 / -1; font-size:.68rem; color:var(--text-dim); }
+    .rv-x { position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,.7); color:#fff; font-size:.7rem; display:grid; place-items:center; z-index:2; }
+    .rv-fields { display:grid; gap:10px; min-width:0; }
+    .rv-row { display:grid; grid-template-columns:1fr 110px 130px; gap:10px; }
+    @media (max-width:640px) { .rv-row { grid-template-columns:1fr 1fr; } .rv-row .rv-name { grid-column:1 / -1; } }
+    .rv-fields input[type=text], .rv-fields select, .rv-fields textarea { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:9px 11px; color:var(--text); font-size:.86rem; font-family:inherit; width:100%; }
+    .rv-fields input:focus, .rv-fields select:focus, .rv-fields textarea:focus { outline:none; border-color:var(--primary-yellow); }
+    .rv-fields textarea { resize:vertical; min-height:70px; }
+    .rv-foot { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .rv-foot .pp-switch { margin:0 auto 0 0; font-weight:600; font-size:.82rem; }
+    .rv-foot .mini-btn { padding:7px 12px; font-size:.78rem; }
+    .rv-count { font-size:.7rem; color:var(--text-dim); text-align:right; }
   </style>
 </head>
 <body>
@@ -1254,6 +1287,47 @@
 
     {% if is_owner %}
     <div class="admin-tab-panel" data-tab-panel="siteinfo">
+      {# Avaliações do Google: seção "Quem compra, recomenda" (antes das
+         perguntas frequentes) + linha da nota no topo do site. Começa OCULTO;
+         o botão abaixo liga e desliga na hora, sem precisar de "Salvar". #}
+      <div class="sections-block" id="reviewsAdmin">
+        <div class="sections-head">
+          ⭐ Avaliações do Google <span class="sections-sub">Carrossel "Quem compra, recomenda" antes das perguntas frequentes + a nota no topo do site</span>
+        </div>
+        <div class="rv-state">
+          <label class="pp-switch">
+            <span class="switch {{ 'on' if config.reviews_enabled == '1' }}" id="rvEnabledSwitch" role="switch" aria-checked="{{ 'true' if config.reviews_enabled == '1' else 'false' }}" tabindex="0" onclick="toggleReviewsEnabled()" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleReviewsEnabled();}"></span>
+            <span>Mostrar avaliações no site</span>
+          </label>
+          <span class="rv-badge {{ 'on' if config.reviews_enabled == '1' else 'off' }}" id="rvBadge">{{ 'ATIVO NA LOJA' if config.reviews_enabled == '1' else 'OCULTO PARA CLIENTES' }}</span>
+          <small class="pp-hint">Enquanto estiver oculto, nada disso aparece para os clientes. Cadastre as avaliações, confira e só então ative. A mudança vale na hora.</small>
+        </div>
+
+        <div class="rv-summary">
+          <div class="pp-field">
+            <label for="rvRating">Nota no Google</label>
+            <input type="text" id="rvRating" maxlength="3" value="{{ config.reviews_rating or '' }}" placeholder="4,9">
+          </div>
+          <div class="pp-field">
+            <label for="rvCount">Total de avaliações</label>
+            <input type="text" id="rvCount" inputmode="numeric" maxlength="7" value="{{ config.reviews_count or '' }}" placeholder="312">
+          </div>
+          <div class="pp-field rv-url">
+            <label for="rvUrl">Link do seu perfil no Google</label>
+            <input type="text" id="rvUrl" maxlength="500" value="{{ config.reviews_url or '' }}" placeholder="https://g.page/r/...">
+          </div>
+        </div>
+        <small class="pp-hint">A nota aparece uma única vez, numa linha discreta abaixo do botão "Ver Catálogo" no topo do site, e leva até as avaliações. Sem nota preenchida, a linha não aparece. O link vira o botão "Ver no Google" da seção.</small>
+        <div class="identity-save-row">
+          <button class="mini-btn primary" id="rvSaveSummaryBtn" onclick="saveReviewsSummary()">Salvar nota e link</button>
+        </div>
+
+        <div class="rv-list" id="rvList"></div>
+        <button type="button" class="mini-btn" onclick="addReview()">＋ Adicionar avaliação</button>
+        <small class="pp-hint" style="display:block;margin-top:8px">Copie do Google o nome, as estrelas, o texto e há quanto tempo foi postada. A foto de perfil e a foto da avaliação são opcionais: sem foto de perfil aparece a inicial do nome; sem foto da avaliação, o card fica só com o texto. Até 12 avaliações ativas aparecem no site, na ordem desta lista.</small>
+        <input type="file" accept="image/*" id="rvFileInput" hidden onchange="handleReviewFile(this)">
+      </div>
+
       <div class="sections-block">
         <div class="sections-head">
           📢 Mensagens rotativas do topo <span class="sections-sub">A faixa que passa no topo do site, logo abaixo do aviso de idade</span>
@@ -2378,6 +2452,201 @@
       });
       return linhas.join('\n');
     }
+
+    // ---- Avaliações do Google ----
+    // A lista é desenhada aqui (e não no Jinja) para adicionar, mover e
+    // excluir sem recarregar a página — recarregar devolveria o painel para a
+    // aba Catálogo. Cada card salva sozinho no botão "Salvar"; fotos sobem na
+    // hora e já ficam gravadas na avaliação.
+    let rvReviews = {{ (google_reviews or []) | tojson }};
+    let rvUploadTarget = null;
+
+    function rvEsc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function renderReviews() {
+      const list = document.getElementById('rvList');
+      if (!list) return;
+      if (!rvReviews.length) {
+        list.innerHTML = '<div class="rv-empty">Nenhuma avaliação ainda. Clique em "＋ Adicionar avaliação" e copie uma do seu perfil no Google.</div>';
+        return;
+      }
+      list.innerHTML = rvReviews.map((r, i) => {
+        const initial = rvEsc((r.author || '?').trim().charAt(0).toUpperCase() || '?');
+        const avatar = r.avatar_url
+          ? `<img src="${rvEsc(r.avatar_url)}" alt=""><button type="button" class="rv-x" title="Remover foto de perfil" onclick="event.stopPropagation();removeReviewImage(${r.id},'avatar')">✕</button>`
+          : `<span>${initial}</span>`;
+        const photo = r.photo_url
+          ? `<img src="${rvEsc(r.photo_url)}" alt=""><button type="button" class="rv-x" title="Remover foto da avaliação" onclick="event.stopPropagation();removeReviewImage(${r.id},'photo')">✕</button>`
+          : `<span>＋ Foto da avaliação<br>(opcional)</span>`;
+        const stars = [5,4,3,2,1].map(n => `<option value="${n}" ${Number(r.rating) === n ? 'selected' : ''}>${'★'.repeat(n)}${'☆'.repeat(5 - n)}</option>`).join('');
+        return `
+          <div class="rv-item ${r.active ? '' : 'inactive'}" data-id="${r.id}">
+            <div class="rv-media">
+              <div class="rv-avatar" title="Enviar foto de perfil" onclick="pickReviewFile(${r.id},'avatar')">${avatar}</div>
+              <div class="rv-photo" title="Enviar a foto que o cliente postou" onclick="pickReviewFile(${r.id},'photo')">${photo}</div>
+              <span class="rv-media-cap">Toque para enviar · perfil (redonda) e foto da avaliação</span>
+            </div>
+            <div class="rv-fields">
+              <div class="rv-row">
+                <input type="text" class="rv-name" maxlength="60" placeholder="Nome do cliente" value="${rvEsc(r.author)}" aria-label="Nome do cliente">
+                <select class="rv-stars" aria-label="Estrelas">${stars}</select>
+                <input type="text" class="rv-when" maxlength="30" placeholder="há 2 semanas" value="${rvEsc(r.when_label)}" aria-label="Quando foi postada">
+              </div>
+              <textarea class="rv-text" maxlength="400" placeholder="Texto da avaliação, como está no Google" aria-label="Texto da avaliação" oninput="this.nextElementSibling.textContent=this.value.length+'/400'">${rvEsc(r.text)}</textarea>
+              <div class="rv-count">${(r.text || '').length}/400</div>
+              <div class="rv-foot">
+                <label class="pp-switch">
+                  <span class="switch ${r.active ? 'on' : ''}" onclick="this.classList.toggle('on')"></span>
+                  <span>Aparece no site</span>
+                </label>
+                <button type="button" class="mini-btn" title="Subir" ${i === 0 ? 'disabled' : ''} onclick="moveReview(${r.id},'up')">↑</button>
+                <button type="button" class="mini-btn" title="Descer" ${i === rvReviews.length - 1 ? 'disabled' : ''} onclick="moveReview(${r.id},'down')">↓</button>
+                <button type="button" class="mini-btn" onclick="deleteReview(${r.id})">Excluir</button>
+                <button type="button" class="mini-btn primary" onclick="saveReview(${r.id})">Salvar</button>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function setReviewsBadge(on) {
+      const sw = document.getElementById('rvEnabledSwitch');
+      const badge = document.getElementById('rvBadge');
+      sw.classList.toggle('on', on);
+      sw.setAttribute('aria-checked', on ? 'true' : 'false');
+      badge.classList.toggle('on', on);
+      badge.classList.toggle('off', !on);
+      badge.textContent = on ? 'ATIVO NA LOJA' : 'OCULTO PARA CLIENTES';
+    }
+
+    async function toggleReviewsEnabled() {
+      const sw = document.getElementById('rvEnabledSwitch');
+      const next = !sw.classList.contains('on');
+      if (next && !rvReviews.some(r => r.active && (r.text || '').trim() && (r.author || '').trim())) {
+        toast("Cadastre e salve ao menos uma avaliação antes de ativar");
+        return;
+      }
+      setReviewsBadge(next);
+      const res = await api('/api/reviews/settings', 'POST', { enabled: next });
+      if (!res || !res.ok) { setReviewsBadge(!next); toast((res && res.error) || "Erro ao salvar"); return; }
+      toast(next ? "Avaliações ativas na loja ✓" : "Avaliações ocultas para clientes ✓");
+    }
+
+    async function saveReviewsSummary() {
+      const res = await api('/api/reviews/settings', 'POST', {
+        rating: document.getElementById('rvRating').value.trim(),
+        count: document.getElementById('rvCount').value.trim(),
+        url: document.getElementById('rvUrl').value.trim(),
+      });
+      toast(res && res.ok ? "Nota e link salvos ✓" : ((res && res.error) || "Erro ao salvar"));
+    }
+
+    async function addReview() {
+      const res = await api('/api/review', 'POST', {});
+      if (!res || !res.ok) { toast("Erro ao criar avaliação"); return; }
+      rvReviews.push(res.review);
+      renderReviews();
+      const items = document.querySelectorAll('#rvList .rv-item');
+      const last = items[items.length - 1];
+      if (last) { last.scrollIntoView({ block: 'center', behavior: 'smooth' }); last.querySelector('.rv-name').focus(); }
+    }
+
+    async function saveReview(id) {
+      const el = document.querySelector(`#rvList .rv-item[data-id="${id}"]`);
+      if (!el) return;
+      const body = {
+        author: el.querySelector('.rv-name').value.trim(),
+        rating: Number(el.querySelector('.rv-stars').value),
+        when_label: el.querySelector('.rv-when').value.trim(),
+        text: el.querySelector('.rv-text').value.trim(),
+        active: el.querySelector('.rv-foot .switch').classList.contains('on'),
+      };
+      if (!body.author || !body.text) { toast("Preencha o nome e o texto da avaliação"); return; }
+      const res = await api('/api/review/' + id, 'POST', body);
+      if (!res || !res.ok) { toast((res && res.error) || "Erro ao salvar"); return; }
+      const r = rvReviews.find(x => x.id === id);
+      Object.assign(r, body, { active: body.active ? 1 : 0 });
+      el.classList.toggle('inactive', !body.active);
+      toast("Avaliação salva ✓");
+    }
+
+    // Guarda o que foi digitado e ainda não salvo antes de redesenhar a lista
+    // (mover/excluir/foto), para nenhuma digitação se perder no caminho.
+    function rvKeepDrafts() {
+      document.querySelectorAll('#rvList .rv-item').forEach(el => {
+        const r = rvReviews.find(x => x.id === Number(el.dataset.id));
+        if (!r) return;
+        r.author = el.querySelector('.rv-name').value;
+        r.rating = Number(el.querySelector('.rv-stars').value);
+        r.when_label = el.querySelector('.rv-when').value;
+        r.text = el.querySelector('.rv-text').value;
+      });
+    }
+
+    async function deleteReview(id) {
+      const r = rvReviews.find(x => x.id === id);
+      if (!confirm(`Excluir a avaliação de ${r && r.author ? r.author : 'este cliente'}?`)) return;
+      const res = await api('/api/review/' + id, 'DELETE');
+      if (!res || !res.ok) { toast("Erro ao excluir"); return; }
+      rvKeepDrafts();
+      rvReviews = rvReviews.filter(x => x.id !== id);
+      renderReviews();
+      toast("Avaliação excluída");
+    }
+
+    async function moveReview(id, direction) {
+      const res = await api('/api/review/' + id + '/move', 'POST', { direction });
+      if (!res || !res.ok) { toast("Erro ao mover"); return; }
+      rvKeepDrafts();
+      const i = rvReviews.findIndex(x => x.id === id);
+      const j = direction === 'up' ? i - 1 : i + 1;
+      if (j < 0 || j >= rvReviews.length) return;
+      [rvReviews[i], rvReviews[j]] = [rvReviews[j], rvReviews[i]];
+      renderReviews();
+    }
+
+    function pickReviewFile(id, kind) {
+      rvUploadTarget = { id, kind };
+      document.getElementById('rvFileInput').click();
+    }
+
+    async function handleReviewFile(input) {
+      const file = input.files[0];
+      input.value = '';
+      if (!rvUploadTarget || !file) return;
+      if (!file.type.startsWith('image/')) { toast("Selecione um arquivo de imagem"); return; }
+      const { id, kind } = rvUploadTarget;
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('review_id', id);
+      fd.append('kind', kind);
+      toast("Enviando foto...");
+      try {
+        const r = await fetch('/api/upload_review_image', { method: 'POST', body: fd, headers: { 'X-Admin-Token': CSRF_TOKEN } });
+        const data = await r.json();
+        if (!data.ok) { toast(data.error || "Erro no upload"); return; }
+        rvKeepDrafts();
+        const rev = rvReviews.find(x => x.id === id);
+        if (rev) rev[kind === 'avatar' ? 'avatar_url' : 'photo_url'] = data.url;
+        renderReviews();
+        toast("Foto enviada ✓");
+      } catch (e) { toast("Erro no upload"); }
+    }
+
+    async function removeReviewImage(id, kind) {
+      const key = kind === 'avatar' ? 'avatar_url' : 'photo_url';
+      const res = await api('/api/review/' + id, 'POST', { [key]: '' });
+      if (!res || !res.ok) { toast("Erro ao remover foto"); return; }
+      rvKeepDrafts();
+      const rev = rvReviews.find(x => x.id === id);
+      if (rev) rev[key] = '';
+      renderReviews();
+      toast("Foto removida");
+    }
+
+    renderReviews();
 
     async function saveSiteInfo() {
       const btn = document.getElementById('saveSiteInfoBtn');
