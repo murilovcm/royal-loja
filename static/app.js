@@ -723,12 +723,20 @@
       if (i < 0) i = n - 1;
       goTo(Math.min(i, n - 1));
     };
+    // Marca também o card em foco (.is-active): é o que dispara o destaque
+    // animado no CSS (sobe, brilho atravessando a foto, zoom lento). Só troca
+    // quando o foco muda, para a animação não reiniciar a cada pixel rolado.
+    let lastActive = -1;
     const markDots = () => {
       const a = current();
       dots.forEach((d, k) => {
         d.classList.toggle("on", k === a);
         if (k === a) d.setAttribute("aria-current", "true"); else d.removeAttribute("aria-current");
       });
+      if (a !== lastActive) {
+        cards.forEach((c, k) => c.classList.toggle("is-active", k === a));
+        lastActive = a;
+      }
     };
     let raf = 0;
     row.addEventListener("scroll", () => {

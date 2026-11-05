@@ -2746,8 +2746,12 @@ header.site-header::after {
   grid-auto-flow: column;
   grid-auto-columns: 84%;
   gap: 14px;
-  margin-inline: calc(var(--rv-gut) * -1);
-  padding: 4px var(--rv-gut) 6px;
+  /* Folga de 14px em cima e 40px embaixo: overflow-x: auto obriga o
+     navegador a CORTAR tudo que passa da caixa da fileira, e era isso que
+     decepava o brilho amarelo e o "subir" do card em foco. As margens
+     negativas devolvem esse espaço ao layout, então nada se desloca. */
+  margin: -8px calc(var(--rv-gut) * -1) -30px;
+  padding: 14px var(--rv-gut) 40px;
   scroll-padding-inline: var(--rv-gut);
   overflow-x: auto;
   scroll-snap-type: x mandatory;
@@ -2757,83 +2761,129 @@ header.site-header::after {
 }
 .reviews-row::-webkit-scrollbar { display: none; }
 .reviews-row.is-dragging { scroll-snap-type: none; cursor: grabbing; user-select: none; }
-.reviews-row:focus-visible { outline: 2px solid var(--primary-yellow); outline-offset: 4px; border-radius: var(--r-xl); }
+.reviews-row:focus-visible { outline: 2px solid var(--primary-yellow); outline-offset: -6px; border-radius: var(--r-xl); }
 .reviews-row.is-flash .review-card { animation: reviewsFlash 1.6s ease; }
 @keyframes reviewsFlash {
   0%, 100% { box-shadow: none; }
   25%, 60% { box-shadow: 0 0 0 3px rgba(var(--primary-rgb),.35); }
 }
 
+/* Todos os cards têm a MESMA altura fixa. Antes a foto em 4:3 deixava o
+   card com foto alto e esticava os sem foto, que ficavam com um vazio
+   enorme embaixo. Agora a foto vira o fundo do card, e o card sem foto vira
+   uma citação centralizada que preenche o mesmo espaço. */
 .review-card {
+  position: relative;
+  isolation: isolate;
   margin: 0;
   scroll-snap-align: start;
   display: flex;
   flex-direction: column;
+  height: 300px;
   min-width: 0;
   overflow: hidden;
   border-radius: var(--r-xl);
   border: 1px solid var(--line);
   background: var(--surf-1);
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform .5s cubic-bezier(.2,.8,.2,1), border-color .4s, box-shadow .5s;
 }
-.review-photo { position: relative; aspect-ratio: 4 / 3; background: var(--surf-2); }
-.review-photo img { width: 100%; height: 100%; object-fit: cover; }
+/* Card em foco (marcado por initReviewsCarousel): sobe um pouco e ganha
+   contorno e brilho na cor da marca. */
+.review-card.is-active {
+  transform: translateY(-4px);
+  border-color: rgba(var(--primary-rgb),.5);
+  box-shadow: 0 22px 40px -20px rgba(var(--primary-rgb),.5);
+}
 .review-g-badge {
-  position: absolute; top: 12px; right: 12px;
+  position: absolute; top: 14px; right: 14px; z-index: 2;
   width: 30px; height: 30px; border-radius: 50%;
   display: grid; place-items: center;
   background: #fff;
   box-shadow: 0 6px 14px -6px rgba(0,0,0,.6);
 }
 .review-g-badge svg { width: 18px; height: 18px; }
-.review-body { display: grid; gap: 12px; padding: 16px 18px 18px; }
-.review-who { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
 .review-avatar {
-  width: 44px; height: 44px; border-radius: 50%; object-fit: cover;
+  width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
   box-shadow: 0 0 0 2px var(--surf-1), 0 0 0 3px rgba(255,255,255,.12);
 }
 .review-avatar-initial {
   display: grid; place-items: center;
-  font-weight: 700; font-size: 17px; color: var(--text);
-  background: linear-gradient(135deg, rgba(var(--accent-rgb),.55), rgba(var(--accent-rgb),.25));
+  font-weight: 700; font-size: 15px; color: var(--text);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),.6), rgba(var(--accent-rgb),.25));
 }
 .review-meta { display: grid; gap: 2px; min-width: 0; }
-.review-author { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.review-author { font-size: 14.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .review-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
 /* Amarelo-estrela do Google (marca citada), não o acento da loja. */
 .review-stars { color: #FBBC04; letter-spacing: 1px; font-size: 12px; line-height: 1; }
-.review-g { width: 18px; height: 18px; align-self: start; }
 .review-text {
   margin: 0;
-  font-size: 15px;
-  line-height: 1.55;
-  color: rgba(255,255,255,.9);
+  color: rgba(255,255,255,.92);
   display: -webkit-box;
-  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-/* Card SEM foto vira um card de citação: os cards da fileira têm a mesma
-   altura (a do que tem foto), então em vez de deixar um vazio embaixo, o texto
-   sobe para o topo em corpo maior, com aspas na cor da marca, e o autor desce
-   para a base. O espaço passa a ser intencional. */
-.review-card:not(.has-photo) .review-body { flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 22px 20px 20px; }
-.review-card:not(.has-photo) .review-text {
-  order: -1;
-  font-size: 17px;
-  line-height: 1.5;
-  -webkit-line-clamp: 8;
+
+/* ---- Card COM foto: a foto é o fundo do card inteiro ---- */
+.review-card.has-photo { justify-content: flex-end; }
+.review-photo { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: var(--surf-2); }
+.review-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 1.4s cubic-bezier(.2,.8,.2,1); }
+/* Degradê escuro na metade de baixo: garante leitura do texto em qualquer foto. */
+.review-photo::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(13,13,26,.05) 0%, rgba(13,13,26,.35) 40%, rgba(13,13,26,.96) 78%);
 }
-.review-card:not(.has-photo) .review-text::before {
+.review-card.has-photo.is-active .review-photo img { animation: reviewKenBurns 8s ease-in-out infinite alternate; }
+@keyframes reviewKenBurns {
+  from { transform: scale(1.02) translate(0, 0); }
+  to   { transform: scale(1.14) translate(-3%, -2%); }
+}
+/* Brilho que atravessa a foto uma vez quando o card entra em foco. */
+.review-shine {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.18) 50%, transparent 65%);
+  transform: translateX(-120%);
+}
+.review-card.is-active .review-shine { animation: reviewShine 1.4s .3s ease forwards; }
+@keyframes reviewShine { to { transform: translateX(120%); } }
+.review-card.has-photo .review-body { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 10px; padding: 18px; }
+.review-card.has-photo .review-text { font-size: 15.5px; line-height: 1.5; font-weight: 500; -webkit-line-clamp: 3; text-shadow: 0 1px 12px rgba(0,0,0,.6); }
+.review-card.has-photo .review-who { display: flex; align-items: center; gap: 11px; }
+
+/* ---- Card SEM foto: citação centralizada ----
+   Fundo próprio (brilho da marca + aspas gigantes apagadas) para ter o mesmo
+   peso visual de um card com foto ao lado. O tamanho da letra acompanha o
+   tamanho do texto (classe rv-len-s/m/l, decidida no template): frase curta
+   sai grande e preenche o card; texto longo usa corpo normal. */
+.review-quote { align-items: center; text-align: center; padding: 18px 20px; }
+.review-qbg {
+  position: absolute; inset: 0; z-index: -1;
+  background:
+    radial-gradient(90% 60% at 50% 0%, rgba(var(--primary-rgb),.10), transparent 70%),
+    radial-gradient(80% 70% at 50% 110%, rgba(var(--accent-rgb),.22), transparent 70%),
+    var(--surf-1);
+}
+.review-qbg::after {
   content: "\201C";
-  display: block;
-  height: .55em;
-  margin-bottom: 6px;
-  font-size: 2.6em;
-  line-height: 1;
-  font-weight: 700;
-  color: var(--primary-yellow);
+  position: absolute; left: 50%; top: 46%;
+  transform: translate(-50%, -50%);
+  font-size: 260px; line-height: 1; font-weight: 800;
+  color: rgba(var(--primary-rgb),.06);
+  transition: color .6s ease, transform .9s cubic-bezier(.2,.8,.2,1);
 }
-.review-card:not(.has-photo) .review-who { margin-top: auto; }
+.review-quote.is-active .review-qbg::after { color: rgba(var(--primary-rgb),.13); transform: translate(-50%, -50%) scale(1.06); }
+.review-qmid { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; width: 100%; padding-top: 8px; min-height: 0; }
+.review-qmark { font-size: 44px; line-height: .5; height: 18px; font-weight: 800; color: var(--primary-yellow); }
+.review-quote .review-text { font-weight: 500; text-wrap: balance; }
+.review-quote.rv-len-s .review-text { font-size: 23px; line-height: 1.3; letter-spacing: -.015em; -webkit-line-clamp: 4; max-width: 24ch; }
+.review-quote.rv-len-m .review-text { font-size: 18px; line-height: 1.42; -webkit-line-clamp: 5; max-width: 28ch; }
+.review-quote.rv-len-l .review-text { font-size: 15.5px; line-height: 1.5; -webkit-line-clamp: 6; max-width: 32ch; }
+.review-quote .review-who { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.review-quote .review-wline { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }
+.review-quote .review-avatar { width: 34px; height: 34px; font-size: 13px; }
+.review-quote .review-sub { justify-content: center; }
 
 .reviews-ctrl { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; }
 .reviews-dots { display: flex; gap: 6px; }
@@ -2865,8 +2915,15 @@ header.site-header::after {
   .reviews { --rv-gut: 12px; }
   .reviews-row { grid-auto-columns: 86%; gap: 12px; }
 }
+@media (min-width: 900px) {
+  .review-card { height: 310px; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .reviews-row.is-flash .review-card { animation: none; }
+  .reviews-row.is-flash .review-card,
+  .review-card.has-photo.is-active .review-photo img,
+  .review-card.is-active .review-shine { animation: none; }
+  .review-card, .review-photo img, .review-qbg::after { transition: none; }
+  .review-card.is-active { transform: none; }
 }
 
 /* ---------- Perguntas frequentes ---------- */

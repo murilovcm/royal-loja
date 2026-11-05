@@ -449,33 +449,62 @@
     </div>
     <div class="reviews-carousel" id="reviewsCarousel">
       <div class="reviews-row" id="reviewsRow" tabindex="0" role="group" aria-roledescription="carrossel" aria-label="Avaliações de clientes no Google. Arraste para o lado ou use as setas.">
+        {# Dois desenhos de card, com a MESMA altura:
+           - com foto: a foto é o fundo do card inteiro, com degradê escuro
+             embaixo do texto; em foco, zoom lento + um brilho atravessando.
+           - sem foto: citação centralizada; a letra cresce quando o texto é
+             curto (rv-len-s/m/l) para não sobrar card vazio.
+           A classe is-active do card em foco vem de app.js. #}
         {% for r in reviews %}
-        <figure class="review-card{{ ' has-photo' if r.photo_url }}">
-          {% if r.photo_url %}
+        {% set avatar %}
+          {% if r.avatar_url %}
+          <img class="review-avatar" src="{{ r.avatar_url }}" alt="" loading="lazy" decoding="async" width="40" height="40">
+          {% else %}
+          <span class="review-avatar review-avatar-initial" aria-hidden="true">{{ r.author[:1] | upper }}</span>
+          {% endif %}
+        {% endset %}
+        {% set sub %}
+          <span class="review-sub">
+            <span class="review-stars" role="img" aria-label="{{ r.rating }} de 5 estrelas">{{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }}</span>
+            {% if r.when_label %}<span>{{ r.when_label }}</span>{% endif %}
+          </span>
+        {% endset %}
+        {% if r.photo_url %}
+        <figure class="review-card has-photo">
           <div class="review-photo">
             <img src="{{ r.photo_url }}" alt="Foto enviada por {{ r.author }} na avaliação" loading="lazy" decoding="async" width="900" height="675">
-            <span class="review-g-badge" aria-hidden="true"><svg><use href="#i-google"></use></svg></span>
           </div>
-          {% endif %}
+          <span class="review-shine" aria-hidden="true"></span>
+          <span class="review-g-badge" aria-hidden="true"><svg><use href="#i-google"></use></svg></span>
           <div class="review-body">
+            <blockquote class="review-text">{{ r.text }}</blockquote>
             <div class="review-who">
-              {% if r.avatar_url %}
-              <img class="review-avatar" src="{{ r.avatar_url }}" alt="" loading="lazy" decoding="async" width="44" height="44">
-              {% else %}
-              <span class="review-avatar review-avatar-initial" aria-hidden="true">{{ r.author[:1] | upper }}</span>
-              {% endif %}
+              {{ avatar }}
               <div class="review-meta">
                 <b class="review-author">{{ r.author }}</b>
-                <span class="review-sub">
-                  <span class="review-stars" role="img" aria-label="{{ r.rating }} de 5 estrelas">{{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }}</span>
-                  {% if r.when_label %}<span>{{ r.when_label }}</span>{% endif %}
-                </span>
+                {{ sub }}
               </div>
-              {% if not r.photo_url %}<svg class="review-g" aria-hidden="true"><use href="#i-google"></use></svg>{% endif %}
             </div>
-            <blockquote class="review-text">{{ r.text }}</blockquote>
           </div>
         </figure>
+        {% else %}
+        {% set n = r.text | length %}
+        <figure class="review-card review-quote {{ 'rv-len-s' if n <= 70 else ('rv-len-m' if n <= 140 else 'rv-len-l') }}">
+          <span class="review-qbg" aria-hidden="true"></span>
+          <span class="review-g-badge" aria-hidden="true"><svg><use href="#i-google"></use></svg></span>
+          <div class="review-qmid">
+            <span class="review-qmark" aria-hidden="true">“</span>
+            <blockquote class="review-text">{{ r.text }}</blockquote>
+          </div>
+          <div class="review-who">
+            <div class="review-wline">
+              {{ avatar }}
+              <b class="review-author">{{ r.author }}</b>
+            </div>
+            {{ sub }}
+          </div>
+        </figure>
+        {% endif %}
         {% endfor %}
       </div>
       {% if reviews | length > 1 %}
