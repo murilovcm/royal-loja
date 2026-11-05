@@ -693,10 +693,8 @@
   // AVALIAÇÕES DO GOOGLE (carrossel antes das perguntas frequentes)
   // ---------------------------------------------------------------
   // A fileira é scroll-snap nativo: no celular o dedo arrasta sem nada daqui.
-  // Este bloco só acrescenta pontos, setas, teclado, arrasto com mouse e o
-  // auto-avanço (5s), que PAUSA enquanto o cliente está com o dedo/mouse/foco
-  // no carrossel e com a aba escondida. Sem aria-live, pela mesma razão da
-  // faixa de avisos: anunciar a troca a cada 5s atropela o leitor de tela.
+  // Este bloco só acrescenta pontos, setas, teclado, arrasto com mouse e a
+  // marcação do card em foco. Não há troca automática (ver abaixo).
   (function initReviewsCarousel() {
     const row = byId("reviewsRow");
     if (!row) return;
@@ -746,26 +744,12 @@
     markDots();
     if (n < 2) return;
 
-    // Auto-avanço com pausa
-    let timer = null, hold = false;
-    const stop = () => { clearInterval(timer); timer = null; };
-    const start = () => {
-      if (reduced || hold || document.hidden) return;
-      stop();
-      timer = setInterval(() => step(1), 5000);
-    };
-    const restart = () => { stop(); start(); };
-    wrap.addEventListener("pointerenter", () => { hold = true; stop(); });
-    wrap.addEventListener("pointerleave", () => { hold = false; start(); });
-    wrap.addEventListener("focusin", () => { hold = true; stop(); });
-    wrap.addEventListener("focusout", () => { hold = false; start(); });
-    row.addEventListener("touchstart", () => { hold = true; stop(); }, { passive: true });
-    row.addEventListener("touchend", () => { hold = false; setTimeout(start, 4000); }, { passive: true });
-    document.addEventListener("visibilitychange", () => (document.hidden ? stop() : start()));
-
-    dots.forEach((d, i) => d.addEventListener("click", () => { goTo(i); restart(); }));
+    // SEM auto-avanço, de propósito: o carrossel só se move quando o cliente
+    // arrasta, toca numa seta ou num ponto. Com troca automática, quem chegava
+    // pela linha da nota no hero às vezes já encontrava a fileira no fim.
+    dots.forEach((d, i) => d.addEventListener("click", () => goTo(i)));
     wrap.querySelectorAll(".reviews-arrow").forEach((b) =>
-      b.addEventListener("click", () => { step(Number(b.dataset.dir)); restart(); })
+      b.addEventListener("click", () => step(Number(b.dataset.dir)))
     );
     row.addEventListener("keydown", (e) => {
       if (e.key === "ArrowRight") { step(1); e.preventDefault(); }
@@ -800,7 +784,6 @@
     // Um arrasto não pode virar clique (ex.: abrir a foto no futuro).
     row.addEventListener("click", (e) => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
 
-    start();
   })();
 
   // Linha da nota no hero -> desce até as avaliações e acende os cards por

@@ -2716,7 +2716,7 @@ header.site-header::after {
    Antes das perguntas frequentes. Cards grandes, com a foto que o cliente
    postou no Google quando houver. O carrossel é scroll-snap NATIVO: no
    celular o dedo arrasta sem JS nenhum; app.js (initReviewsCarousel) só
-   acrescenta pontos, setas, auto-avanço e arrasto com mouse.
+   acrescenta pontos, setas e arrasto com mouse (sem troca automática).
    --rv-gut acompanha o padding do .container para a fileira sangrar até a
    borda da tela e o próximo card aparecer cortado (é o que diz "arraste"). */
 .reviews {
