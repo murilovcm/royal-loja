@@ -596,12 +596,10 @@
             <dd>{{ config.footer_delivery_area }}</dd>
           </div>
           {% endif %}
-          {# Gerado a partir da grade de horários do painel (format_store_hours),
-             a mesma que acende o selo "Loja aberta agora". #}
-          {% if store_hours_text %}
+          {% if config.footer_hours %}
           <div class="footer-info-item">
             <dt><svg class="ico" aria-hidden="true"><use href="#i-message"></use></svg> Atendimento</dt>
-            <dd>{{ store_hours_text }}</dd>
+            <dd>{{ config.footer_hours }}</dd>
           </div>
           {% endif %}
           {% if config.footer_payment %}

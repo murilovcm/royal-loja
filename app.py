@@ -1546,9 +1546,9 @@ def get_cable(config):
 # o Date.getDay() do JS (0 = domingo ... 6 = sábado), cada um
 # {"closed": bool, "open": "HH:MM", "close": "HH:MM"}. Fechar às "00:00"
 # significa até a meia-noite; fechar ANTES da abertura (ex. 18:00 → 02:00)
-# significa virar a noite e fechar no dia seguinte. A mesma lista alimenta o
-# selo "Loja aberta agora" (app.js) e o texto do rodapé, para os dois nunca
-# se contradizerem.
+# significa virar a noite e fechar no dia seguinte. Alimenta só o selo
+# "Loja aberta agora" (app.js); o texto do rodapé (footer_hours) é livre e
+# independente. Editável na aba "Informações do site" do painel.
 _HHMM_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 _DEFAULT_DAY_HOURS = {"closed": False, "open": "10:00", "close": "23:00"}
 # Ordem de exibição (segunda primeiro) com o índice getDay() correspondente.
@@ -1577,48 +1577,6 @@ def get_store_hours(config):
         else:
             days.append(dict(_DEFAULT_DAY_HOURS))
     return days
-
-
-def _fmt_hour(hhmm):
-    """"09:00" → "9h", "09:30" → "9h30", "00:00" → "meia-noite"."""
-    if hhmm == "00:00":
-        return "meia-noite"
-    h, m = hhmm.split(":")
-    return f"{int(h)}h" + ("" if m == "00" else m)
-
-
-def _fmt_range(day):
-    o, c = _fmt_hour(day["open"]), _fmt_hour(day["close"])
-    de = "da" if o == "meia-noite" else "das"
-    ate = "à" if c == "meia-noite" else "às"
-    return f"{de} {o} {ate} {c}"
-
-
-def format_store_hours(days):
-    """Texto do rodapé gerado a partir da grade, agrupando dias seguidos com o
-    mesmo horário: "Seg a qui, das 10h às 23h · Sex e sáb, das 9h à meia-noite"."""
-    ordered = [(abbr, days[idx]) for idx, _, abbr in WEEK_DAYS]
-    groups = []  # [primeira_abrev, última_abrev, qtd, horário]
-    for abbr, d in ordered:
-        sig = None if d["closed"] else (d["open"], d["close"])
-        if groups and groups[-1][3] == sig:
-            groups[-1][1] = abbr
-            groups[-1][2] += 1
-        else:
-            groups.append([abbr, abbr, 1, sig])
-    if all(g[3] is None for g in groups):
-        return ""
-    if len(groups) == 1:
-        return f"Todos os dias, {_fmt_range(days[1])}."
-    parts = []
-    for first, last, n, sig in groups:
-        label = first if n == 1 else (f"{first} e {last}" if n == 2 else f"{first} a {last}")
-        label = label[0].upper() + label[1:]
-        if sig is None:
-            parts.append(f"{label}: fechado")
-        else:
-            parts.append(f"{label}, {_fmt_range({'open': sig[0], 'close': sig[1]})}")
-    return " · ".join(parts) + "."
 
 
 @app.route("/api/cable", methods=["POST"])
@@ -1667,7 +1625,6 @@ def home():
         reviews_summary=parse_reviews_summary(config),
         cable=get_cable(config),
         store_hours=hours,
-        store_hours_text=format_store_hours(hours),
         catalog=build_catalog(),
         brands=[dict(b) for b in get_db().execute("SELECT * FROM brands ORDER BY name").fetchall()],
         whatsapp=WHATSAPP_PHONE,
@@ -1857,7 +1814,6 @@ def admin():
         catalog_order=catalog_order,
         config=admin_config,
         store_hours=admin_hours,
-        store_hours_text=format_store_hours(admin_hours),
         week_days=WEEK_DAYS,
         google_reviews=get_google_reviews() if is_owner else [],
         coupons=get_coupons(),

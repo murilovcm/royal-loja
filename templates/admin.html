@@ -1169,23 +1169,8 @@
               <input type="text" id="cfgFooterDelivery" maxlength="200" value="{{ config.footer_delivery_area or '' }}" placeholder="Ex: Entregamos em toda São Luís e região metropolitana.">
             </div>
             <div class="pp-field">
-              <label>Horário de funcionamento</label>
-              {# Cada linha guarda o índice getDay() (0 = domingo) em data-day;
-                 saveGeneralSettings() monta o JSON de store_hours a partir daqui. #}
-              <div class="hours-grid" id="hoursGrid">
-                {% for idx, name, abbr in week_days %}
-                {% set d = store_hours[idx] %}
-                <div class="hours-row{{ ' is-closed' if d.closed }}" data-day="{{ idx }}">
-                  <span class="hours-day">{{ name }}</span>
-                  <label class="hours-toggle"><input type="checkbox" class="hours-open" {{ '' if d.closed else 'checked' }} onchange="this.closest('.hours-row').classList.toggle('is-closed', !this.checked)"> Aberto</label>
-                  <input type="time" class="hours-from" value="{{ d.open }}" aria-label="{{ name }} abre às">
-                  <span class="hours-sep">até</span>
-                  <input type="time" class="hours-to" value="{{ d.close }}" aria-label="{{ name }} fecha às">
-                </div>
-                {% endfor %}
-              </div>
-              <small class="pp-hint">Controla o selo "Loja aberta agora" do site (horário de Brasília) e o texto de atendimento do rodapé. Fechar às <b>00:00</b> = até a meia-noite. Fechar antes do horário de abertura (ex. 18:00 até 02:00) = vira a noite.</small>
-              <small class="pp-hint">Rodapé hoje: <b id="hoursFooterText">{{ store_hours_text or 'oculto (todos os dias fechados)' }}</b></small>
+              <label for="cfgFooterHours">Rodapé · Horário de atendimento</label>
+              <input type="text" id="cfgFooterHours" maxlength="200" value="{{ config.footer_hours or '' }}" placeholder="Ex: Todos os dias, das 10h às 23h.">
             </div>
             <div class="pp-field">
               <label for="cfgFooterPayment">Rodapé · Formas de pagamento</label>
@@ -1352,6 +1337,35 @@
         <button type="button" class="mini-btn" onclick="addReview()">＋ Adicionar avaliação</button>
         <small class="pp-hint" style="display:block;margin-top:8px">Copie do Google o nome, as estrelas, o texto e há quanto tempo foi postada. A foto de perfil e a foto da avaliação são opcionais: sem foto de perfil aparece a inicial do nome; sem foto da avaliação, o card fica só com o texto. Até 12 avaliações ativas aparecem no site, na ordem desta lista.</small>
         <input type="file" accept="image/*" id="rvFileInput" hidden onchange="handleReviewFile(this)">
+      </div>
+
+      {# Horário por dia: controla só o selo "Loja aberta agora / fechada" do
+         site. É independente do texto "Horário de atendimento" do rodapé
+         (Configurações Gerais), que continua livre. #}
+      <div class="sections-block">
+        <div class="sections-head">
+          🕒 Horário de funcionamento <span class="sections-sub">Define quando o site mostra "Loja aberta agora" ou "Loja fechada no momento"</span>
+        </div>
+        <div class="pp-field">
+              {# Cada linha guarda o índice getDay() (0 = domingo) em data-day;
+                 saveGeneralSettings() monta o JSON de store_hours a partir daqui. #}
+              <div class="hours-grid" id="hoursGrid">
+                {% for idx, name, abbr in week_days %}
+                {% set d = store_hours[idx] %}
+                <div class="hours-row{{ ' is-closed' if d.closed }}" data-day="{{ idx }}">
+                  <span class="hours-day">{{ name }}</span>
+                  <label class="hours-toggle"><input type="checkbox" class="hours-open" {{ '' if d.closed else 'checked' }} onchange="this.closest('.hours-row').classList.toggle('is-closed', !this.checked)"> Aberto</label>
+                  <input type="time" class="hours-from" value="{{ d.open }}" aria-label="{{ name }} abre às">
+                  <span class="hours-sep">até</span>
+                  <input type="time" class="hours-to" value="{{ d.close }}" aria-label="{{ name }} fecha às">
+                </div>
+                {% endfor %}
+              </div>
+          <small class="pp-hint">Horário de Brasília. Fechar às <b>00:00</b> = até a meia-noite. Fechar antes do horário de abertura (ex. 18:00 até 02:00) = vira a noite e fecha no dia seguinte. Desmarque "Aberto" nos dias em que a loja não abre.<br>O texto de horário do rodapé é separado: ajuste em Configurações Gerais.</small>
+        </div>
+        <div class="identity-save-row">
+          <button class="mini-btn primary" id="saveHoursBtn" onclick="saveStoreHours()">Salvar horários</button>
+        </div>
       </div>
 
       <div class="sections-block">
@@ -2197,6 +2211,22 @@
       return days;
     }
 
+    async function saveStoreHours() {
+      const btn = document.getElementById('saveHoursBtn');
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = "Salvando...";
+      try {
+        const res = await api('/api/update_config', 'POST', { key: 'store_hours', value: JSON.stringify(collectStoreHours()) });
+        toast(res && res.ok ? "Horários salvos ✓" : "Erro ao salvar horários");
+      } catch (e) {
+        toast("Erro ao salvar horários");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
+    }
+
     async function saveGeneralSettings() {
       const btn = document.getElementById('saveGeneralBtn');
       btn.disabled = true;
@@ -2210,7 +2240,7 @@
           hero_title: document.getElementById('cfgHeroTitle').value.trim(),
           hero_subtitle: document.getElementById('cfgHeroSubtitle').value.trim(),
           footer_delivery_area: document.getElementById('cfgFooterDelivery').value.trim(),
-          store_hours: JSON.stringify(collectStoreHours()),
+          footer_hours: document.getElementById('cfgFooterHours').value.trim(),
           footer_payment: document.getElementById('cfgFooterPayment').value.trim(),
           footer_exchange: document.getElementById('cfgFooterExchange').value.trim(),
           page_title: document.getElementById('cfgPageTitle').value.trim(),
