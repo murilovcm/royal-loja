@@ -378,6 +378,17 @@
     .pp-field input[type=text]:focus, .pp-field textarea:focus, .pp-field select:focus { outline:none; border-color:var(--primary-yellow); }
     .pp-field textarea { resize:vertical; }
     .pp-hint { font-size:.72rem; color:var(--text-dim); }
+    /* Grade de horário por dia (Configurações Gerais) */
+    .hours-grid { display:flex; flex-direction:column; gap:6px; }
+    .hours-row { display:grid; grid-template-columns:88px auto 1fr auto 1fr; align-items:center; gap:8px; font-size:.85rem; }
+    .hours-row .hours-day { font-weight:700; }
+    .hours-row .hours-toggle { display:flex; align-items:center; gap:4px; font-size:.75rem; color:var(--text-dim); white-space:nowrap; }
+    .hours-row input[type=time] {
+      background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:6px 8px;
+      color:var(--text); font-family:inherit; font-size:.85rem; width:100%; min-width:0; color-scheme:dark;
+    }
+    .hours-row.is-closed input[type=time] { opacity:.35; }
+    .hours-row .hours-sep { color:var(--text-dim); font-size:.75rem; }
 
     /* --- Avisos rotativos: cor por palavra + prévia da faixa --- */
     .announce-colorbar { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
@@ -1158,8 +1169,23 @@
               <input type="text" id="cfgFooterDelivery" maxlength="200" value="{{ config.footer_delivery_area or '' }}" placeholder="Ex: Entregamos em toda São Luís e região metropolitana.">
             </div>
             <div class="pp-field">
-              <label for="cfgFooterHours">Rodapé · Horário de atendimento</label>
-              <input type="text" id="cfgFooterHours" maxlength="200" value="{{ config.footer_hours or '' }}" placeholder="Ex: Todos os dias, das 10h às 23h.">
+              <label>Horário de funcionamento</label>
+              {# Cada linha guarda o índice getDay() (0 = domingo) em data-day;
+                 saveGeneralSettings() monta o JSON de store_hours a partir daqui. #}
+              <div class="hours-grid" id="hoursGrid">
+                {% for idx, name, abbr in week_days %}
+                {% set d = store_hours[idx] %}
+                <div class="hours-row{{ ' is-closed' if d.closed }}" data-day="{{ idx }}">
+                  <span class="hours-day">{{ name }}</span>
+                  <label class="hours-toggle"><input type="checkbox" class="hours-open" {{ '' if d.closed else 'checked' }} onchange="this.closest('.hours-row').classList.toggle('is-closed', !this.checked)"> Aberto</label>
+                  <input type="time" class="hours-from" value="{{ d.open }}" aria-label="{{ name }} abre às">
+                  <span class="hours-sep">até</span>
+                  <input type="time" class="hours-to" value="{{ d.close }}" aria-label="{{ name }} fecha às">
+                </div>
+                {% endfor %}
+              </div>
+              <small class="pp-hint">Controla o selo "Loja aberta agora" do site (horário de Brasília) e o texto de atendimento do rodapé. Fechar às <b>00:00</b> = até a meia-noite. Fechar antes do horário de abertura (ex. 18:00 até 02:00) = vira a noite.</small>
+              <small class="pp-hint">Rodapé hoje: <b id="hoursFooterText">{{ store_hours_text or 'oculto (todos os dias fechados)' }}</b></small>
             </div>
             <div class="pp-field">
               <label for="cfgFooterPayment">Rodapé · Formas de pagamento</label>
@@ -2157,6 +2183,20 @@
       }
     }
 
+    // Lê a grade de horários na ordem getDay() (0 = domingo ... 6 = sábado),
+    // que é como get_store_hours() no app.py e o selo do site esperam.
+    function collectStoreHours() {
+      const days = [];
+      document.querySelectorAll('#hoursGrid .hours-row').forEach((row) => {
+        days[Number(row.dataset.day)] = {
+          closed: !row.querySelector('.hours-open').checked,
+          open: row.querySelector('.hours-from').value || '10:00',
+          close: row.querySelector('.hours-to').value || '23:00',
+        };
+      });
+      return days;
+    }
+
     async function saveGeneralSettings() {
       const btn = document.getElementById('saveGeneralBtn');
       btn.disabled = true;
@@ -2170,7 +2210,7 @@
           hero_title: document.getElementById('cfgHeroTitle').value.trim(),
           hero_subtitle: document.getElementById('cfgHeroSubtitle').value.trim(),
           footer_delivery_area: document.getElementById('cfgFooterDelivery').value.trim(),
-          footer_hours: document.getElementById('cfgFooterHours').value.trim(),
+          store_hours: JSON.stringify(collectStoreHours()),
           footer_payment: document.getElementById('cfgFooterPayment').value.trim(),
           footer_exchange: document.getElementById('cfgFooterExchange').value.trim(),
           page_title: document.getElementById('cfgPageTitle').value.trim(),

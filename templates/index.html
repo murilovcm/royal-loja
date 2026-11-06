@@ -596,10 +596,12 @@
             <dd>{{ config.footer_delivery_area }}</dd>
           </div>
           {% endif %}
-          {% if config.footer_hours %}
+          {# Gerado a partir da grade de horários do painel (format_store_hours),
+             a mesma que acende o selo "Loja aberta agora". #}
+          {% if store_hours_text %}
           <div class="footer-info-item">
             <dt><svg class="ico" aria-hidden="true"><use href="#i-message"></use></svg> Atendimento</dt>
-            <dd>{{ config.footer_hours }}</dd>
+            <dd>{{ store_hours_text }}</dd>
           </div>
           {% endif %}
           {% if config.footer_payment %}
@@ -922,7 +924,9 @@
         name: {{ cable.name | tojson }},
         price: {{ cable.price | float(0) }},
         image: {{ cable.image | tojson }}
-      }
+      },
+      {# 7 dias indexados como Date.getDay() (0 = domingo). Ver get_store_hours. #}
+      hours: {{ store_hours | tojson }}
     };
   </script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ asset_v }}"></script>

@@ -529,26 +529,48 @@
   })();
 
   // ---------------------------------------------------------------
-  // STORE STATUS (aberta/fechada) — todos os dias, 10h às 23h (Brasília)
+  // STORE STATUS (aberta/fechada) — grade por dia do painel (Brasília)
   // ---------------------------------------------------------------
   (function () {
     const el = byId("storeStatus");
     if (!el) return;
     const textEl = el.querySelector(".store-status-text");
-    const OPEN_HOUR = 10;
-    const CLOSE_HOUR = 23;
+    // CFG.hours: 7 itens indexados como getDay() (0 = domingo), vindos de
+    // get_store_hours() no app.py. Sem dado, assume o antigo 10h–23h.
+    const HOURS = Array.isArray(CFG.hours) && CFG.hours.length === 7
+      ? CFG.hours
+      : Array.from({ length: 7 }, () => ({ closed: false, open: "10:00", close: "23:00" }));
+    const WEEKDAY = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const toMin = (hhmm) => {
+      const [h, m] = String(hhmm).split(":").map(Number);
+      return h * 60 + m;
+    };
+    // Janela de um dia em minutos. Fechar às 00:00 (ou no mesmo horário da
+    // abertura) vale como 24:00; fechar antes da abertura vira a noite.
+    function windowOf(d) {
+      if (!d || d.closed) return null;
+      const o = toMin(d.open);
+      let c = toMin(d.close);
+      if (c === 0 || c === o) c = 1440;
+      return c > o ? { o, c, overnight: 0 } : { o, c: 1440, overnight: c };
+    }
 
     function update() {
       const parts = new Intl.DateTimeFormat("en-US", {
         timeZone: "America/Sao_Paulo",
+        weekday: "short",
         hour: "2-digit",
         minute: "2-digit",
         hourCycle: "h23",
       }).formatToParts(new Date());
-      const hour = Number(parts.find((p) => p.type === "hour").value);
-      const minute = Number(parts.find((p) => p.type === "minute").value);
-      const totalMin = hour * 60 + minute;
-      const isOpen = totalMin >= OPEN_HOUR * 60 && totalMin < CLOSE_HOUR * 60;
+      const get = (t) => parts.find((p) => p.type === t).value;
+      const day = WEEKDAY[get("weekday")];
+      const totalMin = Number(get("hour")) * 60 + Number(get("minute"));
+      const today = windowOf(HOURS[day]);
+      const yesterday = windowOf(HOURS[(day + 6) % 7]);
+      const isOpen = !!(
+        (today && totalMin >= today.o && totalMin < today.c) ||
+        (yesterday && totalMin < yesterday.overnight));
 
       el.classList.toggle("open", isOpen);
       el.classList.toggle("closed", !isOpen);

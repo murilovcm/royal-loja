@@ -1,4 +1,5 @@
 import hmac
+import json
 import os
 import re
 import secrets
@@ -1538,6 +1539,88 @@ def get_cable(config):
     }
 
 
+# ---------------------------------------------------------------------------
+# Horário de funcionamento por dia da semana
+# ---------------------------------------------------------------------------
+# Mora em site_config["store_hours"] como JSON: lista de 7 itens indexada como
+# o Date.getDay() do JS (0 = domingo ... 6 = sábado), cada um
+# {"closed": bool, "open": "HH:MM", "close": "HH:MM"}. Fechar às "00:00"
+# significa até a meia-noite; fechar ANTES da abertura (ex. 18:00 → 02:00)
+# significa virar a noite e fechar no dia seguinte. A mesma lista alimenta o
+# selo "Loja aberta agora" (app.js) e o texto do rodapé, para os dois nunca
+# se contradizerem.
+_HHMM_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+_DEFAULT_DAY_HOURS = {"closed": False, "open": "10:00", "close": "23:00"}
+# Ordem de exibição (segunda primeiro) com o índice getDay() correspondente.
+WEEK_DAYS = [
+    (1, "Segunda", "seg"), (2, "Terça", "ter"), (3, "Quarta", "qua"),
+    (4, "Quinta", "qui"), (5, "Sexta", "sex"), (6, "Sábado", "sáb"),
+    (0, "Domingo", "dom"),
+]
+
+
+def get_store_hours(config):
+    """Lista de 7 dias já validada. Qualquer dia malformado (JSON quebrado,
+    hora inválida) cai no padrão 10h–23h em vez de derrubar a página."""
+    try:
+        raw = json.loads(config.get("store_hours") or "[]")
+    except (TypeError, ValueError):
+        raw = []
+    if not isinstance(raw, list):
+        raw = []
+    days = []
+    for i in range(7):
+        d = raw[i] if i < len(raw) and isinstance(raw[i], dict) else {}
+        opn, cls = str(d.get("open", "")), str(d.get("close", ""))
+        if _HHMM_RE.match(opn) and _HHMM_RE.match(cls):
+            days.append({"closed": bool(d.get("closed")), "open": opn, "close": cls})
+        else:
+            days.append(dict(_DEFAULT_DAY_HOURS))
+    return days
+
+
+def _fmt_hour(hhmm):
+    """"09:00" → "9h", "09:30" → "9h30", "00:00" → "meia-noite"."""
+    if hhmm == "00:00":
+        return "meia-noite"
+    h, m = hhmm.split(":")
+    return f"{int(h)}h" + ("" if m == "00" else m)
+
+
+def _fmt_range(day):
+    o, c = _fmt_hour(day["open"]), _fmt_hour(day["close"])
+    de = "da" if o == "meia-noite" else "das"
+    ate = "à" if c == "meia-noite" else "às"
+    return f"{de} {o} {ate} {c}"
+
+
+def format_store_hours(days):
+    """Texto do rodapé gerado a partir da grade, agrupando dias seguidos com o
+    mesmo horário: "Seg a qui, das 10h às 23h · Sex e sáb, das 9h à meia-noite"."""
+    ordered = [(abbr, days[idx]) for idx, _, abbr in WEEK_DAYS]
+    groups = []  # [primeira_abrev, última_abrev, qtd, horário]
+    for abbr, d in ordered:
+        sig = None if d["closed"] else (d["open"], d["close"])
+        if groups and groups[-1][3] == sig:
+            groups[-1][1] = abbr
+            groups[-1][2] += 1
+        else:
+            groups.append([abbr, abbr, 1, sig])
+    if all(g[3] is None for g in groups):
+        return ""
+    if len(groups) == 1:
+        return f"Todos os dias, {_fmt_range(days[1])}."
+    parts = []
+    for first, last, n, sig in groups:
+        label = first if n == 1 else (f"{first} e {last}" if n == 2 else f"{first} a {last}")
+        label = label[0].upper() + label[1:]
+        if sig is None:
+            parts.append(f"{label}: fechado")
+        else:
+            parts.append(f"{label}, {_fmt_range({'open': sig[0], 'close': sig[1]})}")
+    return " · ".join(parts) + "."
+
+
 @app.route("/api/cable", methods=["POST"])
 @api_catalog_required
 def api_cable():
@@ -1576,12 +1659,15 @@ def home():
     config = get_config()
     faq = parse_faq(config)
     reviews_on = config.get("reviews_enabled") == "1"
+    hours = get_store_hours(config)
     return render_template(
         "index.html",
         config=config,
         reviews=get_google_reviews(only_active=True) if reviews_on else [],
         reviews_summary=parse_reviews_summary(config),
         cable=get_cable(config),
+        store_hours=hours,
+        store_hours_text=format_store_hours(hours),
         catalog=build_catalog(),
         brands=[dict(b) for b in get_db().execute("SELECT * FROM brands ORDER BY name").fetchall()],
         whatsapp=WHATSAPP_PHONE,
@@ -1763,11 +1849,16 @@ def admin():
                 "SELECT * FROM users WHERE role = 'staff' ORDER BY username"
             ).fetchall()
         ]
+    admin_config = get_config()
+    admin_hours = get_store_hours(admin_config)
     return render_template(
         "admin.html",
         tree=tree,
         catalog_order=catalog_order,
-        config=get_config(),
+        config=admin_config,
+        store_hours=admin_hours,
+        store_hours_text=format_store_hours(admin_hours),
+        week_days=WEEK_DAYS,
         google_reviews=get_google_reviews() if is_owner else [],
         coupons=get_coupons(),
         special_zones=special_zones,
