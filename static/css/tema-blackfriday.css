@@ -1,0 +1,98 @@
+/* ===================================================================
+   HERO DE BLACK FRIDAY
+
+   Carregado SÓ quando o botão "Black Friday" está ligado no painel (o
+   index.html inclui este arquivo dentro de {% if bf_ativo %}), e todo seletor
+   começa em html[data-tema="blackfriday"]. Com o botão desligado nada daqui
+   existe na página e o hero volta a ser o de sempre.
+
+   O botão mexe em UMA coisa: o hero. Entra o letreiro "Black Friday" acima do
+   título da loja, e o título recua para linha de apoio. Fundo, header, cards,
+   seção de ofertas, carrinho e checkout não mudam.
+
+   As ofertas com hora marcada (selo, relógio, card "Acaba primeiro", faixa de
+   economia) NÃO estão aqui: são do sistema, ficam em style.css e aparecem com
+   este botão ligado ou desligado.
+
+   Cor: nenhuma cor própria. "Black" usa a cor de texto da loja e "Friday" a
+   cor de marca que cada lojista configurou no painel.
+   =================================================================== */
+html[data-tema="blackfriday"] {
+  --bf-display: "Archivo", var(--font-sans);
+  /* Saída forte: rápida no começo, suave no fim. */
+  --bf-ease: cubic-bezier(.23, 1, .32, 1);
+}
+
+/* ---------- Letreiro ---------- */
+html[data-tema="blackfriday"] .bf-letreiro {
+  margin: 2px 0 14px;
+  font: 900 clamp(46px, 15.4vw, 62px)/.9 var(--bf-display);
+  font-stretch: 125%;
+  letter-spacing: -.03em;
+  text-transform: uppercase;
+}
+html[data-tema="blackfriday"] .bf-l1,
+html[data-tema="blackfriday"] .bf-l2 { display: block; }
+html[data-tema="blackfriday"] .bf-l1 { color: var(--text); }
+html[data-tema="blackfriday"] .bf-l2 {
+  color: var(--brand); /* navegador sem background-clip: text fica na cor de marca */
+  /* Duas camadas recortadas pelas letras: o brilho (que fica fora da palavra
+     até a animação trazê-lo) e, por baixo, a cor de marca chapada. */
+  background:
+    linear-gradient(100deg, transparent 0 40%, rgba(255, 255, 255, .95) 50%, transparent 60% 100%) 170% 0 / 260% 100% no-repeat,
+    linear-gradient(var(--brand), var(--brand));
+  -webkit-background-clip: text;
+          background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ---------- Título da loja: linha de apoio ---------- */
+/* O <h1> continua sendo o título da página (é o texto que o Google lê); só
+   perde o tamanho de manchete, que agora é do letreiro. */
+html[data-tema="blackfriday"] .hero h1 {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: .02em;
+  max-width: 30ch;
+  margin-bottom: 10px;
+}
+
+/* ---------- Entrada ----------
+   Toca UMA vez, quando o hero é liberado (.reveal-visible): as duas palavras
+   entram em foco, uma depois da outra (sobem um pouco, de desfocadas para
+   nítidas) e, com as duas no lugar, um brilho cruza "Friday" uma única vez.
+   Depois disso nada se mexe.
+
+   Quadros-chave, e não transições: é uma coreografia de abertura, que precisa
+   partir sempre do estado inicial, mesmo que o navegador ainda não tenha
+   desenhado a página quando o hero é liberado. */
+html[data-tema="blackfriday"] .hero.reveal-visible .bf-l1 {
+  animation: bfFoco .75s var(--bf-ease) .08s both;
+}
+html[data-tema="blackfriday"] .hero.reveal-visible .bf-l2 {
+  animation:
+    bfFoco .75s var(--bf-ease) .2s both,
+    bfBrilho 1.1s cubic-bezier(.45, 0, .25, 1) 1s 1 both;
+}
+@keyframes bfFoco {
+  from { opacity: 0; transform: translateY(16px); filter: blur(10px); }
+  to   { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes bfBrilho {
+  from { background-position: 170% 0, 0 0; }
+  to   { background-position: -70% 0, 0 0; }
+}
+
+/* ---------- Desktop ---------- */
+@media (min-width: 900px) {
+  html[data-tema="blackfriday"] .bf-letreiro { font-size: 88px; margin-bottom: 18px; }
+  html[data-tema="blackfriday"] .hero h1 { font-size: 20px; }
+}
+
+/* ---------- Movimento reduzido ----------
+   Nada desliza, desfoca ou brilha: o letreiro simplesmente está lá. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-tema="blackfriday"] .hero.reveal-visible .bf-l1,
+  html[data-tema="blackfriday"] .hero.reveal-visible .bf-l2 { animation: none; }
+}

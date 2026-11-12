@@ -55,6 +55,26 @@
     .model-row.model-inactive .model-line { opacity:.55; }
     .model-row.model-inactive { background:repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.02) 10px, rgba(255,255,255,.02) 20px); }
     .model-active-toggle .model-active-label { min-width:56px; }
+    /* Oferta com hora marcada: linha própria dentro do modelo. */
+    .m-promo { flex-basis:100%; display:flex; align-items:end; gap:10px 12px; flex-wrap:wrap; padding:10px 12px; border:1px dashed var(--border); border-radius:10px; }
+    .m-promo.on { border-style:solid; border-color:var(--primary-yellow); }
+    .m-promo-title { font-weight:700; font-size:.85rem; align-self:center; min-width:72px; }
+    .m-promo-f { display:flex; flex-direction:column; gap:4px; }
+    .m-promo-f input { padding:8px 10px; border-radius:8px; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:inherit; font-size:.88rem; color-scheme:dark; }
+    .m-promo-val { width:110px; }
+    .m-promo-f input:focus { outline:2px solid var(--purple-soft); outline-offset:1px; }
+    .m-promo .mini-btn { padding:8px 14px; }
+    .m-promo-info { font-size:.82rem; color:var(--text-dim); align-self:center; font-variant-numeric:tabular-nums; }
+    .m-promo-info b { color:var(--text); }
+    .m-promo-info.warn { color:#ff8a8a; }
+    .m-promo.on .m-promo-info b.left { color:var(--primary-yellow); }
+    .promo-filter { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+    .promo-filter .mini-btn[aria-pressed="true"] { border-color:var(--primary-yellow); color:var(--primary-yellow); }
+    body.promo-only .model-row:not(.has-promo), body.promo-only .brand-block:not(.has-promo) { display:none; }
+    .bf-admin { display:flex; flex-direction:column; gap:14px; margin-top:12px; }
+    .bf-admin .pp-field input { text-transform:none; }
+    .bf-status { font-size:.8rem; color:var(--text-dim); }
+    .bf-status.on { color:var(--primary-yellow); font-weight:700; }
     .model-line { display:flex; align-items:center; gap:12px; padding:14px 20px; flex-wrap:wrap; }
     .star-toggle { background:none; font-size:1.4rem; color:var(--border); transition:.2s; line-height:1; }
     .star-toggle.on { color:var(--primary-yellow); filter:drop-shadow(0 0 8px rgba(255,214,10,.5)); }
@@ -543,6 +563,14 @@
       </div>
       {% endif %}
 
+      {# Filtro "em promoção": esconde os modelos sem oferta ativa (e as marcas
+         que ficarem vazias). A contagem é refeita pelo JS a cada minuto, porque
+         uma oferta pode acabar com o painel aberto. #}
+      <div class="promo-filter">
+        <button type="button" class="mini-btn" id="promoFilterBtn" aria-pressed="false" onclick="togglePromoFilter()">⏱ Só em promoção (<span id="promoFilterCount">0</span>)</button>
+        <span class="sections-sub">Cada modelo tem a linha "Oferta": desconto em reais e a hora em que ela acaba (horário de São Luís).</span>
+      </div>
+
       <div id="brandsContainer">
         {% for node in tree %}
         <div class="brand-block" data-bid="{{ node.brand.id }}">
@@ -614,6 +642,32 @@
               </span>
               <button class="expand-btn" onclick="toggleFlavors({{ m.id }}, this)">Sabores ({{ item.flavors|length }}) ▾</button>
               <button class="del-btn" onclick="delModel({{ m.id }})" title="Excluir modelo">🗑</button>
+
+              {# Oferta com hora marcada. Só no produto principal: as versões
+                 (Slim, geração anterior) herdam a oferta dele. O valor é um
+                 desconto em reais aplicado a CADA sabor do card; a data é no
+                 horário de São Luís e é gravada em UTC pelo servidor.
+                 data-min = sabor mais barato do card (limite do desconto e base
+                 da prévia); data-fim = fim em UTC, para o tempo restante. #}
+              {% if not is_version %}
+              <div class="m-promo {{ 'on' if item.promo.ativa }}" id="promo-{{ m.id }}"
+                   data-min="{{ '%.2f'|format(item.promo.menor_preco) }}" data-fim="{{ item.promo.fim_utc }}"
+                   data-desconto="{{ item.promo.desconto }}">
+                <span class="m-promo-title">⏱ Oferta</span>
+                <label class="m-promo-f" title="Desconto em reais, aplicado a cada sabor deste modelo e das versões dele.">
+                  <span class="m-variant-lbl">Desconto R$</span>
+                  <input type="number" class="m-promo-val" min="0" step="0.01" inputmode="decimal" placeholder="20,00"
+                         value="{{ item.promo.desconto }}" oninput="previewPromo({{ m.id }})">
+                </label>
+                <label class="m-promo-f" title="Quando a oferta acaba, no horário de São Luís. Ao zerar, o preço volta ao normal sozinho.">
+                  <span class="m-variant-lbl">Acaba em</span>
+                  <input type="datetime-local" class="m-promo-fim" value="{{ item.promo.fim_local }}" oninput="previewPromo({{ m.id }})">
+                </label>
+                <button class="mini-btn primary m-promo-save" onclick="savePromo({{ m.id }})">Salvar oferta</button>
+                <button class="mini-btn m-promo-clear" onclick="clearPromo({{ m.id }})" title="Remover a oferta deste modelo">Remover</button>
+                <span class="m-promo-info" aria-live="polite"></span>
+              </div>
+              {% endif %}
             </div>
 
             <div class="flavors-box" id="flavors-{{ m.id }}">
@@ -665,6 +719,31 @@
     <div class="admin-tab-panel" data-tab-panel="order">
       {% if not can_catalog %}<div class="readonly-banner">🔒 Somente leitura — fale com o dono da loja para poder ordenar o catálogo.</div>{% endif %}
       <div class="{{ 'readonly-lock' if not can_catalog }}">
+      {# Seção "Mais Vendidos" da loja (a faixa com os modelos marcados com a
+         estrela ★). Pode ser ocultada e renomeada. Ocultar tira só a faixa: a
+         estrela continua marcando os cards e o filtro por ela continua
+         existindo no catálogo, com o nome escolhido aqui. #}
+      <div class="sections-block">
+        <div class="sections-head">
+          ⚡ Seção de destaque <span class="sections-sub">A faixa com os modelos marcados com a estrela ★, logo acima do catálogo</span>
+        </div>
+        <div class="bf-admin">
+          <label class="pp-switch">
+            <span class="switch {{ 'on' if config.best_enabled != '0' }}" id="bestSwitch" onclick="this.classList.toggle('on')"></span>
+            <span>Mostrar esta seção na loja</span>
+          </label>
+          <div class="pp-field">
+            <label for="bestTitle">Nome da seção</label>
+            <input type="text" id="bestTitle" maxlength="40" value="{{ config.best_title or 'Mais Vendidos' }}" placeholder="Mais Vendidos" onkeydown="if(event.key==='Enter') saveBestSection()">
+          </div>
+          <span class="sections-sub">O mesmo nome aparece no filtro do catálogo e no menu lateral. Deixe em branco para voltar a “Mais Vendidos”.</span>
+          <div class="identity-save-row" style="justify-content:space-between; align-items:center; margin-top:0;">
+            <span class="bf-status {{ 'on' if config.best_enabled != '0' }}" id="bestStatus">{{ 'Seção visível na loja' if config.best_enabled != '0' else 'Seção oculta na loja' }}</span>
+            <button class="mini-btn primary" onclick="saveBestSection()">Salvar seção</button>
+          </div>
+        </div>
+      </div>
+
       {% if catalog_order %}
       <div class="order-list" id="orderList">
         {% for m in catalog_order %}
@@ -948,6 +1027,27 @@
       {% if not is_owner %}<div class="readonly-banner">🔒 Somente leitura — apenas o dono da loja pode alterar a identidade visual.</div>{% endif %}
       <div class="{{ 'readonly-lock' if not is_owner }} identity-grid">
         <div>
+          {# Hero de Black Friday: um botão só. Troca APENAS o hero da loja (entra
+             o letreiro "Black Friday" acima do título); desligar devolve o hero
+             normal. As ofertas com hora marcada dos modelos (aba Catálogo) são
+             do sistema e funcionam com este botão ligado OU desligado. #}
+          <div class="sections-block">
+            <div class="sections-head">
+              🖤 Black Friday <span class="sections-sub">Troca só o topo da loja (hero) · liga e desliga a qualquer momento</span>
+            </div>
+            <div class="bf-admin">
+              <label class="pp-switch">
+                <span class="switch {{ 'on' if config.bf_tema_ativo == '1' }}" id="bfSwitch" onclick="this.classList.toggle('on')"></span>
+                <span>Mostrar o letreiro “Black Friday” no topo da loja</span>
+              </label>
+              <span class="sections-sub">Ligado: o topo da loja ganha o letreiro “Black Friday” e o título da loja fica logo abaixo dele. Desligado: o topo volta ao normal. As ofertas, os relógios e a seção “Ofertas com hora marcada” não dependem deste botão: aparecem sempre que algum modelo estiver em oferta (aba Catálogo).</span>
+              <div class="identity-save-row" style="justify-content:space-between; align-items:center; margin-top:0;">
+                <span class="bf-status {{ 'on' if config.bf_tema_ativo == '1' }}" id="bfStatus">{{ 'Black Friday ligada no site' if config.bf_tema_ativo == '1' else 'Black Friday desligada' }}</span>
+                <button class="mini-btn primary" id="saveBfBtn" onclick="saveBlackFriday()">Salvar</button>
+              </div>
+            </div>
+          </div>
+
           <div class="sections-block">
             <div class="sections-head">
               🖼️ Logos <span class="sections-sub">Logo principal (navbar) e logo secundário (rodapé) da loja</span>
@@ -1568,6 +1668,139 @@
       const body = {}; body[field] = value;
       await api('/api/model/'+id,'POST',body);
       toast("Salvo ✓");
+    }
+
+    // ---- Oferta com hora marcada (por modelo) ----
+    // O servidor é quem valida e grava (pricing.valida_promo). Aqui fica só a
+    // prévia e o tempo restante, para o lojista ver o resultado antes de salvar.
+    const fmtBRL = (n) => 'R$ ' + n.toFixed(2).replace('.', ',');
+    function promoRestante(ms) {
+      const s = Math.max(Math.floor(ms / 1000), 0);
+      const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+      return (d ? d + 'd ' : '') + String(h).padStart(2, '0') + 'h ' + String(m).padStart(2, '0') + 'min';
+    }
+    // Estado SALVO de cada linha: ativa ou não, com o tempo restante.
+    function paintPromoRow(box) {
+      const row = box.closest('.model-row');
+      const fim = Date.parse(box.dataset.fim);
+      const desconto = parseFloat(box.dataset.desconto);
+      const ativa = desconto > 0 && fim > Date.now();
+      box.classList.toggle('on', ativa);
+      row.classList.toggle('has-promo', ativa);
+      return ativa;
+    }
+    function previewPromo(mid) {
+      const box = document.getElementById('promo-' + mid);
+      const info = box.querySelector('.m-promo-info');
+      const min = parseFloat(box.dataset.min) || 0;
+      const raw = box.querySelector('.m-promo-val').value.replace(',', '.');
+      const fimLocal = box.querySelector('.m-promo-fim').value;
+      const desconto = parseFloat(raw);
+      info.className = 'm-promo-info';
+      info.textContent = '';
+      const salvoAtivo = paintPromoRow(box);
+      if (!raw && !fimLocal) {
+        info.textContent = 'Sem oferta.';
+        return;
+      }
+      const editado = raw !== String(box.dataset.desconto) || !!box.dataset.sujo;
+      const aviso = (t) => { info.classList.add('warn'); info.textContent = t; };
+      if (!(desconto > 0)) return aviso('Informe o valor do desconto.');
+      if (min && desconto >= min) return aviso('O desconto precisa ser menor que o sabor mais barato (' + fmtBRL(min) + ').');
+      if (!fimLocal) return aviso('Informe quando a oferta acaba.');
+      // datetime-local não tem fuso: é o horário de São Luís (UTC-3, fixo).
+      const fim = Date.parse(fimLocal + ':00-03:00');
+      if (!(fim > Date.now())) {
+        return aviso(salvoAtivo || editado ? 'A data precisa estar no futuro.' : 'Oferta encerrada: o preço já voltou ao normal.');
+      }
+      const preco = document.createElement('span');
+      preco.append('A partir de ' + fmtBRL(min) + ' → ');
+      const b = document.createElement('b'); b.textContent = fmtBRL(min - desconto); preco.append(b);
+      preco.append(' · acaba em ');
+      const left = document.createElement('b'); left.className = 'left'; left.textContent = promoRestante(fim - Date.now()); preco.append(left);
+      if (!salvoAtivo || box.dataset.sujo) preco.append(' (ainda não salva)');
+      info.append(preco);
+    }
+    function refreshPromoFilter() {
+      let n = 0;
+      document.querySelectorAll('.m-promo').forEach((box) => { if (paintPromoRow(box)) n++; });
+      document.querySelectorAll('.brand-block').forEach((b) => {
+        b.classList.toggle('has-promo', !!b.querySelector('.model-row.has-promo'));
+      });
+      document.getElementById('promoFilterCount').textContent = n;
+    }
+    function togglePromoFilter() {
+      const btn = document.getElementById('promoFilterBtn');
+      const on = btn.getAttribute('aria-pressed') !== 'true';
+      btn.setAttribute('aria-pressed', String(on));
+      document.body.classList.toggle('promo-only', on);
+    }
+    async function sendPromo(mid, promo) {
+      const box = document.getElementById('promo-' + mid);
+      const res = await api('/api/model/' + mid, 'POST', { promo });
+      if (!res.ok) { toast(res.error || 'Erro ao salvar a oferta'); return false; }
+      box.dataset.fim = (res.promo && res.promo.fim) || '';
+      box.dataset.desconto = (res.promo && res.promo.desconto) || '';
+      delete box.dataset.sujo;
+      return true;
+    }
+    async function savePromo(mid) {
+      const box = document.getElementById('promo-' + mid);
+      const ok = await sendPromo(mid, {
+        desconto: box.querySelector('.m-promo-val').value,
+        fim: box.querySelector('.m-promo-fim').value,
+      });
+      if (ok) { toast(box.dataset.fim ? 'Oferta salva ✓' : 'Oferta removida'); refreshPromoFilter(); previewPromo(mid); }
+    }
+    async function clearPromo(mid) {
+      const box = document.getElementById('promo-' + mid);
+      if (!(await sendPromo(mid, { desconto: '', fim: '' }))) return;
+      box.querySelector('.m-promo-val').value = '';
+      box.querySelector('.m-promo-fim').value = '';
+      toast('Oferta removida');
+      refreshPromoFilter(); previewPromo(mid);
+    }
+    document.querySelectorAll('.m-promo').forEach((box) => {
+      const mid = box.id.replace('promo-', '');
+      box.addEventListener('input', () => { box.dataset.sujo = '1'; });
+      previewPromo(mid);
+    });
+    refreshPromoFilter();
+    // Uma oferta pode acabar com o painel aberto: tempo restante e filtro se
+    // atualizam sozinhos (linhas em edição não são tocadas).
+    setInterval(() => {
+      refreshPromoFilter();
+      document.querySelectorAll('.m-promo').forEach((box) => {
+        if (!box.dataset.sujo && !box.contains(document.activeElement)) previewPromo(box.id.replace('promo-', ''));
+      });
+    }, 30000);
+
+    // ---- Hero de Black Friday ----
+    async function saveBlackFriday() {
+      const on = document.getElementById('bfSwitch').classList.contains('on');
+      const res = await api('/api/black_friday', 'POST', { bf_tema_ativo: on });
+      if (!res.ok) { toast(res.error || 'Erro ao salvar'); return; }
+      const ligado = res.bf_tema_ativo === '1';
+      const st = document.getElementById('bfStatus');
+      st.textContent = ligado ? 'Black Friday ligada no site' : 'Black Friday desligada';
+      st.classList.toggle('on', ligado);
+      toast(ligado ? 'Black Friday ligada ✓' : 'Black Friday desligada ✓');
+    }
+
+    // ---- Seção "Mais Vendidos": mostrar/ocultar e renomear ----
+    async function saveBestSection() {
+      const on = document.getElementById('bestSwitch').classList.contains('on');
+      const res = await api('/api/best_section', 'POST', {
+        best_enabled: on,
+        best_title: document.getElementById('bestTitle').value,
+      });
+      if (!res.ok) { toast(res.error || 'Erro ao salvar'); return; }
+      // O servidor devolve o nome já limpo (ou o padrão, se veio vazio).
+      document.getElementById('bestTitle').value = res.best_title;
+      const st = document.getElementById('bestStatus');
+      st.textContent = res.best_enabled === '1' ? 'Seção visível na loja' : 'Seção oculta na loja';
+      st.classList.toggle('on', res.best_enabled === '1');
+      toast(res.best_enabled === '1' ? 'Seção salva ✓' : 'Seção ocultada ✓');
     }
 
     // ---- Foto do modelo (drag & drop + clique) ----

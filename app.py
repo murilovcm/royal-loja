@@ -24,6 +24,7 @@ from werkzeug.utils import secure_filename
 from PIL import Image, ImageOps, ImageChops
 
 from shipping import calculate_shipping, SPECIAL_ZONES, CONCENTRIC_ZONES
+import pricing
 
 # ---------------------------------------------------------------------------
 # Configuração
@@ -191,9 +192,19 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 
 # Versão dos assets estáticos (evita o navegador servir style.css/app.js antigos do cache
 # depois de um deploy/edição, já que o Flask não versiona esses arquivos por padrão).
+# Os arquivos do countdown e do hero de Black Friday entram na conta: sem isso,
+# um deploy que só mexesse neles manteria o ?v= antigo e o navegador do cliente
+# continuaria com a versão em cache.
+_VERSIONED_ASSETS = (
+    ("static", "style.css"),
+    ("static", "app.js"),
+    ("static", "js", "countdown.js"),
+    ("static", "css", "tema-blackfriday.css"),
+)
 ASSET_VERSION = str(int(max(
-    os.path.getmtime(os.path.join(BASE_DIR, "static", "style.css")),
-    os.path.getmtime(os.path.join(BASE_DIR, "static", "app.js")),
+    os.path.getmtime(os.path.join(BASE_DIR, *parts))
+    for parts in _VERSIONED_ASSETS
+    if os.path.exists(os.path.join(BASE_DIR, *parts))
 )))
 
 
@@ -256,9 +267,11 @@ def set_security_headers(response):
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline'; "
+        # Google Fonts: única origem externa liberada, e só para estilo e
+        # arquivo de fonte (o letreiro do hero de Black Friday vem de lá).
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "img-src 'self' data:; "
-        "font-src 'self'; "
+        "font-src 'self' https://fonts.gstatic.com; "
         "object-src 'none'; "
         "base-uri 'self'; "
         "frame-ancestors 'none'; "
@@ -638,6 +651,18 @@ def init_db():
     db.execute("CREATE INDEX IF NOT EXISTS idx_models_parent ON vape_models(parent_id)")
     db.commit()
 
+    # Migração: PROMOÇÃO COM HORA MARCADA, por modelo. `desconto_valor` é o
+    # desconto em reais aplicado a cada sabor do modelo (e aos das versões
+    # dele); `promo_fim` é o fim em UTC, texto ISO ("2026-11-27T02:59:00Z").
+    # As duas nascem NULL em todo modelo existente, ou seja, sem promoção:
+    # publicar esta versão não altera nenhum preço. Ver pricing.py.
+    if "desconto_valor" not in model_cols:
+        db.execute("ALTER TABLE vape_models ADD COLUMN desconto_valor REAL")
+        db.commit()
+    if "promo_fim" not in model_cols:
+        db.execute("ALTER TABLE vape_models ADD COLUMN promo_fim TEXT")
+        db.commit()
+
     # Semeia a conta "dono" (acesso completo) só na primeiríssima vez que a
     # loja roda — depois disso, a senha real mora hasheada no banco, e essas
     # variáveis de ambiente não têm mais efeito nenhum sobre o login.
@@ -793,6 +818,17 @@ def init_db():
         "promo_popup_coupon": "",
         "promo_popup_cta_label": "Ver catálogo",
         "promo_popup_cta_link": "#catalogo",
+        # Hero de Black Friday (aba "Identidade Visual"). Começa DESLIGADO em
+        # todas as lojas: ligar é decisão do dono, loja por loja. Troca só o
+        # hero (entra o letreiro "Black Friday"). As ofertas com hora marcada
+        # dos modelos NÃO dependem disto: são do sistema e funcionam com este
+        # botão ligado ou desligado.
+        "bf_tema_ativo": "0",
+        # Seção "Mais Vendidos" da loja: pode ser ocultada e renomeada no
+        # painel (aba "Ordem do catálogo"). Os padrões reproduzem a loja como
+        # ela sempre foi, então publicar esta versão não muda nada.
+        "best_enabled": "1",
+        "best_title": "Mais Vendidos",
     }
     for k, v in defaults.items():
         db.execute(
@@ -1141,7 +1177,16 @@ def get_shipping_zones():
     return special, concentric
 
 
-def _flavors_of(db, model):
+def _promo_of(model, parent=None):
+    """(desconto_valor, promo_fim) que vale para os sabores de um modelo.
+    Versões (Slim, geração anterior) herdam a promoção do produto principal:
+    para o cliente é o mesmo card, com um relógio só — a mesma regra pela qual
+    o cupom do principal já alcança as versões."""
+    dono = parent if parent is not None else model
+    return dono["desconto_valor"], dono["promo_fim"]
+
+
+def _flavors_of(db, model, promo=(None, None), agora=None):
     """Sabores de UM modelo, já carimbados com os dados da versão a que pertencem.
 
     O carimbo é o que permite achatar várias versões numa lista só: o sabor sabe
@@ -1165,11 +1210,19 @@ def _flavors_of(db, model):
         # Normalizado aqui, igual a version_note: o front só testa se a string
         # está vazia, sem precisar lidar com NULL vindo do banco.
         f["note"] = (f.get("note") or "").strip()
+        # `price` passa a ser o preço QUE VALE AGORA (regra única em
+        # pricing.preco_efetivo). O cheio vai em `price_original`, e o front
+        # usa `promo_fim` para voltar a ele sozinho quando o relógio zera.
+        pe = pricing.preco_efetivo(f["price"], promo[0], promo[1], agora)
+        f["price_original"] = pe["original"]
+        f["price"] = pe["final"]
+        f["promo_desconto"] = pe["desconto"]
+        f["promo_fim"] = pe["fim"]
         flavors.append(f)
     return flavors
 
 
-def build_catalog():
+def build_catalog(agora=None):
     """Monta a lista de modelos com seus sabores e metadados agregados.
 
     Só os modelos PRINCIPAIS (parent_id NULL) viram card. As versões (Slim,
@@ -1196,9 +1249,11 @@ def build_catalog():
         """
     ).fetchall()
 
+    agora = agora or pricing.agora_utc()
     catalog = []
     for m in models:
-        flavors = _flavors_of(db, m)
+        promo = _promo_of(m)
+        flavors = _flavors_of(db, m, promo, agora)
         # Versões ativas, na ordem definida no painel. Uma versão desativada some
         # do seletor sem que os sabores dela precisem ser apagados.
         versions = db.execute(
@@ -1210,11 +1265,16 @@ def build_catalog():
             (m["id"],),
         ).fetchall()
         for v in versions:
-            flavors.extend(_flavors_of(db, v))
+            flavors.extend(_flavors_of(db, v, promo, agora))
 
         in_stock = [f for f in flavors if f["is_in_stock"]]
-        prices = [f["price"] for f in in_stock] or [f["price"] for f in flavors]
-        min_price = min(prices) if prices else 0
+        vitrine = in_stock or flavors
+        # O sabor mais barato À VENDA define o "a partir de". Com promoção, o
+        # card mostra o de/por desse mesmo sabor.
+        barato = min(vitrine, key=lambda f: f["price"]) if vitrine else None
+        min_price = barato["price"] if barato else 0
+        # O card só entra em promoção se ela vale para algum sabor à venda.
+        em_promo = [f for f in vitrine if f["promo_fim"]]
         catalog.append(
             {
                 "id": m["id"],
@@ -1235,9 +1295,21 @@ def build_catalog():
                     + [v["variant_label"] for v in versions if v["variant_label"]]
                 ),
                 "min_price": min_price,
+                # Promoção do card (0/None = sem promoção). `promo_fim` é o
+                # texto ISO em UTC que alimenta o data-promo-fim do countdown.
+                "min_price_original": barato["price_original"] if barato else 0,
+                "promo_desconto": em_promo[0]["promo_desconto"] if em_promo else 0,
+                "promo_fim": em_promo[0]["promo_fim"] if em_promo else None,
             }
         )
     return catalog
+
+
+def ofertas_do_catalogo(catalog):
+    """Modelos com promoção ativa, do que acaba primeiro para o que acaba por
+    último. Alimenta a seção de ofertas e o destaque "próxima oferta" do topo.
+    Lista vazia faz os dois sumirem do HTML."""
+    return sorted((m for m in catalog if m["promo_fim"]), key=lambda m: m["promo_fim"])
 
 
 # Ícone de cada pergunta frequente, escolhido pelo QUE A PERGUNTA DIZ.
@@ -1618,14 +1690,21 @@ def home():
     faq = parse_faq(config)
     reviews_on = config.get("reviews_enabled") == "1"
     hours = get_store_hours(config)
+    agora = pricing.agora_utc()
+    catalog = build_catalog(agora)
     return render_template(
         "index.html",
         config=config,
+        # Hora do servidor em milissegundos: o countdown calcula o desvio do
+        # relógio do cliente a partir dela (ver static/js/countdown.js).
+        server_now_ms=int(agora.timestamp() * 1000),
+        ofertas=ofertas_do_catalogo(catalog),
+        bf_ativo=config.get("bf_tema_ativo") == "1",
         reviews=get_google_reviews(only_active=True) if reviews_on else [],
         reviews_summary=parse_reviews_summary(config),
         cable=get_cable(config),
         store_hours=hours,
-        catalog=build_catalog(),
+        catalog=catalog,
         brands=[dict(b) for b in get_db().execute("SELECT * FROM brands ORDER BY name").fetchall()],
         whatsapp=WHATSAPP_PHONE,
         editor=False,
@@ -1761,6 +1840,26 @@ def admin():
         ).fetchall()
         return {"model": dict(m), "flavors": [dict(f) for f in flavors]}
 
+    agora = pricing.agora_utc()
+
+    def _promo_admin(node):
+        """Promoção do modelo pronta para o formulário do painel: valor, fim
+        no horário de São Luís (para o datetime-local), fim em UTC (para a
+        coluna de tempo restante, calculada no navegador) e o menor preço do
+        card, que alimenta a prévia e o limite do desconto."""
+        m = node["model"]
+        precos = [f["price"] for f in node["flavors"]]
+        for v in node.get("versions", []):
+            precos += [f["price"] for f in v["flavors"]]
+        fim = pricing.parse_fim(m.get("promo_fim"))
+        return {
+            "desconto": m.get("desconto_valor") or "",
+            "fim_local": pricing.utc_para_local(m.get("promo_fim")),
+            "fim_utc": pricing.formata_utc(fim) if fim else "",
+            "ativa": pricing.promo_ativa(m.get("desconto_valor"), m.get("promo_fim"), agora),
+            "menor_preco": min(precos) if precos else 0,
+        }
+
     tree = []
     for b in brands:
         # Só os principais entram na lista; as versões ficam aninhadas dentro do
@@ -1778,6 +1877,7 @@ def admin():
                 (m["id"],),
             ).fetchall()
             node["versions"] = [_node(v) for v in versions]
+            node["promo"] = _promo_admin(node)
             mlist.append(node)
         tree.append({"brand": dict(b), "models": mlist})
 
@@ -1951,6 +2051,52 @@ def api_promo_popup():
         )
     db.commit()
     return jsonify({"ok": True})
+
+
+@app.route("/api/black_friday", methods=["POST"])
+@api_owner_required
+def api_black_friday():
+    """Liga/desliga o hero de Black Friday. Só o dono, como o resto da
+    Identidade Visual. O botão troca apenas o hero da loja; as ofertas com hora
+    marcada são cadastradas por modelo, na aba Catálogo, e não dependem dele."""
+    d = request.get_json(force=True) or {}
+    if "bf_tema_ativo" not in d:
+        return jsonify({"ok": False, "error": "nada para salvar"}), 400
+    valor = "1" if d["bf_tema_ativo"] in (True, 1, "1", "true", "on") else "0"
+    db = get_db()
+    _upsert_config(db, "bf_tema_ativo", valor)
+    db.commit()
+    return jsonify({"ok": True, "bf_tema_ativo": valor})
+
+
+BEST_TITLE_DEFAULT = "Mais Vendidos"
+BEST_TITLE_MAX = 40
+
+
+@app.route("/api/best_section", methods=["POST"])
+@api_catalog_required
+def api_best_section():
+    """Seção "Mais Vendidos" da loja: mostrar/ocultar e renomear.
+
+    Quem cuida do catálogo pode mexer (é a mesma pessoa que marca a estrela
+    dos modelos). Ocultar tira só a faixa da página: a estrela continua
+    marcando os cards e o filtro por ela continua existindo. Nome vazio volta
+    para o padrão, em vez de deixar a seção sem título.
+    """
+    d = request.get_json(force=True) or {}
+    updates = {}
+    if "best_enabled" in d:
+        updates["best_enabled"] = "1" if d["best_enabled"] in (True, 1, "1", "true", "on") else "0"
+    if "best_title" in d:
+        titulo = " ".join(str(d["best_title"] or "").split())[:BEST_TITLE_MAX]
+        updates["best_title"] = titulo or BEST_TITLE_DEFAULT
+    if not updates:
+        return jsonify({"ok": False, "error": "nada para salvar"}), 400
+    db = get_db()
+    for key, val in updates.items():
+        _upsert_config(db, key, val)
+    db.commit()
+    return jsonify({"ok": True, **updates})
 
 
 @app.route("/api/update_config", methods=["POST"])
@@ -2558,17 +2704,27 @@ def api_apply_coupon():
         allowed_product_ids = {p["id"] for p in prods}
 
     # Subtotal elegível a partir dos itens enviados pelo carrinho.
-    def _line_total(it):
-        try:
-            return float(it.get("price") or 0) * float(it.get("qty") or 0)
-        except (TypeError, ValueError, AttributeError):
-            return 0.0
-
     def _fid(it):
         try:
             return int(it.get("flavor_id"))
         except (TypeError, ValueError, AttributeError):
             return None
+
+    # O preço de cada linha vem do SERVIDOR (pricing.preco_efetivo), não do
+    # `price` que o navegador mandou: é o preço que vale agora, já com a
+    # promoção do modelo se ela estiver ativa. Item sem id numérico conhecido
+    # (o cabo, ou um sabor que não existe mais) não entra na base do cupom —
+    # a mesma exclusão que o carrinho já faz em couponBase() no app.js.
+    oficiais = precos_dos_sabores([_fid(it) for it in items if isinstance(it, dict)])
+
+    def _line_total(it):
+        oficial = oficiais.get(_fid(it))
+        if not oficial:
+            return 0.0
+        try:
+            return oficial["final"] * float(it.get("qty") or 0)
+        except (TypeError, ValueError, AttributeError):
+            return 0.0
 
     if restricted:
         eligible_subtotal = sum(
@@ -2591,6 +2747,85 @@ def api_apply_coupon():
         "type": row["type"],
         "value": row["value"],
         "product_ids": sorted(allowed_product_ids) if restricted else None,
+    })
+
+
+# ---- Preço oficial dos sabores (cotação do carrinho) ----
+def precos_dos_sabores(ids, agora=None):
+    """{id do sabor: preco_efetivo + is_in_stock} para os ids pedidos.
+
+    Uma consulta só, com a promoção já resolvida: sabor de uma VERSÃO usa o
+    desconto e o fim do modelo principal. Ids desconhecidos simplesmente não
+    aparecem no resultado.
+    """
+    ids = sorted({i for i in ids if isinstance(i, int)})
+    if not ids:
+        return {}
+    rows = get_db().execute(
+        """
+        SELECT p.id, p.price, p.is_in_stock,
+               COALESCE(pai.active, m.active)  AS visivel,
+               m.active                        AS versao_ativa,
+               CASE WHEN m.parent_id IS NULL THEN m.desconto_valor ELSE pai.desconto_valor END AS desconto_valor,
+               CASE WHEN m.parent_id IS NULL THEN m.promo_fim      ELSE pai.promo_fim      END AS promo_fim
+        FROM products p
+        JOIN vape_models m ON m.id = p.model_id
+        LEFT JOIN vape_models pai ON pai.id = m.parent_id
+        WHERE p.id IN (%s)
+        """ % ",".join("?" * len(ids)),
+        ids,
+    ).fetchall()
+    agora = agora or pricing.agora_utc()
+    out = {}
+    for r in rows:
+        pe = pricing.preco_efetivo(r["price"], r["desconto_valor"], r["promo_fim"], agora)
+        pe["is_in_stock"] = bool(r["is_in_stock"]) and bool(r["visivel"]) and bool(r["versao_ativa"])
+        out[r["id"]] = pe
+    return out
+
+
+@app.route("/api/cart/quote", methods=["POST"])
+def api_cart_quote():
+    """Cotação do carrinho (rota pública, sem login e sem estado).
+
+    O pedido desta loja é montado no navegador e enviado pelo WhatsApp: não
+    existe "pedido" no servidor para revalidar. Esta rota é a revalidação —
+    o checkout pergunta aqui quanto custa cada sabor AGORA, antes de montar a
+    mensagem. Se uma promoção acabou entre o cliente pôr o item no carrinho e
+    finalizar, o preço devolvido já é o cheio, e o app.js avisa e recalcula.
+
+    Recebe só ids (`items`: [{flavor_id}]). Nunca recebe nem confia em preço.
+    """
+    d = request.get_json(silent=True) or {}
+    items = d.get("items") if isinstance(d.get("items"), list) else []
+    ids = []
+    for it in items[:200]:
+        try:
+            ids.append(int(it.get("flavor_id")))
+        except (TypeError, ValueError, AttributeError):
+            continue
+    agora = pricing.agora_utc()
+    oficiais = precos_dos_sabores(ids, agora)
+    return jsonify({
+        "ok": True,
+        "now_ms": int(agora.timestamp() * 1000),
+        "items": [
+            {
+                "flavor_id": fid,
+                "found": fid in oficiais,
+                **(
+                    {
+                        "price": oficiais[fid]["final"],
+                        "price_original": oficiais[fid]["original"],
+                        "promo_desconto": oficiais[fid]["desconto"],
+                        "promo_fim": oficiais[fid]["fim"],
+                        "is_in_stock": oficiais[fid]["is_in_stock"],
+                    }
+                    if fid in oficiais else {}
+                ),
+            }
+            for fid in sorted(set(ids))
+        ],
     })
 
 
@@ -2945,11 +3180,49 @@ def api_update_model(mid):
             fields.append("parent_id = ?")
             vals.append(pid)
 
+    # Promoção com hora marcada. Os dois campos chegam JUNTOS (`promo`), porque
+    # um sem o outro não é uma promoção: desconto sem fim nunca acabaria, fim
+    # sem desconto não faz nada. Os dois vazios removem a promoção.
+    # A data chega no horário de São Luís (datetime-local) e é gravada em UTC.
+    promo_info = None
+    if "promo" in d:
+        promo_in = d["promo"] if isinstance(d["promo"], dict) else {}
+        alvo = db.execute(
+            "SELECT parent_id FROM vape_models WHERE id = ?", (mid,)
+        ).fetchone()
+        if not alvo:
+            return jsonify({"ok": False, "error": "modelo não encontrado"}), 404
+        if alvo["parent_id"] is not None:
+            return jsonify({
+                "ok": False,
+                "error": "a promoção é definida no produto principal e vale para as versões dele",
+            }), 400
+        # O desconto precisa caber no sabor mais barato do card inteiro
+        # (principal + versões), senão algum sabor ficaria de graça.
+        menor = db.execute(
+            "SELECT MIN(price) AS p FROM products WHERE model_id = ? "
+            "OR model_id IN (SELECT id FROM vape_models WHERE parent_id = ?)",
+            (mid, mid),
+        ).fetchone()["p"]
+        desconto, fim_utc, erro = pricing.valida_promo(
+            promo_in.get("desconto"), promo_in.get("fim"), menor
+        )
+        if erro:
+            return jsonify({"ok": False, "error": erro}), 400
+        fields.append("desconto_valor = ?")
+        vals.append(desconto)
+        fields.append("promo_fim = ?")
+        vals.append(fim_utc)
+        promo_info = {"desconto": desconto, "fim": fim_utc}
+
     if not fields:
         return jsonify({"ok": False}), 400
     vals.append(mid)
     db.execute(f"UPDATE vape_models SET {', '.join(fields)} WHERE id = ?", vals)
     db.commit()
+    # (A auditoria da alteração já é feita pelo guard de escrita da rota.)
+    if promo_info is not None:
+        return jsonify({"ok": True, "promo": promo_info})
     return jsonify({"ok": True})
 
 
@@ -2971,6 +3244,43 @@ def clean_hex_color(value):
     Evita injeção de CSS já que a cor é usada em style="background: ..."."""
     v = (value or "").strip()
     return v if _HEX_COLOR_RE.match(v) else None
+
+
+@app.template_filter("reais")
+def filtro_reais(value):
+    """129.99 -> '129,99' (sem o 'R$', que cada lugar posiciona do seu jeito)."""
+    try:
+        return f"{float(value):.2f}".replace(".", ",")
+    except (TypeError, ValueError):
+        return "0,00"
+
+
+@app.template_filter("desconto_curto")
+def filtro_desconto_curto(value):
+    """Valor do selo de desconto: 20.0 -> '20', 15.5 -> '15,50'. Centavos só
+    aparecem quando existem, porque o selo é pequeno."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return "0"
+    return f"{v:.0f}" if v == int(v) else f"{v:.2f}".replace(".", ",")
+
+
+@app.template_filter("promo_resta")
+def filtro_promo_resta(fim_iso):
+    """Tempo restante já formatado no momento em que a página
+    é gerada. O countdown.js assume a partir daí; sair preenchido do servidor
+    evita o texto 'pular' na tela quando o JS carrega."""
+    fim = pricing.parse_fim(fim_iso)
+    if not fim:
+        return ""
+    s = max(int((fim - pricing.agora_utc()).total_seconds()), 0)
+    d, h, m, sec = s // 86400, (s % 86400) // 3600, (s % 3600) // 60, s % 60
+    # Mesmo formato do countdown.js: acima de 24h o texto é fixo em dias
+    # inteiros; a contagem só aparece nas últimas 24 horas.
+    if d:
+        return f"{d} dia" if d == 1 else f"{d} dias"
+    return f"{h:02d}:{m:02d}:{sec:02d}"
 
 
 @app.template_filter("hex_to_rgb")

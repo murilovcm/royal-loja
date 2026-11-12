@@ -21,14 +21,25 @@
    clicável, então o alvo de toque não encolheu e a contagem de toques até o
    pedido é exatamente a de antes.
    -------------------------------------------------------- #}
-{% macro model_card(m, editor, eager=false) %}
+{# PROMOÇÃO COM HORA MARCADA (m.promo_fim preenchido). Tudo o que ela acrescenta
+   ao card fica dentro de `if m.promo_fim`: sem promoção, o HTML gerado é o
+   mesmo de antes. Os ganchos são do static/js/countdown.js:
+     data-promo-fim     fim em UTC; liga o relógio do card
+     data-promo-only    some quando o relógio zera (selo, relógio, preço "de")
+     data-promo-price   guarda o preço cheio, que volta a ser exibido ao zerar
+     data-promo-aria    rótulo acessível sem a promoção
+   `oferta=true` é o card da seção de ofertas: ao zerar ele SAI da seção, em
+   vez de voltar ao normal ali dentro. #}
+{% macro model_card(m, editor, eager=false, oferta=false) %}
 {% set palette = ['#a855f7','#22d3ee','#f97316','#ec4899','#4ade80','#eab308','#60a5fa','#f43f5e'] %}
-<article class="model-card"
+<article class="model-card{{ ' is-promo' if m.promo_fim }}"
+         {% if m.promo_fim %}data-promo-fim="{{ m.promo_fim }}"{% if oferta %} data-promo-expire="remove"{% endif %}
+         data-promo-aria="{{ m.brand_name }} {{ m.name }}, a partir de R$ {{ m.min_price_original | reais }}. Ver sabores"{% endif %}
          {# Acesso por teclado: invisível na tela, mas sem isto a grade inteira
             é inalcançável sem mouse ou toque (o clique vive num listener do
             <article>). Não altera o layout nem o comportamento do ponteiro. #}
          {% if not editor %}role="button" tabindex="0"
-         aria-label="{{ m.brand_name }} {{ m.name }}, a partir de R$ {{ '%.2f' | format(m.min_price) | replace('.', ',') }}. Ver sabores"{% endif %}
+         aria-label="{{ m.brand_name }} {{ m.name }}, a partir de R$ {{ '%.2f' | format(m.min_price) | replace('.', ',') }}{% if m.promo_fim %} na oferta, de R$ {{ m.min_price_original | reais }}{% endif %}. Ver sabores"{% endif %}
          data-id="{{ m.id }}"
          data-brand="{{ m.brand_id }}"
          data-best="{{ m.is_best_seller }}"
@@ -50,6 +61,7 @@
          loading="{{ 'eager' if eager else 'lazy' }}"
          {% if eager %}fetchpriority="high"{% endif %} decoding="async">
     {% else %}<span class="ph">{{ m.name[0] }}</span>{% endif %}
+    {% if m.promo_fim %}<span class="promo-off" data-promo-only>-R$ {{ m.promo_desconto | desconto_curto }}</span>{% endif %}
   </div>
   <span class="brand-lbl">{{ m.brand_name }}</span>
   <h3>{{ m.name }}</h3>
@@ -59,17 +71,35 @@
     <span class="flavor-badge"><span class="dot" style="background: {{ instock[0].color or palette[0] }}"></span><span class="fn">{{ instock[0].name }}</span>{% set extra = instock|length - 1 %}{% if extra > 0 %}<span class="more">+{{ extra }} sabor{{ 'es' if extra > 1 }}</span>{% endif %}</span>
   </div>
   {% endif %}
+  {% if m.promo_fim %}
+  <div class="promo-cd" data-promo-only>
+    <svg class="ico" aria-hidden="true"><use href="#i-clock"></use></svg><span class="promo-cd-lbl">Acaba em</span><b data-cd>{{ m.promo_fim | promo_resta }}</b>
+  </div>
+  {% endif %}
   <div class="card-foot">
     <div class="price-wrap">
       <span class="from">a partir de</span><br>
-      <span class="price"><span class="cur">R$</span>{{ '%.2f' | format(m.min_price) | replace('.', ',') }}</span>
+      {% if m.promo_fim %}<s class="price-was" data-promo-only>R$ {{ m.min_price_original | reais }}</s>
+      <span class="price"><span class="cur">R$</span><span data-promo-price="{{ m.min_price_original | reais }}">{{ m.min_price | reais }}</span></span>
+      {% else %}<span class="price"><span class="cur">R$</span>{{ '%.2f' | format(m.min_price) | replace('.', ',') }}</span>{% endif %}
     </div>
     <span class="card-plus" aria-hidden="true"><svg class="plus-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
   </div>
+  {# Faixa de economia: fecha o card em oferta, de ponta a ponta, com o valor
+     que o cliente deixa de pagar. Mesmo verde do "Você economiza" do carrinho.
+     Some junto com a oferta (data-promo-only). #}
+  {% if m.promo_fim %}<div class="promo-economia" data-promo-only>Economia de <b>R$ {{ m.promo_desconto | desconto_curto }}</b></div>{% endif %}
 </article>
 {% endmacro %}
 <!DOCTYPE html>
-<html lang="pt-BR">
+{# HERO DE BLACK FRIDAY. Ligado no painel (Identidade Visual), vira o atributo
+   data-tema no <html> e troca SÓ o hero: entra o letreiro "Black Friday" acima
+   do título da loja. Com ele desligado nada disso existe na página: nem o
+   atributo, nem o CSS, nem a fonte, nem o letreiro.
+   As ofertas com hora marcada (selo, relógio, seção de ofertas, card "Acaba
+   primeiro") NÃO dependem deste botão: são do sistema e aparecem sempre que
+   houver um modelo em oferta. #}
+<html lang="pt-BR"{% if bf_ativo %} data-tema="blackfriday"{% endif %}>
 <head>
   <meta charset="UTF-8">
   <script>
@@ -156,6 +186,16 @@
     --brand-label-raw: {{ config.theme_brand_label_color or config.theme_accent_soft_color or '#a855f7' }};
     --flavor-more-raw: {{ config.theme_flavor_more_color or config.theme_accent_soft_color or '#a855f7' }};
   }</style>
+  {% if bf_ativo %}
+  {# Fonte do letreiro: uma família só (Archivo), num corte só (largo, peso
+     900), que é o que o letreiro usa. O resto da página continua na Geist que
+     a loja já serve. display=swap: o texto aparece na hora com a fonte do
+     sistema e troca quando a Archivo chega. #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,900&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tema-blackfriday.css') }}?v={{ asset_v }}">
+  {% endif %}
 </head>
 <body class="{{ 'editor-mode' if editor else '' }}">
 
@@ -202,7 +242,7 @@
         Home
       </a>
       <div class="nav-side-section">Categorias</div>
-      <button type="button" class="nav-side-cat" data-filter="best">Mais Vendidos</button>
+      <button type="button" class="nav-side-cat" data-filter="best">{{ (config.best_title or '') | trim or 'Mais Vendidos' }}</button>
       {% for b in brands %}
       <button type="button" class="nav-side-cat" data-filter="brand-{{ b.id }}">{{ b.name }}</button>
       {% endfor %}
@@ -278,6 +318,15 @@
       <span class="store-status-text">Verificando horário...</span>
     </div>
 
+    {% if bf_ativo %}
+    {# Letreiro de Black Friday: a única coisa que o botão do painel acrescenta.
+       É um <p>, não um título: o <h1> da loja, logo abaixo, continua sendo o
+       título da página para o Google. Cada palavra tem o seu <span> porque são
+       dois tons ("Black" branco, "Friday" na cor de marca) e entram em tempos
+       diferentes. Estilo e animação em static/css/tema-blackfriday.css. #}
+    <p class="bf-letreiro"><span class="bf-l1">Black</span> <span class="bf-l2">Friday</span></p>
+    {% endif %}
+
     {# A pill da cidade dentro do título é a peça que a loja já tinha de mais
        característico: diz "entregamos AQUI" na cor da marca. O trabalho aqui é
        dar escala a ela, não substituí-la.
@@ -330,7 +379,46 @@
     </a>
     {% endif %}
     {% endif %}
+
+    {# ---- Destaque: a oferta que acaba primeiro ----
+       TODAS as ofertas ativas estão aqui, em ordem de término, e só a primeira
+       aparece. Quando o relógio dela zera, o countdown.js a remove e revela a
+       seguinte (data-promo-group="first"); sem nenhuma, o bloco inteiro sai do
+       DOM. Sem promoção cadastrada, nada disto é gerado. #}
+    {% if ofertas %}
+    <div class="promo-next" data-promo-group="first">
+      {% for m in ofertas %}
+      <a class="promo-next-item" href="#ofertas" data-open-model="{{ m.id }}" data-promo-fim="{{ m.promo_fim }}" data-promo-expire="remove"{% if not loop.first %} hidden{% endif %}>
+        {% if m.image_url %}<img class="promo-next-img" src="{{ m.image_url }}" alt="" width="56" height="56" loading="{{ 'eager' if loop.first else 'lazy' }}" decoding="async">{% endif %}
+        <span class="promo-next-info">
+          <span class="promo-next-eyebrow">Acaba primeiro</span>
+          <span class="promo-next-name">{{ m.brand_name }} {{ m.name }}</span>
+          <span class="promo-next-prices"><s>R$ {{ m.min_price_original | reais }}</s> <b>R$ {{ m.min_price | reais }}</b></span>
+        </span>
+        <span class="promo-next-cd"><svg class="ico" aria-hidden="true"><use href="#i-clock"></use></svg><b data-cd>{{ m.promo_fim | promo_resta }}</b></span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
   </section>
+
+  {# ---- Seção de ofertas ----
+     Só os modelos com promoção ativa, do que acaba primeiro para o último.
+     Cada card daqui sai da seção quando zera (oferta=true) e a seção inteira
+     some quando não sobra nenhum (data-promo-group). #}
+  {% if ofertas %}
+  <div class="promo-offers" id="ofertas" data-promo-group>
+    <section class="section section-band container">
+      <div class="section-head">
+        <h2><svg class="ico promo-offers-ico" aria-hidden="true"><use href="#i-clock"></use></svg> Ofertas com hora marcada</h2>
+        <p>O preço volta ao normal quando o relógio zera.</p>
+      </div>
+      <div class="grid">
+        {% for m in ofertas %}{{ model_card(m, editor, eager=(loop.index <= 2), oferta=true) }}{% endfor %}
+      </div>
+    </section>
+  </div>
+  {% endif %}
 
   {# A faixa de selos (Entrega Rápida / Produtos Originais / Atendimento Ágil)
      foi removida. As três promessas continuam ditas onde o cliente realmente
@@ -340,15 +428,19 @@
      usa os três. #}
 
   <!-- Best sellers -->
+  {# A seção pode ser OCULTADA e RENOMEADA no painel (aba "Ordem do catálogo").
+     Oculta, some só a faixa: a estrela continua marcando os cards no catálogo
+     e o filtro por ela continua existindo, com o mesmo nome escolhido aqui. #}
   {% set best = catalog | selectattr('is_best_seller') | list %}
-  {% if best %}
+  {% set best_title = (config.best_title or '') | trim or 'Mais Vendidos' %}
+  {% if best and config.best_enabled != '0' %}
   {# .section-band: a seção ganha superfície e moldura próprias. Sem isso ela
      é uma grade de cards idêntica ao Catálogo logo abaixo, duas famílias de
      layout iguais e coladas. A ORDEM das seções e a distribuição dos produtos
      continuam exatamente as mesmas: a variação é de apresentação. #}
   <section class="section section-band container" id="best">
     <div class="section-head">
-      <h2><span class="bolt ico-bolt"></span> Mais Vendidos</h2>
+      <h2><span class="bolt ico-bolt"></span> {{ best_title }}</h2>
       
     </div>
     <div class="grid">
@@ -378,7 +470,7 @@
     </div>
     <div class="filter-bar" id="filterBar">
       <button class="pill active" data-filter="all">Todos</button>
-      <button class="pill" data-filter="best">Mais Vendidos</button>
+      <button class="pill" data-filter="best">{{ best_title }}</button>
       {% for b in brands %}
       <button class="pill" data-filter="brand-{{ b.id }}">{{ b.name }}</button>
       {% endfor %}
@@ -644,6 +736,13 @@
         <span class="brand-lbl" id="modalBrand"></span>
         <h2 id="modalName"></h2>
         <span class="puffs" id="modalPuffs"></span>
+        {# Promoção do modelo aberto: selo com o desconto e o relógio. Fica
+           `hidden` e só é revelado pelo app.js quando o modelo está em oferta;
+           ao zerar, o app.js esconde de novo (data-promo-expire="none"). #}
+        <div class="modal-promo" id="modalPromo" data-promo-expire="none" hidden>
+          <span class="promo-off" id="modalPromoOff"></span>
+          <span class="modal-promo-txt">em cada sabor · acaba em <b data-cd></b></span>
+        </div>
         <div class="modal-label">Escolha o sabor</div>
         <div class="flavor-grid" id="modalFlavors"></div>
         {# Só aparece quando o sabor escolhido é de outra versão do aparelho
@@ -662,6 +761,7 @@
             </div>
             <div class="modal-price">
               <span class="lbl">Total</span>
+              <s class="modal-was" id="modalWas" hidden></s>
               <span class="val" id="modalTotal">R$ 0,00</span>
             </div>
           </div>
@@ -712,6 +812,12 @@
       <div class="cart-discount-row" id="cartDiscountRow" style="display:none;">
         <span>Desconto <span id="cartDiscountCode"></span></span>
         <span id="cartDiscountValue">-R$ 0,00</span>
+      </div>
+      {# Economia das ofertas com hora marcada (+ cupom, se houver). Só aparece
+         com item em promoção no carrinho. #}
+      <div class="cart-savings-row" id="cartSavingsRow" style="display:none;">
+        <span>Você economiza</span>
+        <span id="cartSavingsValue">R$ 0,00</span>
       </div>
       <div class="cart-total">
         <span class="lbl">Total</span>
@@ -796,7 +902,15 @@
            preenchido e confirma ciente do valor, logo acima do botão. -->
       <div class="checkout-summary">
         <h4>Resumo do pedido</h4>
+        {# Aviso de preço que mudou (oferta acabou com o item no carrinho).
+           Preenchido pelo app.js depois da cotação no servidor. #}
+        <div class="price-notice" id="checkoutPriceNotice" role="alert" hidden></div>
         <div class="checkout-items" id="checkoutItems"></div>
+
+        <div class="checkout-savings-row" id="checkoutSavingsRow" style="display:none;">
+          <span>Economia nas ofertas</span>
+          <span id="checkoutSavingsValue">-R$ 0,00</span>
+        </div>
 
         <div class="checkout-discount-row" id="checkoutDiscountRow" style="display:none;">
           <span>Desconto <span id="checkoutDiscountCode"></span></span>
@@ -908,6 +1022,9 @@
       whatsapp: "{{ config.whatsapp_phone or whatsapp }}",
       editor: {{ 'true' if editor else 'false' }},
       storeName: "{{ config.store_name or 'Loja' }}",
+      {# Hora do servidor (ms). O countdown mede por ela o desvio do relógio do
+         cliente, então um celular com hora errada não ganha nem perde oferta. #}
+      serverNow: {{ server_now_ms }},
       freeShip: {
         enabled: {{ 'true' if config.free_ship_enabled == '1' else 'false' }},
         min: {{ (config.free_ship_min or 0) | float(0) }},
@@ -927,6 +1044,9 @@
       hours: {{ store_hours | tojson }}
     };
   </script>
+  {# countdown.js vem ANTES do app.js: expõe window.PROMO (relógio corrigido),
+     que o app.js usa para saber o preço que vale agora. #}
+  <script src="{{ url_for('static', filename='js/countdown.js') }}?v={{ asset_v }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ asset_v }}"></script>
 </body>
 </html>

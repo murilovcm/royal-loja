@@ -10,6 +10,17 @@
   const byId = (id) => document.getElementById(id);
   const brl = (n) => "R$ " + n.toFixed(2).replace(".", ",");
 
+  // ---- Promoção com hora marcada ----
+  // O relógio (já corrigido pela hora do servidor) vem do countdown.js. O
+  // fallback existe só para o app.js não quebrar se aquele arquivo falhar ao
+  // carregar: sem ele, nenhuma promoção é considerada ativa no navegador e
+  // quem decide o preço é a cotação do servidor.
+  const PROMO = window.PROMO || { now: () => Date.now(), ativa: () => false, refresh() {}, acertar() {} };
+  // Vale para um sabor, um modelo ou um item do carrinho: todos carregam promo_fim.
+  const promoOn = (x) => !!(x && x.promo_fim && PROMO.ativa(x.promo_fim));
+  // Texto do selo: "R$ 20" quando o desconto é redondo, "R$ 15,50" quando não.
+  const descontoCurto = (v) => "R$ " + (Number.isInteger(v) ? String(v) : v.toFixed(2).replace(".", ","));
+
   // ---------------------------------------------------------------
   // Altura real da tela (--app-vvh)
   // ---------------------------------------------------------------
@@ -942,9 +953,24 @@
            }
          </button>`).join("");
     }
+    paintModalPromo();
     updateModalTotal();
     overlay.classList.add("open");
     document.body.style.overflow = "hidden";
+  }
+
+  // Selo e relógio da promoção do modelo aberto. O bloco nasce `hidden` no
+  // template; só aparece com promoção ativa e volta a sumir quando ela zera
+  // (ver o listener de "promo:expired").
+  function paintModalPromo() {
+    const box = byId("modalPromo");
+    const m = modalState.model;
+    const on = promoOn(m);
+    box.hidden = !on;
+    if (!on) { box.removeAttribute("data-promo-fim"); return; }
+    box.setAttribute("data-promo-fim", m.promo_fim);
+    byId("modalPromoOff").textContent = "-" + descontoCurto(m.promo_desconto);
+    PROMO.refresh();
   }
 
   function closeModal() {
@@ -959,14 +985,20 @@
 
   function updateModalTotal() {
     const addBtn = byId("addBtn");
+    const was = byId("modalWas");
     if (!modalState.flavor) {
       byId("modalTotal").textContent = brl(0);
+      was.hidden = true;
       addBtn.disabled = true;
       addBtn.textContent = "Selecione um sabor";
       return;
     }
     const total = modalState.flavor.price * modalState.qty;
     byId("modalTotal").textContent = brl(total);
+    // De/por: o valor cheio riscado só aparece com a promoção do sabor ativa.
+    const emPromo = promoOn(modalState.flavor);
+    was.hidden = !emPromo;
+    if (emPromo) was.textContent = brl(modalState.flavor.price_original * modalState.qty);
     addBtn.disabled = false;
     addBtn.textContent = "Adicionar ao Carrinho";
   }
@@ -1010,6 +1042,10 @@
       brand_name: m.brand_name,
       flavor_name: f.name,
       price: f.price,
+      // Promoção viaja com o item: é o que permite mostrar o de/por no
+      // carrinho e voltar ao preço cheio quando o relógio zerar.
+      price_original: f.price_original != null ? f.price_original : f.price,
+      promo_fim: promoOn(f) ? f.promo_fim : null,
       qty: modalState.qty,
       image_url: f.version_image || m.image_url || "",
     });
@@ -1038,6 +1074,16 @@
     const model = CATALOG.find((m) => m.id === id);
     if (model) openModal(model);
   }
+  // Destaque "próxima oferta" (hero) -> abre direto o produto em oferta.
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest("[data-open-model]");
+    if (!link || CFG.editor) return;
+    const model = CATALOG.find((m) => m.id === Number(link.dataset.openModel));
+    if (!model) return;
+    e.preventDefault();
+    openModal(model);
+  });
+
   document.querySelectorAll(".model-card").forEach((card) => {
     card.addEventListener("click", () => openCardModal(card));
     card.addEventListener("keydown", (e) => {
@@ -1146,7 +1192,10 @@
              <div class="ci-info">
                <div class="m">${it.model_name}</div>
                <div class="f">${it.flavor_name}</div>
-               <div class="p">${brl(it.price)}</div>
+               ${promoOn(it)
+                 ? `<div class="p"><s class="ci-was">${brl(it.price_original)}</s> ${brl(it.price)}</div>
+                    <div class="ci-promo" data-promo-fim="${escapeHtml(it.promo_fim)}" data-promo-expire="none">Oferta por mais <b data-cd></b></div>`
+                 : `<div class="p">${brl(it.price)}</div>`}
              </div>
              <div class="ci-right">
                <button class="rm" data-idx="${idx}" title="Remover" aria-label="Remover ${escapeHtml(it.model_name)} do carrinho"><svg class="ico" aria-hidden="true"><use href="#i-trash"></use></svg></button>
@@ -1162,6 +1211,8 @@
 
     updateTotals();
     byId("whatsappBtn").disabled = false;
+    // As linhas em oferta acabaram de ser redesenhadas: religa os relógios.
+    PROMO.refresh();
   }
 
   // ---- Coupon (aplicado no carrinho, vale para o checkout também) ----
@@ -1177,6 +1228,11 @@
 
   function cartTotal() {
     return cart.reduce((s, it) => s + it.price * it.qty, 0);
+  }
+
+  // Quanto as ofertas com hora marcada tiraram do carrinho (antes do cupom).
+  function promoSavings() {
+    return cart.reduce((s, it) => (promoOn(it) ? s + (it.price_original - it.price) * it.qty : s), 0);
   }
 
   // Subtotal sobre o qual o cupom incide. Cupom sem restrição (productIds nulo)
@@ -1240,6 +1296,10 @@
     return {
       total, discount, discountedTotal, pickup, hasNumericShipping,
       freeShipping, showSaving, shippingFull, shippingPrice, surcharge,
+      // Economia das ofertas com hora marcada. `total` já vem com ela
+      // descontada (it.price é o preço que vale agora); o número aqui é só
+      // para MOSTRAR ao cliente e à equipe quanto saiu.
+      promoSavings: promoSavings(),
       finalTotal: surchargeBase + surcharge,
       // Progresso da barra do carrinho. Não depende da zona: ali o site ainda
       // não sabe onde o cliente mora (a zona só sai do GPS, no checkout).
@@ -1387,6 +1447,18 @@
       byId("cartDiscountValue").textContent = "-" + brl(t.discount);
     }
     byId("cartTotal").textContent = brl(t.discountedTotal);
+
+    // Economia: só entra em cena com oferta ativa no carrinho. No carrinho o
+    // número soma o cupom ("você economiza" é o total que deixou de pagar);
+    // no resumo do checkout o cupom já tem a linha dele, então ali vai só a
+    // parte das ofertas.
+    const showSavings = t.promoSavings > 0.004;
+    byId("cartSavingsRow").style.display = showSavings ? "flex" : "none";
+    byId("checkoutSavingsRow").style.display = showSavings ? "flex" : "none";
+    if (showSavings) {
+      byId("cartSavingsValue").textContent = brl(t.promoSavings + t.discount);
+      byId("checkoutSavingsValue").textContent = "-" + brl(t.promoSavings);
+    }
 
     const checkoutDiscountRow = byId("checkoutDiscountRow");
     checkoutDiscountRow.style.display = showDiscount ? "flex" : "none";
@@ -1572,7 +1644,9 @@
 
   function openCheckout() {
     if (cart.length === 0) return;
+    showPriceNotice([]);      // aviso de uma abertura anterior não vale mais
     renderCheckoutSummary();
+    refreshQuote();           // confere os preços no servidor já na abertura
     updateCheckoutBtnState(); // começa desabilitado se os campos estiverem vazios
     closeCart();
     checkoutPanel.classList.add("open");
@@ -1600,10 +1674,195 @@
           <div class="m">${it.model_name}</div>
           <div class="f${it.is_cable ? " accessory" : ""}">${it.is_cable ? "Acessório" : it.flavor_name}</div>
         </div>
-        <span class="p">${brl(sub)}</span>
+        <span class="p">${promoOn(it) ? `<s class="ci-was">${brl(it.price_original * it.qty)}</s> ` : ""}${brl(sub)}</span>
       </div>`;
     }).join("");
     updateTotals();
+  }
+
+  // ---------------------------------------------------------------
+  // PREÇO QUE VALE AGORA (ofertas com hora marcada)
+  // ---------------------------------------------------------------
+  // Dois mecanismos, um de cada lado:
+  //   1. No navegador, o relógio (corrigido pela hora do servidor) zera e o
+  //      evento "promo:expired" devolve catálogo e carrinho ao preço cheio.
+  //   2. No servidor, /api/cart/quote diz quanto cada sabor custa AGORA. É a
+  //      revalidação do pedido: como o pedido desta loja é uma mensagem de
+  //      WhatsApp montada aqui, é esta cotação que impede uma oferta vencida
+  //      de chegar ao atendente.
+
+  // Aviso dentro do resumo do checkout. Texto montado com nós, nunca innerHTML
+  // com nome de produto.
+  function showPriceNotice(mudancas) {
+    const box = byId("checkoutPriceNotice");
+    box.textContent = "";
+    if (!mudancas.length) { box.hidden = true; return; }
+    const titulo = document.createElement("strong");
+    titulo.textContent = mudancas.length === 1 ? "O preço de um item mudou" : "O preço de alguns itens mudou";
+    box.append(titulo);
+    mudancas.forEach((m) => {
+      const p = document.createElement("p");
+      p.textContent = m;
+      box.append(p);
+    });
+    const fim = document.createElement("p");
+    fim.className = "price-notice-end";
+    fim.textContent = "O total já foi recalculado. Confira e envie o pedido.";
+    box.append(fim);
+    box.hidden = false;
+  }
+
+  function fraseMudanca(it, antes) {
+    const nome = itemLabel(it);
+    return it.price > antes
+      ? `A oferta de ${nome} acabou: voltou de ${brl(antes)} para ${brl(it.price)}.`
+      : `${nome} baixou de ${brl(antes)} para ${brl(it.price)}.`;
+  }
+
+  // Relógio zerou: catálogo e carrinho voltam ao preço cheio. Devolve as
+  // frases de aviso dos itens do carrinho que mudaram.
+  function syncPromoPrices() {
+    CATALOG.forEach((m) => {
+      if (m.promo_fim && !PROMO.ativa(m.promo_fim)) { m.promo_fim = null; m.promo_desconto = 0; }
+      m.flavors.forEach((f) => {
+        if (f.promo_fim && !PROMO.ativa(f.promo_fim)) {
+          f.price = f.price_original;
+          f.promo_fim = null;
+          f.promo_desconto = 0;
+        }
+      });
+    });
+    const mudancas = [];
+    cart.forEach((it) => {
+      if (it.promo_fim && !PROMO.ativa(it.promo_fim)) {
+        const antes = it.price;
+        it.price = it.price_original;
+        it.promo_fim = null;
+        if (it.price !== antes) mudancas.push(fraseMudanca(it, antes));
+      }
+    });
+    return mudancas;
+  }
+
+  // Um cupom já aplicado foi validado com os preços de antes. Se o carrinho
+  // mudou de preço, o desconto é recalculado sozinho (computeDiscount lê
+  // it.price), então basta redesenhar.
+  function aposMudancaDePreco(mudancas) {
+    renderCart();
+    if (checkoutPanel.classList.contains("open")) renderCheckoutSummary();
+    if (mudancas.length) {
+      showPriceNotice(mudancas);
+      toast("Uma oferta acabou", "O total do pedido foi atualizado");
+    }
+  }
+
+  document.addEventListener("promo:expired", () => {
+    const mudancas = syncPromoPrices();
+    if (overlay.classList.contains("open") && modalState.model) {
+      paintModalPromo();
+      updateModalTotal();
+    }
+    if (cart.length) aposMudancaDePreco(mudancas);
+  });
+
+  // Cotação no servidor. Devolve:
+  //   null   -> não foi possível cotar (rede/servidor): segue com o preço local
+  //   []     -> cotado, nada mudou
+  //   [...]  -> frases dos itens cujo preço mudou (carrinho já corrigido)
+  let lastQuoteAt = 0;       // quando a última cotação BEM-SUCEDIDA terminou
+  let quoteInFlight = null;
+  const QUOTE_FRESH_MS = 30000;
+
+  function quoteCart() {
+    if (quoteInFlight) return quoteInFlight;
+    const ids = cart.filter((it) => !it.is_cable).map((it) => ({ flavor_id: it.flavor_id }));
+    if (!ids.length) { lastQuoteAt = Date.now(); return Promise.resolve([]); }
+    const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), 6000) : null;
+    quoteInFlight = fetch("/api/cart/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items: ids }),
+      signal: ctrl ? ctrl.signal : undefined,
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("quote " + r.status))))
+      .then((data) => {
+        if (!data || !data.ok) throw new Error("quote inválida");
+        PROMO.acertar(data.now_ms);
+        const oficiais = new Map(data.items.map((q) => [q.flavor_id, q]));
+        const mudancas = [];
+        for (let i = cart.length - 1; i >= 0; i--) {
+          const it = cart[i];
+          if (it.is_cable) continue;
+          const q = oficiais.get(it.flavor_id);
+          if (!q) continue;
+          if (!q.found) {
+            // O sabor foi excluído do catálogo depois de entrar no carrinho.
+            mudancas.unshift(`${itemLabel(it)} não está mais disponível e saiu do pedido.`);
+            cart.splice(i, 1);
+            continue;
+          }
+          const antes = it.price;
+          it.price = q.price;
+          it.price_original = q.price_original;
+          it.promo_fim = q.promo_fim || null;
+          if (Math.round(antes * 100) !== Math.round(q.price * 100)) mudancas.unshift(fraseMudanca(it, antes));
+        }
+        lastQuoteAt = Date.now();
+        return mudancas;
+      })
+      .catch(() => null)
+      .finally(() => { if (timer) clearTimeout(timer); quoteInFlight = null; });
+    return quoteInFlight;
+  }
+
+  // Cota e, se algo mudou, redesenha e avisa. Usada ao abrir o checkout e de
+  // tempos em tempos enquanto ele está aberto, para o clique em "Enviar"
+  // encontrar uma cotação recente e não precisar esperar a rede.
+  function refreshQuote() {
+    return quoteCart().then((mudancas) => {
+      if (mudancas && mudancas.length) aposMudancaDePreco(mudancas);
+      return mudancas;
+    });
+  }
+  setInterval(() => {
+    if (!document.hidden && cart.length && checkoutPanel.classList.contains("open")) refreshQuote();
+  }, 15000);
+
+  // Chamada no clique de "Confirmar e Enviar". true = pode enviar agora.
+  //
+  // O envio abre o WhatsApp com window.open, e navegador de celular só deixa
+  // abrir janela DENTRO do toque do usuário. Por isso o caminho feliz é
+  // síncrono: a cotação já foi feita ao abrir o checkout e é refeita a cada
+  // 15s, então quase sempre existe uma recente e o pedido sai neste toque.
+  // Quando não existe, cotamos agora e pedimos um segundo toque, em vez de
+  // tentar abrir a janela depois da espera e o navegador bloquear em silêncio.
+  let lastQuoteFailAt = 0;
+  function precosConferidos() {
+    // 1. O relógio local já sabe de alguma oferta vencida?
+    const locais = syncPromoPrices();
+    if (locais.length) { aposMudancaDePreco(locais); return false; }
+    // 2. Cotação recente do servidor: nada a fazer.
+    if (Date.now() - lastQuoteAt <= QUOTE_FRESH_MS) return true;
+    // 3. A última tentativa falhou há pouco (sem rede, servidor fora): o
+    //    pedido segue com o preço do relógio corrigido, que acabou de ser
+    //    conferido no passo 1. Travar a venda por causa da cotação seria pior.
+    if (Date.now() - lastQuoteFailAt <= QUOTE_FRESH_MS) return true;
+    // 4. Sem cotação recente: cota agora e pede o segundo toque.
+    const btn = byId("checkoutConfirmBtn");
+    btn.disabled = true;
+    btn.classList.add("is-checking");
+    refreshQuote().then((mudancas) => {
+      btn.classList.remove("is-checking");
+      updateCheckoutBtnState();
+      if (mudancas === null) {
+        lastQuoteFailAt = Date.now();
+        toast("Não deu para conferir os preços", "Toque de novo para enviar o pedido");
+      } else if (!mudancas.length) {
+        toast("Preços conferidos", "Toque de novo para enviar o pedido", "success");
+      }
+    });
+    return false;
   }
 
   // ---- Phone mask (Brazilian) ----
@@ -1785,6 +2044,11 @@
       return;
     }
 
+    // Revalidação de preço NO MOMENTO DO PEDIDO. Se uma oferta acabou com o
+    // item no carrinho, o total é recalculado, o cliente é avisado e este
+    // clique não envia nada: ele confere e toca de novo.
+    if (!precosConferidos()) return;
+
     // Marcador neutro: a coroa era o símbolo do Royal e ia junto nos pedidos
     // enviados pelas outras lojas servidas por este mesmo código.
     let msg = `🛒 *PEDIDO ${CFG.storeName.toUpperCase()}*\n`;
@@ -1797,12 +2061,23 @@
       // O cabo não tem sabor. Mandar "Sabor:" vazio faria quem separa o pedido
       // procurar um sabor que não existe.
       msg += it.is_cable ? `   🔌 Acessório\n` : `   🍬 Sabor: ${it.flavor_name}\n`;
-      msg += `   📦 Qtd: ${it.qty}x  •  ${brl(it.price)}\n`;
+      if (promoOn(it)) {
+        // De/por e o desconto por unidade: o atendente vê que o preço menor é
+        // uma oferta do site, e não erro de digitação. ~texto~ é o riscado do
+        // WhatsApp.
+        msg += `   📦 Qtd: ${it.qty}x  •  ~${brl(it.price_original)}~ ${brl(it.price)}\n`;
+        msg += `   🔥 Oferta: -${brl(it.price_original - it.price)} por unidade\n`;
+      } else {
+        msg += `   📦 Qtd: ${it.qty}x  •  ${brl(it.price)}\n`;
+      }
       msg += `   💰 Subtotal: ${brl(sub)}\n\n`;
     });
     msg += `━━━━━━━━━━━━━━━\n`;
     const t = computeOrderTotals();
     const discount = t.discount;
+    if (t.promoSavings > 0.004) {
+      msg += `🔥 *Economia nas ofertas:* ${brl(t.promoSavings)}\n`;
+    }
     if (appliedCoupon) {
       // Cupom restrito: o "-X%" sozinho engana (incide só sobre parte do carrinho),
       // então mostramos também o valor real descontado.

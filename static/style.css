@@ -3742,3 +3742,198 @@ body.editor-mode .model-card { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   .promo-pop-card, .promo-pop-backdrop { transition: opacity .2s ease; transform: none; }
 }
+
+/* ===================================================================
+   PROMOÇÃO COM HORA MARCADA (visual padrão)
+
+   Vale com o tema Black Friday desligado: o desconto é do produto, não do
+   tema. Nada aqui tem efeito numa página sem promoção, porque todos os
+   seletores dependem de elementos que o template só gera quando existe uma.
+
+   Só tokens: a cor do desconto é a de marca (--brand); o vermelho das ofertas
+   (--promo-urgent) marca o card "Acaba primeiro", o preço riscado e, cheio, a
+   oferta com menos de 1 hora; o verde da economia é o mesmo do carrinho.
+
+   Dígitos de contagem com largura fixa (tabular-nums + min-width em ch): o
+   texto muda a cada segundo e nada em volta pode se mexer por causa disso.
+   =================================================================== */
+:root {
+  --promo-ink:        var(--brand-ink);
+  --promo-bg:         var(--brand);
+  --promo-urgent:     var(--danger-strong);
+  --promo-urgent-ink: #1a0303;
+}
+
+[data-cd] {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---- Selo "-R$ 20" ---- */
+.promo-off {
+  display: inline-flex; align-items: center;
+  background: var(--promo-bg); color: var(--promo-ink);
+  font-size: .78rem; font-weight: 700; line-height: 1;
+  padding: 6px 10px; border-radius: var(--r-pill);
+  white-space: nowrap; flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+[data-promo-heat="urgente"] .promo-off { background: var(--promo-urgent); color: var(--promo-urgent-ink); }
+
+/* ---- Card ---- */
+/* O selo fica no canto da FOTO, não na faixa do topo: ali já moram o selo de
+   puffs e o "TOP", e um terceiro não cabe na largura do card no celular. */
+.model-card .card-img .promo-off {
+  position: absolute; left: 8px; top: 8px; z-index: 1;
+  box-shadow: 0 2px 8px rgba(var(--bg-rgb),.35);
+}
+.model-card.is-promo { border-color: rgba(var(--primary-rgb),.38); }
+.model-card.is-promo[data-promo-heat="urgente"] { border-color: var(--promo-urgent); }
+
+.promo-cd {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  margin: -4px 0 14px; padding: 6px 12px;
+  background: var(--surf-2); border: 1px solid var(--line); border-radius: var(--r-pill);
+  font-size: .78rem; color: var(--text-dim); white-space: nowrap; max-width: 100%;
+}
+.promo-cd .ico { width: 14px; height: 14px; vertical-align: 0; }
+.promo-cd b { color: var(--text); font-weight: 700; min-width: 8ch; text-align: left; }
+
+/* O relógio NUNCA pode vazar da pílula. Com dias na contagem o texto cresce
+   ("Acaba em 2d 21:44:48") e, na grade de duas colunas do celular, passava da
+   borda. A pílula mede o próprio card (container query) e se ajusta em dois
+   degraus: primeiro aperta, depois abre mão do rótulo "Acaba em" — o ícone de
+   relógio continua dizendo o que o número é. O `overflow: hidden` é a rede de
+   segurança para qualquer largura que as regras não prevejam.
+   O container só existe em card COM promoção, então um card sem oferta não
+   muda em nada. */
+.model-card.is-promo { container: promocard / inline-size; }
+.promo-cd { overflow: hidden; }
+/* Largura medida com a pílula já apertada: "Acaba em 23:59:59" precisa de
+   ~148px. Abaixo disso o rótulo sai. (Com mais de 24h o texto é curto,
+   "Acaba em 2 dias", e cabe com folga.) */
+@container promocard (max-width: 200px) {
+  .promo-cd { gap: 4px; padding-inline: 7px; font-size: .72rem; }
+  .promo-cd .ico { width: 13px; height: 13px; }
+  /* "23:59:59" são seis dígitos e dois sinais mais estreitos: 7.1ch bastam.
+     A folga de 8ch custava o espaço que faltava para o rótulo caber em 390px. */
+  .promo-cd b { min-width: 7.1ch; }
+}
+@container promocard (max-width: 148px) {
+  .model-card:not([data-promo-heat="dias"]) .promo-cd-lbl { display: none; }
+}
+/* Card muito estreito (telas de 320px): nem "Acaba em 12 dias" cabe inteiro. */
+@container promocard (max-width: 130px) {
+  .promo-cd-lbl { display: none; }
+}
+/* "2 dias" é mais curto que a contagem: sem a largura mínima dos dígitos, o
+   texto fica centrado na pílula em vez de sobrar espaço à direita. */
+[data-promo-heat="dias"] .promo-cd b,
+[data-promo-heat="dias"] .promo-next-cd b,
+[data-promo-heat="dias"] .modal-promo-txt b { min-width: 0; }
+[data-promo-heat="urgente"] .promo-cd {
+  background: var(--promo-urgent); border-color: transparent; color: var(--promo-urgent-ink);
+}
+[data-promo-heat="urgente"] .promo-cd b { color: var(--promo-urgent-ink); }
+
+.card-foot .price-was {
+  display: block; font-size: .78rem; color: var(--text-dim);
+  font-variant-numeric: tabular-nums; line-height: 1.2;
+  /* Risco vermelho e um pouco mais grosso: lê como "esse preço saiu". */
+  text-decoration-color: var(--promo-urgent); text-decoration-thickness: 1.5px;
+}
+
+/* Faixa de economia: fecha o card em oferta, de ponta a ponta. Sangra até as
+   bordas (margem negativa = padding do card; o card tem overflow: hidden,
+   então os cantos de baixo acompanham o raio dele). Mesmo verde do
+   "Você economiza" do carrinho. */
+.promo-economia {
+  align-self: stretch; margin: 12px -16px -16px; padding: 8px 6px;
+  background: color-mix(in oklab, var(--green), transparent 86%);
+  border-top: 1px solid color-mix(in oklab, var(--green), transparent 62%);
+  color: var(--green-soft); font-size: .74rem; font-weight: 500; text-align: center;
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.promo-economia b { color: var(--green); font-weight: 700; }
+/* O padding do card muda nestes dois pontos (ver os @media da grade). */
+@media (max-width: 520px) { .promo-economia { margin: 10px -10px -10px; } }
+@media (max-width: 360px) { .promo-economia { margin: 10px -9px -9px; } }
+
+/* ---- Destaque "próxima oferta acabando" (hero) ---- */
+.promo-next { margin: 26px auto 0; max-width: 460px; }
+.promo-next-item {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 12px 14px; text-align: left;
+  background: var(--surf-1);
+  /* Borda e relógio no vermelho das ofertas: é o card que diz "corre". */
+  border: 1px solid color-mix(in oklab, var(--promo-urgent), transparent 15%);
+  border-radius: var(--r-lg);
+}
+.promo-next-item[hidden] { display: none; }
+.promo-next-img { width: 56px; height: 56px; border-radius: var(--r-sm); background: var(--surface-media); object-fit: cover; }
+.promo-next-info { display: grid; gap: 1px; min-width: 0; }
+.promo-next-eyebrow { font-size: var(--fs-2xs); letter-spacing: var(--tracking-wide); text-transform: uppercase; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.promo-next-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.promo-next-prices { font-size: var(--fs-sm); color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.promo-next-prices b { color: var(--price-color); font-size: var(--fs-md); }
+/* Cada preço é um bloco que não quebra no meio. Com preço de três dígitos em
+   tela estreita o "por" desce INTEIRO para a linha de baixo, em vez de deixar
+   um "R$" solto no fim da primeira. */
+.promo-next-prices s, .promo-next-prices b { display: inline-block; white-space: nowrap; }
+@media (max-width: 359px) {
+  .promo-next-item { gap: 9px; padding-inline: 11px; }
+  .promo-next-eyebrow { letter-spacing: 0; font-size: 10px; }
+  .promo-next-cd b { font-size: var(--fs-md); }
+}
+.promo-next-cd { display: inline-flex; align-items: center; gap: 6px; color: var(--promo-urgent); white-space: nowrap; }
+.promo-next-cd .ico { width: 16px; height: 16px; vertical-align: 0; }
+.promo-next-cd b { font-size: var(--fs-lg); font-weight: 700; min-width: 8ch; }
+/* Menos de 1h: a borda engrossa e ganha brilho, para a urgência continuar se
+   destacando do vermelho que o card já tem. */
+.promo-next-item[data-promo-heat="urgente"] {
+  border-color: var(--promo-urgent);
+  box-shadow: 0 0 0 1px var(--promo-urgent), 0 10px 30px -14px color-mix(in oklab, var(--promo-urgent), transparent 30%);
+}
+
+/* ---- Seção de ofertas ---- */
+.promo-offers { margin-bottom: 28px; }
+.promo-offers-ico { width: 22px; height: 22px; color: var(--brand); flex-shrink: 0; }
+
+/* ---- Modal do produto ---- */
+.modal-promo {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px;
+  margin: -8px 0 20px; font-size: .82rem; color: var(--text-dim);
+}
+.modal-promo[hidden] { display: none; }
+.modal-promo-txt b { color: var(--text); font-weight: 700; display: inline-block; min-width: 8ch; }
+.modal-promo[data-promo-heat="urgente"] .modal-promo-txt b { color: var(--promo-urgent); }
+.modal-was {
+  display: block; font-size: .82rem; color: var(--text-dim);
+  font-variant-numeric: tabular-nums; line-height: 1.2;
+}
+.modal-was[hidden] { display: none; }
+
+/* ---- Carrinho e checkout ---- */
+.ci-was { color: var(--text-dim); font-weight: 500; font-size: .92em; }
+.cart-item .ci-promo { margin-top: 3px; font-size: .74rem; color: var(--text-dim); white-space: nowrap; }
+.cart-item .ci-promo b { color: var(--text); font-weight: 700; }
+.cart-item .ci-promo[data-promo-heat="urgente"],
+.cart-item .ci-promo[data-promo-heat="urgente"] b { color: var(--promo-urgent); }
+.cart-savings-row, .checkout-savings-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 12px; margin-bottom: 14px; font-size: .88rem; font-weight: 700; color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Aviso de preço recalculado no resumo do checkout. */
+.price-notice {
+  margin-bottom: 14px; padding: 12px 14px;
+  background: var(--surf-2); border: 1px solid var(--warn); border-radius: var(--r-sm);
+  font-size: .84rem; line-height: 1.45; color: var(--text);
+}
+.price-notice[hidden] { display: none; }
+.price-notice strong { display: block; color: var(--warn); margin-bottom: 4px; }
+.price-notice p + p { margin-top: 4px; }
+.price-notice .price-notice-end { color: var(--text-dim); }
+.whatsapp-btn.is-checking { cursor: progress; }
