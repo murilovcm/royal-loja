@@ -344,6 +344,63 @@ def test_secao_mais_vendidos_exige_login(client):
     assert client.post("/api/best_section", json={"best_enabled": False}).status_code in (401, 403)
 
 
+# ---------------- seção de ofertas: nome e ícone ----------------
+
+def _titulo_ofertas(client):
+    """(id do ícone, texto) do <h2> da seção de ofertas na loja."""
+    html = client.get("/").get_data(as_text=True)
+    bloco = html.split('id="ofertas"')[1].split("</h2>")[0]
+    icone = bloco.split('<use href="#')[1].split('"')[0]
+    texto = bloco.split("</svg>")[1].strip()
+    return icone, texto
+
+
+def test_secao_de_ofertas_renomear_e_trocar_icone(admin_client, loja):
+    with app_module.app.app_context():
+        cfg = app_module.get_config()
+        antes = {"offers_title": cfg.get("offers_title", "Ofertas com hora marcada"), "offers_icon": cfg.get("offers_icon", "clock")}
+    _set_promo(loja["principal"], 20, _fim(timedelta(hours=5)))
+    try:
+        admin_client.post("/api/offers_section", json={"offers_title": "Ofertas com hora marcada", "offers_icon": "clock"})
+        assert _titulo_ofertas(admin_client) == ("i-clock", "Ofertas com hora marcada")
+
+        r = admin_client.post("/api/offers_section", json={"offers_title": "  Promoção   relâmpago ", "offers_icon": "bolt"})
+        assert r.status_code == 200
+        assert r.get_json()["offers_title"] == "Promoção relâmpago" and r.get_json()["offers_icon"] == "bolt"
+        assert _titulo_ofertas(admin_client) == ("i-bolt", "Promoção relâmpago")
+
+        # Só o ícone, ou só o nome.
+        admin_client.post("/api/offers_section", json={"offers_icon": "clock"})
+        assert _titulo_ofertas(admin_client) == ("i-clock", "Promoção relâmpago")
+
+        # Nome vazio volta ao padrão; texto longo é cortado; HTML é escapado.
+        assert admin_client.post("/api/offers_section", json={"offers_title": "  "}).get_json()["offers_title"] == "Ofertas com hora marcada"
+        assert len(admin_client.post("/api/offers_section", json={"offers_title": "x" * 200}).get_json()["offers_title"]) == 40
+        admin_client.post("/api/offers_section", json={"offers_title": "<i>Só hoje</i>"})
+        assert _titulo_ofertas(admin_client)[1] == "&lt;i&gt;Só hoje&lt;/i&gt;"
+
+        # Ícone fora da lista é recusado e não é gravado.
+        ruim = admin_client.post("/api/offers_section", json={"offers_icon": 'x"><script>'})
+        assert ruim.status_code == 400
+        assert _titulo_ofertas(admin_client)[0] == "i-clock"
+        assert admin_client.post("/api/offers_section", json={}).status_code == 400
+    finally:
+        admin_client.post("/api/offers_section", json=antes)
+
+
+def test_secao_de_ofertas_valor_estranho_no_banco_cai_no_padrao():
+    """Se o banco tiver lixo (edição manual, versão antiga), a loja não quebra."""
+    assert app_module.offers_section({}) == {"title": "Ofertas com hora marcada", "icon": "i-clock"}
+    assert app_module.offers_section({"offers_title": "   ", "offers_icon": "javascript:alert(1)"}) == {
+        "title": "Ofertas com hora marcada", "icon": "i-clock"}
+    assert app_module.offers_section({"offers_title": "Relâmpago", "offers_icon": "bolt"}) == {
+        "title": "Relâmpago", "icon": "i-bolt"}
+
+
+def test_secao_de_ofertas_exige_login(client):
+    assert client.post("/api/offers_section", json={"offers_title": "x"}).status_code in (401, 403)
+
+
 # ---------------- migração ----------------
 
 def test_migracao_idempotente_em_banco_antigo(tmp_path, monkeypatch):
@@ -380,4 +437,6 @@ def test_migracao_idempotente_em_banco_antigo(tmp_path, monkeypatch):
     assert db.execute("SELECT value FROM site_config WHERE key = 'bf_tema_ativo'").fetchone()[0] == "0"
     assert db.execute("SELECT value FROM site_config WHERE key = 'best_enabled'").fetchone()[0] == "1"
     assert db.execute("SELECT value FROM site_config WHERE key = 'best_title'").fetchone()[0] == "Mais Vendidos"
+    assert db.execute("SELECT value FROM site_config WHERE key = 'offers_title'").fetchone()[0] == "Ofertas com hora marcada"
+    assert db.execute("SELECT value FROM site_config WHERE key = 'offers_icon'").fetchone()[0] == "clock"
     db.close()

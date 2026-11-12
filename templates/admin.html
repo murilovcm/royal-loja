@@ -72,6 +72,14 @@
     .promo-filter .mini-btn[aria-pressed="true"] { border-color:var(--primary-yellow); color:var(--primary-yellow); }
     body.promo-only .model-row:not(.has-promo), body.promo-only .brand-block:not(.has-promo) { display:none; }
     .bf-admin { display:flex; flex-direction:column; gap:14px; margin-top:12px; }
+    /* Escolha de ícone: dois cartões de rádio, cada um com o desenho que vai para a loja. */
+    .icon-choice { display:flex; gap:10px; flex-wrap:wrap; }
+    .icon-opt { display:inline-flex; align-items:center; gap:9px; padding:10px 14px; border:1px solid var(--border); border-radius:10px; cursor:pointer; font-size:.88rem; }
+    .icon-opt input { position:absolute; opacity:0; pointer-events:none; }
+    .icon-opt svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; color:var(--text-dim); }
+    .icon-opt:has(input:checked) { border-color:var(--primary-yellow); }
+    .icon-opt:has(input:checked) svg { color:var(--primary-yellow); }
+    .icon-opt:has(input:focus-visible) { outline:2px solid var(--purple-soft); outline-offset:2px; }
     .bf-admin .pp-field input { text-transform:none; }
     .bf-status { font-size:.8rem; color:var(--text-dim); }
     .bf-status.on { color:var(--primary-yellow); font-weight:700; }
@@ -566,6 +574,39 @@
       {# Filtro "em promoção": esconde os modelos sem oferta ativa (e as marcas
          que ficarem vazias). A contagem é refeita pelo JS a cada minuto, porque
          uma oferta pode acabar com o painel aberto. #}
+      {# Seção de ofertas da loja: nome e ícone do título. A seção só aparece
+         na loja quando existe algum modelo em oferta. #}
+      <div class="sections-block">
+        <div class="sections-head">
+          ⏱ Seção de ofertas <span class="sections-sub">A faixa da loja que reúne os modelos em oferta · aparece só quando existe alguma oferta ativa</span>
+        </div>
+        <div class="bf-admin">
+          <div class="pp-field">
+            <label for="offersTitle">Nome da seção</label>
+            <input type="text" id="offersTitle" maxlength="40" value="{{ config.offers_title or 'Ofertas com hora marcada' }}" placeholder="Ofertas com hora marcada" onkeydown="if(event.key==='Enter') saveOffersSection()">
+          </div>
+          <div class="pp-field">
+            <label>Ícone ao lado do nome</label>
+            <div class="icon-choice" role="radiogroup" aria-label="Ícone da seção de ofertas">
+              <label class="icon-opt">
+                <input type="radio" name="offersIcon" value="clock" {{ 'checked' if config.offers_icon != 'bolt' }}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0"/><path d="M12 7v5l3 3"/></svg>
+                <span>Relógio</span>
+              </label>
+              <label class="icon-opt">
+                <input type="radio" name="offersIcon" value="bolt" {{ 'checked' if config.offers_icon == 'bolt' }}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11"/></svg>
+                <span>Raio (promoção relâmpago)</span>
+              </label>
+            </div>
+          </div>
+          <span class="sections-sub">Deixe o nome em branco para voltar a “Ofertas com hora marcada”.</span>
+          <div class="identity-save-row" style="justify-content:flex-end; margin-top:0;">
+            <button class="mini-btn primary" onclick="saveOffersSection()">Salvar seção de ofertas</button>
+          </div>
+        </div>
+      </div>
+
       <div class="promo-filter">
         <button type="button" class="mini-btn" id="promoFilterBtn" aria-pressed="false" onclick="togglePromoFilter()">⏱ Só em promoção (<span id="promoFilterCount">0</span>)</button>
         <span class="sections-sub">Cada modelo tem a linha "Oferta": desconto em reais e a hora em que ela acaba (horário de São Luís).</span>
@@ -1785,6 +1826,19 @@
       st.textContent = ligado ? 'Black Friday ligada no site' : 'Black Friday desligada';
       st.classList.toggle('on', ligado);
       toast(ligado ? 'Black Friday ligada ✓' : 'Black Friday desligada ✓');
+    }
+
+    // ---- Seção de ofertas: nome e ícone do título ----
+    async function saveOffersSection() {
+      const icone = document.querySelector('input[name="offersIcon"]:checked');
+      const res = await api('/api/offers_section', 'POST', {
+        offers_title: document.getElementById('offersTitle').value,
+        offers_icon: icone ? icone.value : 'clock',
+      });
+      if (!res.ok) { toast(res.error || 'Erro ao salvar'); return; }
+      // O servidor devolve o nome já limpo (ou o padrão, se veio vazio).
+      document.getElementById('offersTitle').value = res.offers_title;
+      toast('Seção de ofertas salva ✓');
     }
 
     // ---- Seção "Mais Vendidos": mostrar/ocultar e renomear ----

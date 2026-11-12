@@ -410,7 +410,9 @@
   <div class="promo-offers" id="ofertas" data-promo-group>
     <section class="section section-band container">
       <div class="section-head">
-        <h2><svg class="ico promo-offers-ico" aria-hidden="true"><use href="#i-clock"></use></svg> Ofertas com hora marcada</h2>
+        {# Nome e ícone vêm do painel (aba Catálogo): relógio, ou raio para
+           promoção relâmpago. Ver offers_section() no app.py. #}
+        <h2><svg class="ico promo-offers-ico" aria-hidden="true"><use href="#{{ ofertas_secao.icon }}"></use></svg> {{ ofertas_secao.title }}</h2>
         <p>O preço volta ao normal quando o relógio zera.</p>
       </div>
       <div class="grid">

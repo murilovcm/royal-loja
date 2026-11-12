@@ -829,6 +829,11 @@ def init_db():
         # ela sempre foi, então publicar esta versão não muda nada.
         "best_enabled": "1",
         "best_title": "Mais Vendidos",
+        # Seção de ofertas da loja: nome e ícone do título, editáveis no painel
+        # (aba Catálogo). O ícone é "clock" (relógio) ou "bolt" (raio, para
+        # promoção relâmpago). Os padrões são o que a seção sempre mostrou.
+        "offers_title": "Ofertas com hora marcada",
+        "offers_icon": "clock",
     }
     for k, v in defaults.items():
         db.execute(
@@ -1699,6 +1704,7 @@ def home():
         # relógio do cliente a partir dela (ver static/js/countdown.js).
         server_now_ms=int(agora.timestamp() * 1000),
         ofertas=ofertas_do_catalogo(catalog),
+        ofertas_secao=offers_section(config),
         bf_ativo=config.get("bf_tema_ativo") == "1",
         reviews=get_google_reviews(only_active=True) if reviews_on else [],
         reviews_summary=parse_reviews_summary(config),
@@ -2090,6 +2096,48 @@ def api_best_section():
     if "best_title" in d:
         titulo = " ".join(str(d["best_title"] or "").split())[:BEST_TITLE_MAX]
         updates["best_title"] = titulo or BEST_TITLE_DEFAULT
+    if not updates:
+        return jsonify({"ok": False, "error": "nada para salvar"}), 400
+    db = get_db()
+    for key, val in updates.items():
+        _upsert_config(db, key, val)
+    db.commit()
+    return jsonify({"ok": True, **updates})
+
+
+OFFERS_TITLE_DEFAULT = "Ofertas com hora marcada"
+OFFERS_TITLE_MAX = 40
+# Ícones que o título da seção de ofertas aceita -> id no sprite (_icons.html).
+# Lista fechada: o valor vai para um href="#..." no HTML da loja, então nada
+# fora daqui é gravado.
+OFFERS_ICONS = {"clock": "i-clock", "bolt": "i-bolt"}
+
+
+def offers_section(config):
+    """Título e ícone da seção de ofertas, já validados, para o template.
+    Valor estranho no banco cai no padrão em vez de quebrar a página."""
+    titulo = " ".join((config.get("offers_title") or "").split()) or OFFERS_TITLE_DEFAULT
+    icone = config.get("offers_icon")
+    return {"title": titulo, "icon": OFFERS_ICONS.get(icone, OFFERS_ICONS["clock"])}
+
+
+@app.route("/api/offers_section", methods=["POST"])
+@api_catalog_required
+def api_offers_section():
+    """Seção de ofertas da loja: renomear e trocar o ícone do título.
+
+    Mesma permissão de quem cadastra as ofertas (catálogo). Nome vazio volta
+    para o padrão. O ícone só aceita os da lista OFFERS_ICONS.
+    """
+    d = request.get_json(force=True) or {}
+    updates = {}
+    if "offers_title" in d:
+        titulo = " ".join(str(d["offers_title"] or "").split())[:OFFERS_TITLE_MAX]
+        updates["offers_title"] = titulo or OFFERS_TITLE_DEFAULT
+    if "offers_icon" in d:
+        if d["offers_icon"] not in OFFERS_ICONS:
+            return jsonify({"ok": False, "error": "ícone inválido"}), 400
+        updates["offers_icon"] = d["offers_icon"]
     if not updates:
         return jsonify({"ok": False, "error": "nada para salvar"}), 400
     db = get_db()
