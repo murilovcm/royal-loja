@@ -91,12 +91,84 @@ def test_logged_in_admin_is_not_counted(client, db_path):
 
 def test_whatsapp_click_counts_once_per_visitor_per_day(client, db_path):
     _visit(client)
-    _visit(client, path="/api/m/wa")
-    _visit(client, path="/api/m/wa")
+    _visit(client, path="/api/m/step/order")
+    _visit(client, path="/api/m/step/order")
     [d] = _daily(db_path)
     assert d["wa_clicks"] == 1
     assert d["visitors"] == 1
     assert d["pageviews"] == 1  # o clique no WhatsApp não é página vista
+
+
+def _funnel(db_path):
+    [d] = _daily(db_path)
+    return [d[k] for k in ("visitors", "product_views", "cart_adds", "checkouts", "wa_clicks")]
+
+
+def test_funnel_counts_each_step_once_per_person(client, db_path):
+    _visit(client)                                   # A entra e vai até o carrinho
+    _visit(client, path="/api/m/step/product")
+    _visit(client, path="/api/m/step/product")
+    _visit(client, path="/api/m/step/cart")
+    _visit(client, ua=PC, ip="10.0.0.2")             # B entra e vai até o fim
+    for step in ("product", "cart", "checkout", "order"):
+        _visit(client, path=f"/api/m/step/{step}", ua=PC, ip="10.0.0.2")
+    _visit(client, ip="10.0.0.3")                    # C só entra
+    assert _funnel(db_path) == [3, 2, 2, 1, 1]
+
+
+def test_skipped_steps_are_filled_so_funnel_never_grows(client, db_path):
+    # Voltou com o carrinho salvo: foi direto ao checkout e enviou.
+    _visit(client)
+    _visit(client, path="/api/m/step/checkout")
+    _visit(client, path="/api/m/step/cart")          # passo de trás não conta de novo
+    _visit(client, path="/api/m/step/order")
+    assert _funnel(db_path) == [1, 1, 1, 1, 1]
+
+
+def test_step_without_hit_still_counts_the_visitor(client, db_path):
+    _visit(client, path="/api/m/step/cart")
+    assert _funnel(db_path) == [1, 1, 1, 0, 0]
+    assert _daily(db_path)[0]["pageviews"] == 0
+
+
+def test_hero_button_counted_once_per_person_outside_funnel(client, db_path):
+    _visit(client)
+    _visit(client, path="/api/m/step/hero")
+    _visit(client, path="/api/m/step/hero")
+    _visit(client, path="/api/m/step/hero", ua=PC, ip="10.0.0.2")
+    [d] = _daily(db_path)
+    assert d["hero_clicks"] == 2
+    assert d["visitors"] == 2
+    assert _funnel(db_path) == [2, 0, 0, 0, 0]  # não mexe no funil
+
+
+def test_unknown_step_is_rejected(client, db_path):
+    assert client.post("/api/m/step/qualquer", headers={"User-Agent": CEL}).status_code == 404
+    assert _daily(db_path) == []
+
+
+def test_old_metrics_tables_get_funnel_columns(tmp_path, monkeypatch):
+    path = str(tmp_path / "antes_do_funil.db")
+    old = sqlite3.connect(path)
+    old.executescript(
+        "CREATE TABLE metrics_daily (day TEXT PRIMARY KEY, visitors INTEGER NOT NULL DEFAULT 0, "
+        "pageviews INTEGER NOT NULL DEFAULT 0, wa_clicks INTEGER NOT NULL DEFAULT 0, "
+        "mobile INTEGER NOT NULL DEFAULT 0, desktop INTEGER NOT NULL DEFAULT 0);"
+        "CREATE TABLE metrics_seen (day TEXT NOT NULL, vid TEXT NOT NULL, pageviews INTEGER NOT NULL DEFAULT 0, "
+        "wa INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, vid));"
+        "INSERT INTO metrics_daily (day, visitors, wa_clicks) VALUES ('2026-11-01', 9, 2);"
+    )
+    old.commit()
+    old.close()
+    monkeypatch.setattr(app_module, "DB_PATH", path)
+    with app_module.app.app_context():
+        app_module.init_db()
+    db = sqlite3.connect(path)
+    db.row_factory = sqlite3.Row
+    row = dict(db.execute("SELECT * FROM metrics_daily").fetchone())
+    assert (row["visitors"], row["wa_clicks"], row["product_views"], row["cart_adds"], row["checkouts"]) == (9, 2, 0, 0, 0)
+    assert "stage" in {r["name"] for r in db.execute("PRAGMA table_info(metrics_seen)")}
+    db.close()
 
 
 def test_pageviews_are_capped_per_visitor(client, db_path, monkeypatch):
@@ -144,7 +216,8 @@ def test_summary_period_previous_and_series(client, db_path, monkeypatch):
     _login(client, db_path)
 
     d = client.get("/api/metrics?days=7").get_json()
-    assert d["current"] == {"visitors": 15, "pageviews": 34, "wa_clicks": 3, "mobile": 12, "desktop": 3}
+    assert d["current"] == {"visitors": 15, "pageviews": 34, "wa_clicks": 3, "mobile": 12, "desktop": 3,
+                            "product_views": 0, "cart_adds": 0, "checkouts": 0, "hero_clicks": 0}
     assert d["previous"]["visitors"] == 4
     assert len(d["series"]) == 7 and d["series"][-1] == {"day": "2026-11-13", "visitors": 10}
 

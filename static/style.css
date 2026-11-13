@@ -2534,25 +2534,68 @@ header.site-header::after {
 .whatsapp-btn:disabled { opacity: .4; cursor: not-allowed; }
 
 /* ---------- Cart floating button ---------- */
+/* Pílula centralizada (opção C): total do pedido + anel que enche até o
+   mínimo do frete grátis e diz quanto falta. Ao liberar, anel e texto ficam
+   verdes. Loja sem frete grátis: some o anel/mensagem e sobra a pílula com o
+   total. Nasce escondida abaixo da borda e sobe quando entra o 1º item. */
 .cart-fab {
-  position: fixed; bottom: 24px; right: 24px; z-index: var(--z-fab);
-  width: 58px; height: 58px; border-radius: 50%;
-  background: var(--btn-grad);
-  color: var(--text-on-primary); font-size: 1.5rem;
-  display: grid; place-items: center;
-  box-shadow: 0 10px 30px rgba(var(--primary-rgb),.4), inset 0 1px 0 rgba(255,255,255,.4);
-  transform: scale(0); opacity: 0;
-  transition: transform .25s cubic-bezier(.4,1.6,.5,1), opacity .2s, box-shadow .25s;
+  position: fixed; left: 50%; z-index: var(--z-fab);
+  bottom: max(16px, calc(env(safe-area-inset-bottom) + 10px));
+  display: flex; align-items: center; gap: 10px;
+  width: max-content; max-width: calc(100vw - 32px);
+  padding: 6px 18px 6px 6px; border-radius: var(--r-pill);
+  background: rgba(var(--bg-rgb), .9);
+  border: 1px solid rgba(var(--primary-rgb), .32);
+  color: var(--text); text-align: left;
+  box-shadow: 0 12px 32px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.2);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  transform: translate(-50%, calc(100% + 40px)); opacity: 0; pointer-events: none;
+  transition: transform .35s cubic-bezier(.22,1,.36,1), opacity .2s, border-color .3s;
 }
-.cart-fab.show { transform: scale(1); opacity: 1; }
-.cart-fab:hover { box-shadow: 0 14px 38px rgba(var(--primary-rgb),.55), inset 0 1px 0 rgba(255,255,255,.5); }
+.cart-fab.show { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+.cart-fab:hover { border-color: rgba(var(--primary-rgb), .6); }
+.cart-fab:focus-visible { outline: 2px solid var(--primary-yellow); outline-offset: 3px; }
+.cart-fab.bump .cart-fab-ring { animation: cartFabBump .45s cubic-bezier(.4,1.6,.5,1); }
+@keyframes cartFabBump { 35% { transform: scale(1.14); } 100% { transform: scale(1); } }
+.cart-fab-ring { position: relative; width: 46px; height: 46px; flex-shrink: 0; }
+.cart-fab-prog { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.cart-fab-prog .trk { stroke: rgba(255,255,255,.1); }
+.cart-fab-prog .val { stroke: var(--primary-yellow); transition: stroke-dashoffset .5s cubic-bezier(.22,1,.36,1), stroke .3s; }
+.cart-fab-ic {
+  position: absolute; inset: 6px; border-radius: 50%;
+  background: var(--btn-grad); color: var(--text-on-primary);
+  display: grid; place-items: center;
+  transition: background .3s;
+}
+.cart-fab-txt { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.cart-fab-total { font-family: var(--font-num); font-weight: 800; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.cart-fab-msg { font-size: .72rem; color: var(--text-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cart-fab-msg:empty { display: none; }
+.cart-fab-msg strong { color: var(--primary-yellow); }
+/* Sem frete grátis configurado: só o ícone (sem anel) + total. */
+.cart-fab.no-ship .cart-fab-prog { display: none; }
+.cart-fab.no-ship .cart-fab-ic { inset: 2px; }
+/* Mínimo atingido. */
+.cart-fab.free { border-color: rgba(37,211,102,.55); }
+.cart-fab.free .cart-fab-prog .val { stroke: var(--green); }
+.cart-fab.free .cart-fab-ic { background: var(--green); color: #fff; }
+.cart-fab.free .cart-fab-msg { color: var(--green); font-weight: 700; }
+@media (prefers-reduced-motion: reduce) {
+  .cart-fab, .cart-fab-prog .val { transition: none; }
+  .cart-fab.bump .cart-fab-ring { animation: none; }
+}
+/* A pílula fica no rodapé central: no PC o toast (rodapé à esquerda) sobe
+   para não ficar por cima dela. No celular (<=520px) o toast já mora no topo. */
+@media (min-width: 521px) {
+  body.cart-fab-on .toast { bottom: max(88px, calc(env(safe-area-inset-bottom) + 78px)); }
+}
 /* Ícone de carrinho em SVG: herda a cor do texto (currentColor), então
    acompanha qualquer paleta escolhida no painel sem ajuste manual. */
 .cart-ico { display: block; width: 24px; height: 24px; }
-.cart-fab .cart-ico { width: 27px; height: 27px; }
+.cart-fab .cart-ico { width: 18px; height: 18px; }
 .cart-header h3 .cart-ico { width: 22px; height: 22px; flex-shrink: 0; }
 .cart-fab-badge {
-  position: absolute; top: -6px; right: -6px;
+  position: absolute; top: -5px; right: -5px;
   background: var(--purple); color: #fff;
   font-size: .68rem; font-weight: 700;
   min-width: 22px; height: 22px;
@@ -3671,7 +3714,6 @@ body.editor-mode .model-card { cursor: default; }
   .checkout-header { padding: 18px 18px calc(18px + env(safe-area-inset-top)); }
   .checkout-body { padding: 16px 18px 120px; }
   .checkout-foot { padding: 18px 18px calc(18px + env(safe-area-inset-bottom)); }
-  .cart-fab { bottom: 18px; right: 18px; width: 54px; height: 54px; font-size: 1.35rem; }
 
   .editor-bar { flex-wrap: wrap; justify-content: center; bottom: 10px; width: 92%; gap: 10px; }
   .editor-hint { display: none; }

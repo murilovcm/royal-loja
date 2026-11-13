@@ -587,9 +587,14 @@ def init_db():
             day       TEXT PRIMARY KEY,           -- 'AAAA-MM-DD' no horário da loja
             visitors  INTEGER NOT NULL DEFAULT 0, -- visitantes únicos no dia
             pageviews INTEGER NOT NULL DEFAULT 0,
-            wa_clicks INTEGER NOT NULL DEFAULT 0, -- visitantes que enviaram o pedido no WhatsApp
+            wa_clicks INTEGER NOT NULL DEFAULT 0, -- visitantes que ENVIARAM o pedido (último passo do funil)
             mobile    INTEGER NOT NULL DEFAULT 0, -- visitantes únicos no celular
-            desktop   INTEGER NOT NULL DEFAULT 0  -- visitantes únicos no PC
+            desktop   INTEGER NOT NULL DEFAULT 0, -- visitantes únicos no PC
+            -- Funil: visitantes únicos que chegaram a cada passo no dia.
+            product_views INTEGER NOT NULL DEFAULT 0, -- abriram um produto
+            cart_adds     INTEGER NOT NULL DEFAULT 0, -- adicionaram ao carrinho
+            checkouts     INTEGER NOT NULL DEFAULT 0, -- abriram o checkout
+            hero_clicks   INTEGER NOT NULL DEFAULT 0  -- tocaram em "Ver Catálogo" no topo (fora do funil)
         );
 
         -- Código anônimo de quem já foi contado HOJE (hash de IP + navegador +
@@ -599,7 +604,8 @@ def init_db():
             day       TEXT NOT NULL,
             vid       TEXT NOT NULL,
             pageviews INTEGER NOT NULL DEFAULT 0,
-            wa        INTEGER NOT NULL DEFAULT 0,
+            stage     INTEGER NOT NULL DEFAULT 0, -- passo mais avançado do funil hoje (METRICS_STAGES)
+            hero      INTEGER NOT NULL DEFAULT 0, -- já tocou em "Ver Catálogo" hoje
             PRIMARY KEY (day, vid)
         );
 
@@ -628,6 +634,18 @@ def init_db():
     if "can_metrics" not in user_cols:
         db.execute("ALTER TABLE users ADD COLUMN can_metrics INTEGER NOT NULL DEFAULT 0")
         db.commit()
+
+    # Migração: o funil de vendas chegou depois das métricas de visita. As
+    # colunas novas nascem 0 (dias antigos simplesmente não têm funil).
+    md_cols = {row["name"] for row in db.execute("PRAGMA table_info(metrics_daily)").fetchall()}
+    for col in ("product_views", "cart_adds", "checkouts", "hero_clicks"):
+        if col not in md_cols:
+            db.execute(f"ALTER TABLE metrics_daily ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
+    ms_cols = {row["name"] for row in db.execute("PRAGMA table_info(metrics_seen)").fetchall()}
+    for col in ("stage", "hero"):
+        if col not in ms_cols:
+            db.execute(f"ALTER TABLE metrics_seen ADD COLUMN {col} INTEGER NOT NULL DEFAULT 0")
+    db.commit()
 
     # Migração: products ganhou a coluna color (cor do ponto do sabor no card)
     # para bancos que já existiam antes dessa feature.
@@ -3664,9 +3682,10 @@ def api_upload_image():
 # ---------------------------------------------------------------------------
 # Métricas de visita
 #
-# A loja manda três sinais (static/js/metrics.js): "hit" ao abrir a página,
-# "ping" a cada 30 s enquanto a aba está visível (alimenta o "online agora") e
-# "wa" quando o pedido é enviado para o WhatsApp. Nenhum cookie: o visitante é
+# A loja manda sinais (static/js/metrics.js): "hit" ao abrir a página, "ping"
+# a cada 30 s enquanto a aba está visível (alimenta o "online agora") e
+# "step/<passo>" a cada passo do funil de compra (abriu produto, adicionou ao
+# carrinho, abriu o checkout, enviou o pedido). Nenhum cookie: o visitante é
 # um hash de IP + navegador + data, que muda todo dia e não guarda o IP.
 # Robôs e quem está logado no painel não contam.
 # ---------------------------------------------------------------------------
@@ -3675,6 +3694,10 @@ METRICS_PAGEVIEW_CAP = 200       # teto de páginas por visitante por dia (anti-
 METRICS_PERIODS = (1, 7, 30, 365)
 METRICS_MAX_RANGE = 3 * 366      # "Selecionar o período": até ~3 anos
 METRICS_DAILY_BARS_MAX = 92      # acima disso o gráfico agrupa por semana
+# Passos do funil, em ordem, e a coluna de metrics_daily de cada um. "Entrou"
+# (passo 0) é o próprio `visitors`.
+METRICS_STAGES = {"product": 1, "cart": 2, "checkout": 3, "order": 4}
+METRICS_STAGE_COLS = {1: "product_views", 2: "cart_adds", 3: "checkouts", 4: "wa_clicks"}
 
 _BOT_UA = re.compile(
     r"bot|crawl|spider|slurp|facebookexternalhit|facebookcatalog|whatsapp|telegram|"
@@ -3720,7 +3743,7 @@ def _metrics_register(db, visitor, pageview):
         "INSERT OR IGNORE INTO metrics_seen (day, vid) VALUES (?, ?)", (day, vid)
     ).rowcount == 1
     seen = db.execute(
-        "SELECT pageviews, wa FROM metrics_seen WHERE day = ? AND vid = ?", (day, vid)
+        "SELECT pageviews, stage, hero FROM metrics_seen WHERE day = ? AND vid = ?", (day, vid)
     ).fetchone()
     pv = 1 if pageview and seen["pageviews"] < METRICS_PAGEVIEW_CAP else 0
     if pv:
@@ -3757,18 +3780,43 @@ def metrics_ping():
     return "", 204
 
 
-@app.route("/api/m/wa", methods=["POST"])
-def metrics_wa():
-    """Pedido enviado para o WhatsApp. Conta uma vez por visitante por dia, para
-    a conversão (cliques ÷ visitantes) nunca passar de 100%."""
+@app.route("/api/m/step/<step>", methods=["POST"])
+def metrics_step(step):
+    """Um passo do funil. Cada pessoa conta uma vez por passo por dia, e chegar
+    a um passo marca também os anteriores que ela pulou (quem volta com o
+    carrinho salvo vai direto ao checkout). Assim o funil nunca "sobe": cada
+    passo tem no máximo a mesma gente do anterior, e a conversão fica <= 100%."""
+    target = METRICS_STAGES.get(step)
+    if target is None and step != "hero":
+        return jsonify({"ok": False, "error": "passo inválido"}), 404
     visitor = _metrics_visitor()
-    if visitor:
+    if visitor and step == "hero":
+        # "Ver Catálogo" do topo: contador à parte, uma vez por pessoa por dia.
+        # Não é passo do funil (dá para abrir produto sem passar por ele).
+        day, vid, _ = visitor
+        db = get_db()
+        _metrics_register(db, visitor, pageview=False)
+        if db.execute(
+            "UPDATE metrics_seen SET hero = 1 WHERE day = ? AND vid = ? AND hero = 0", (day, vid)
+        ).rowcount == 1:
+            db.execute("UPDATE metrics_daily SET hero_clicks = hero_clicks + 1 WHERE day = ?", (day,))
+        db.commit()
+    elif visitor:
+        day, vid, _ = visitor
         db = get_db()
         seen = _metrics_register(db, visitor, pageview=False)
-        if not seen["wa"]:
-            day, vid, _ = visitor
-            db.execute("UPDATE metrics_seen SET wa = 1 WHERE day = ? AND vid = ?", (day, vid))
-            db.execute("UPDATE metrics_daily SET wa_clicks = wa_clicks + 1 WHERE day = ?", (day,))
+        current = seen["stage"]
+        # UPDATE condicional: se outro worker avançou esta pessoa no meio
+        # tempo, rowcount sai 0 e nada é contado duas vezes.
+        if target > current and db.execute(
+            "UPDATE metrics_seen SET stage = ? WHERE day = ? AND vid = ? AND stage = ?",
+            (target, day, vid, current),
+        ).rowcount == 1:
+            cols = [METRICS_STAGE_COLS[s] for s in range(current + 1, target + 1)]
+            db.execute(
+                "UPDATE metrics_daily SET " + ", ".join(f"{c} = {c} + 1" for c in cols) + " WHERE day = ?",
+                (day,),
+            )
         db.commit()
     return "", 204
 
@@ -3824,7 +3872,8 @@ def metrics_summary():
             (first.isoformat(), end.isoformat()),
         )
     }
-    keys = ("visitors", "pageviews", "wa_clicks", "mobile", "desktop")
+    keys = ("visitors", "pageviews", "wa_clicks", "mobile", "desktop",
+            "product_views", "cart_adds", "checkouts", "hero_clicks")
 
     def total(a, b):
         out = dict.fromkeys(keys, 0)

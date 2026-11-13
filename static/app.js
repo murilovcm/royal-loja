@@ -343,6 +343,37 @@
     else window.addEventListener("resize", apply, { passive: true });
   })();
 
+  // Leva ao COMEÇO do catálogo: título, busca, filtros e marcas à vista.
+  // scrollIntoView no #catalogo parava com tudo isso escondido atrás do header
+  // e da faixa de avisos (os dois grudados no topo), e o cliente caía direto
+  // nos cards sem ver que dava para buscar. A posição sai de offsetTop, que
+  // ignora o translateY do scroll reveal: com a seção ainda não revelada, o
+  // getBoundingClientRect erraria pelos 22px do deslize.
+  function scrollToCatalog() {
+    const head = document.querySelector("#catalogo .section-head");
+    if (!head) return;
+    let y = 0;
+    for (let el = head; el; el = el.offsetParent) y += el.offsetTop;
+    const header = document.querySelector("header.site-header");
+    const bar = byId("announceBar");
+    let cover = header ? header.getBoundingClientRect().height : 0;
+    if (bar && !bar.classList.contains("is-done")) cover += bar.getBoundingClientRect().height;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: Math.max(0, y - cover - 14), behavior: reduced ? "auto" : "smooth" });
+  }
+
+  // Todo link para #catalogo (o "Ver Catálogo" do hero, o CTA do pop-up de
+  // promoção) usa a rolagem acima em vez do salto padrão da âncora.
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest && e.target.closest('a[href="#catalogo"]');
+    if (!link) return;
+    e.preventDefault();
+    if (link.classList.contains("hero-btn-main") && window.royalMetrics) {
+      window.royalMetrics.step("hero"); // aba Métricas (metrics.js)
+    }
+    scrollToCatalog();
+  });
+
   (function initAnnounce() {
     const bar = byId("announceBar");
     if (!bar) return;
@@ -969,8 +1000,7 @@
   // "Ver N modelos": fecha e leva o cliente para o começo da grade filtrada.
   byId("filterApply").addEventListener("click", () => {
     closeFilter();
-    const reduzido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    byId("catalogo").scrollIntoView({ behavior: reduzido ? "auto" : "smooth", block: "start" });
+    scrollToCatalog();
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeFilter(); });
   // Uma oferta zerou: preço e "só em oferta" mudaram. Espera o app.js devolver
@@ -1185,6 +1215,7 @@
   }
 
   function openModal(model) {
+    if (window.royalMetrics) window.royalMetrics.step("product"); // funil (metrics.js)
     // O cliente abriu um produto: a faixa de avisos sai de cena para não roubar
     // espaço de quem está decidindo. Volta quando ele fecha o produto e retoma a
     // navegação (ver closeModal) — some enquanto decide, reaparece ao continuar.
@@ -1289,6 +1320,7 @@
 
   byId("addBtn").addEventListener("click", () => {
     if (!modalState.flavor) return;
+    if (window.royalMetrics) window.royalMetrics.step("cart"); // funil (metrics.js)
     const m = modalState.model;
     const f = modalState.flavor;
     // Nome e foto vêm da VERSÃO do sabor, não do card que o cliente clicou:
@@ -1372,7 +1404,7 @@
   // precisa fechar tudo e rolar a página do topo de novo.
   byId("cartAddMoreBtn").addEventListener("click", () => {
     closeCart();
-    byId("catalogo").scrollIntoView({ behavior: "smooth", block: "start" });
+    scrollToCatalog();
   });
 
   const cartFab = byId("cartFab");
@@ -1405,15 +1437,26 @@
       const pill = byId("filterBar").querySelector(`.pill[data-filter="${btn.dataset.filter}"]`);
       if (pill) pill.click();
       closeNav();
-      byId("catalogo").scrollIntoView({ behavior: "smooth", block: "start" });
+      scrollToCatalog();
     });
   });
 
+  // Quantidade da última renderização: o botão pulsa quando ela SOBE (item
+  // adicionado), nunca na carga da página com o carrinho salvo.
+  let lastFabCount = null;
   function renderCart() {
     const box = byId("cartItems");
     const totalCount = cart.reduce((s, it) => s + it.qty, 0);
     byId("cartFabBadge").textContent = totalCount;
     cartFab.classList.toggle("show", totalCount > 0);
+    document.body.classList.toggle("cart-fab-on", totalCount > 0);
+    if (lastFabCount !== null && totalCount > lastFabCount
+        && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      cartFab.classList.remove("bump");
+      void cartFab.offsetWidth; // reinicia a animação se já estava rodando
+      cartFab.classList.add("bump");
+    }
+    lastFabCount = totalCount;
 
     if (cart.length === 0) {
       box.innerHTML = `<div class="cart-empty"><svg class="ico big" aria-hidden="true"><use href="#i-cart"></use></svg>Seu carrinho está vazio.</div>`;
@@ -1670,6 +1713,27 @@
          </div>`;
   }
 
+  // Botão flutuante do carrinho: total (já com cupom) e o anel do frete
+  // grátis, com a mesma conta da barra do carrinho (t.pct / t.remaining).
+  const FAB_RING = 2 * Math.PI * 21; // circunferência do anel (r=21 no index.html)
+  function renderCartFab(t) {
+    const count = cart.reduce((s, it) => s + it.qty, 0);
+    const ship = t.freeShipEnabled;
+    const done = ship && t.remaining <= 0;
+    cartFab.classList.toggle("no-ship", !ship);
+    cartFab.classList.toggle("free", done);
+    byId("cartFabTotal").textContent = brl(t.discountedTotal);
+    byId("cartFabRing").style.strokeDashoffset = (FAB_RING * (1 - (ship ? t.pct : 0))).toFixed(2);
+    const msg = byId("cartFabMsg");
+    if (!ship) msg.textContent = "";
+    else if (done) msg.textContent = "Frete grátis liberado";
+    else msg.innerHTML = `faltam <strong>${brl(t.remaining)}</strong> p/ frete grátis`;
+    // O texto visível é aria-hidden; o leitor de tela ouve tudo numa frase só.
+    cartFab.setAttribute("aria-label",
+      `Ver carrinho: ${count} ${count === 1 ? "item" : "itens"}, ${brl(t.discountedTotal)}`
+      + (!ship ? "" : done ? ", frete grátis liberado" : `, faltam ${brl(t.remaining)} para o frete grátis`));
+  }
+
   // Barra "faltam R$ X para o frete grátis", no rodapé do carrinho.
   function renderFreeShipBar(t) {
     const bar = byId("freeShipBar");
@@ -1730,6 +1794,7 @@
     }
 
     renderFreeShipBar(t);
+    renderCartFab(t);
 
     const checkoutShippingRow = byId("checkoutShippingRow");
     const checkoutShippingWas = byId("checkoutShippingWas");
@@ -1906,6 +1971,7 @@
 
   function openCheckout() {
     if (cart.length === 0) return;
+    if (window.royalMetrics) window.royalMetrics.step("checkout"); // funil (metrics.js)
     showPriceNotice([]);      // aviso de uma abertura anterior não vale mais
     renderCheckoutSummary();
     refreshQuote();           // confere os preços no servidor já na abertura
@@ -2431,8 +2497,8 @@
     msg += `\nOlá! Gostaria de finalizar este pedido. 🚀`;
 
     const url = `https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(msg)}`;
-    // Conta o envio na aba Métricas (static/js/metrics.js).
-    if (window.royalMetrics) window.royalMetrics.wa();
+    // Funil da aba Métricas: último passo (static/js/metrics.js).
+    if (window.royalMetrics) window.royalMetrics.step("order");
     window.open(url, "_blank");
     closeCheckout();
     toast("Pedido enviado ✓");

@@ -905,9 +905,22 @@
     </div>
   </aside>
 
-  <!-- Floating cart button (only visible with items in cart) -->
+  {# Botão flutuante do carrinho (só aparece com item): pílula com o total e um
+     anel que enche até o mínimo do frete grátis. Atualizado por
+     renderCartFab() no app.js. #}
   <button class="cart-fab" id="cartFab" aria-label="Ver carrinho">
-    <svg class="ico cart-ico" aria-hidden="true"><use href="#i-cart"></use></svg><span class="cart-fab-badge" id="cartFabBadge">0</span>
+    <span class="cart-fab-ring">
+      <svg class="cart-fab-prog" viewBox="0 0 46 46" aria-hidden="true">
+        <circle class="trk" cx="23" cy="23" r="21" fill="none" stroke-width="3"></circle>
+        <circle class="val" id="cartFabRing" cx="23" cy="23" r="21" fill="none" stroke-width="3" stroke-linecap="round" stroke-dasharray="131.95" stroke-dashoffset="131.95"></circle>
+      </svg>
+      <span class="cart-fab-ic"><svg class="ico cart-ico" aria-hidden="true"><use href="#i-cart"></use></svg></span>
+      <span class="cart-fab-badge" id="cartFabBadge">0</span>
+    </span>
+    <span class="cart-fab-txt" aria-hidden="true">
+      <span class="cart-fab-total" id="cartFabTotal">R$ 0,00</span>
+      <span class="cart-fab-msg" id="cartFabMsg"></span>
+    </span>
   </button>
 
   <!-- ============ CHECKOUT PANEL ============ -->

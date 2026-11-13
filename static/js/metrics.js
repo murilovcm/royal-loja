@@ -1,12 +1,16 @@
 /* Métricas de visita da loja (aba Métricas do painel).
 
-   Três sinais, todos sem cookie e sem corpo — o servidor identifica o
-   visitante por um hash diário de IP + navegador e descarta robôs e quem está
-   logado no painel (ver "Métricas de visita" no app.py):
+   Sinais sem cookie e sem corpo — o servidor identifica o visitante por um
+   hash diário de IP + navegador e descarta robôs e quem está logado no painel
+   (ver "Métricas de visita" no app.py):
      hit  -> ao abrir a página (visitante único + página vista)
      ping -> a cada 30 s enquanto a aba está VISÍVEL ("online agora")
-     wa   -> quando o pedido é enviado para o WhatsApp (app.js chama
-             window.royalMetrics.wa())
+     step -> passos do funil, chamados pelo app.js via
+             window.royalMetrics.step(...): "product" (abriu um produto),
+             "cart" (adicionou ao carrinho), "checkout" (abriu o checkout) e
+             "order" (enviou o pedido no WhatsApp); e "hero", o toque no
+             "Ver Catálogo" do topo (contador à parte). Cada um só é mandado
+             uma vez por página aberta; o servidor deduplica por dia.
    Falha de rede aqui nunca pode atrapalhar a compra: tudo é fire-and-forget. */
 (function () {
   "use strict";
@@ -41,5 +45,12 @@
   send("/api/m/hit");
   if (document.visibilityState === "visible") startPing();
 
-  window.royalMetrics = { wa: function () { send("/api/m/wa"); } };
+  var sent = {};
+  window.royalMetrics = {
+    step: function (name) {
+      if (sent[name]) return;
+      sent[name] = true;
+      send("/api/m/step/" + name);
+    },
+  };
 })();
