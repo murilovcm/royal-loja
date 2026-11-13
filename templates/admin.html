@@ -68,14 +68,21 @@
     .m-promo-info b { color:var(--text); }
     .m-promo-info.warn { color:#ff8a8a; }
     .m-promo.on .m-promo-info b.left { color:var(--primary-yellow); }
-    /* Relâmpago: mesma linha da oferta, no vermelho de "corre". */
-    .m-relampago { flex-basis:100%; display:flex; align-items:end; gap:10px 12px; flex-wrap:wrap; padding:10px 12px; border:1px dashed rgba(255,90,90,.45); border-radius:10px; }
-    .m-relampago[hidden] { display:none; }
-    .m-relampago.on { border-style:solid; border-color:#ff5a5a; background:rgba(255,90,90,.05); }
-    .m-rel-title { display:inline-flex; align-items:center; gap:6px; color:#ff8a8a; }
-    .m-rel-title svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-    .m-relampago .m-rel-save { background:#ff5a5a; color:#1a0303; border-color:#ff5a5a; font-weight:700; }
-    .m-relampago .m-promo-info b.left { color:#ff8a8a; }
+    /* Promoção do modelo: uma linha com seletor de Tipo (Oferta/Relâmpago).
+       Borda amarela = oferta valendo; vermelha = relâmpago valendo. */
+    .m-promo .m-promo-f[hidden] { display:none; }
+    .m-promo-tipo, .m-rel-horas {
+      padding:8px 10px; border-radius:8px; background:var(--bg); border:1px solid var(--border);
+      color:var(--text); font-family:inherit; font-size:.88rem; color-scheme:dark;
+    }
+    .m-promo-tipo:focus, .m-rel-horas:focus { outline:2px solid var(--purple-soft); outline-offset:1px; }
+    .m-rel-horas:disabled { opacity:.6; }
+    .m-promo.rel { border-style:solid; border-color:#ff5a5a; }
+    .m-promo[data-modo="relampago"] .m-promo-save { background:#ff5a5a; color:#1a0303; border-color:#ff5a5a; }
+    .m-promo-status { flex-basis:100%; font-size:.8rem; color:var(--text-dim); font-variant-numeric:tabular-nums; }
+    .m-promo-status:empty { display:none; }
+    .m-promo-status b { color:var(--text); }
+    .m-promo-status b.rel { color:#ff8a8a; }
     .promo-filter { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
     .promo-filter .mini-btn[aria-pressed="true"] { border-color:var(--primary-yellow); color:var(--primary-yellow); }
     body.promo-only .model-row:not(.has-promo), body.promo-only .brand-block:not(.has-promo) { display:none; }
@@ -383,14 +390,17 @@
       font-weight:800; font-size:.8rem; background:#25D366; color:#04331b;
     }
     .identity-save-row { display:flex; justify-content:flex-end; margin-top:20px; }
-    /* Índice da aba: atalhos para os 5 blocos (ids idHero, idBrand...). */
+    /* Seletor da aba: mostra UM bloco por vez (ids idHero, idBrand...).
+       O botão do bloco aberto fica preenchido (aria-pressed="true"). */
     .identity-toc { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
-    .identity-toc a {
-      font-size:.82rem; font-weight:700; padding:7px 14px; border-radius:999px; text-decoration:none;
-      color:var(--text); background:var(--surface); border:1px solid var(--border); transition:.15s;
+    .identity-toc button {
+      font-size:.82rem; font-weight:700; padding:7px 14px; border-radius:999px; font-family:inherit;
+      color:var(--text); background:var(--surface); border:1px solid var(--border); transition:.15s; cursor:pointer;
     }
-    .identity-toc a:hover { border-color:var(--primary-yellow); color:var(--primary-yellow); }
-    [data-tab-panel="identity"] .sections-block { scroll-margin-top:16px; }
+    .identity-toc button:hover { border-color:var(--primary-yellow); color:var(--primary-yellow); }
+    .identity-toc button[aria-pressed="true"] { background:var(--primary-yellow); border-color:var(--primary-yellow); color:#111; }
+    .identity-toc button:focus-visible { outline:2px solid var(--purple-soft); outline-offset:2px; }
+    [data-identity-block][hidden] { display:none; }
     /* Topo da loja: cada linha = texto/campo à esquerda + botão à direita. */
     .hero-admin-row { display:flex; gap:16px; align-items:flex-start; padding:14px 0; border-bottom:1px solid var(--border); }
     .hero-admin-row:first-of-type { margin-top:8px; }
@@ -716,45 +726,51 @@
               <button class="expand-btn" onclick="toggleFlavors({{ m.id }}, this)">Sabores ({{ item.flavors|length }}) ▾</button>
               <button class="del-btn" onclick="delModel({{ m.id }})" title="Excluir modelo">🗑</button>
 
-              {# Oferta com hora marcada. Só no produto principal: as versões
-                 (Slim, geração anterior) herdam a oferta dele. O valor é um
-                 desconto em reais aplicado a CADA sabor do card; a data é no
-                 horário de São Luís e é gravada em UTC pelo servidor.
-                 data-min = sabor mais barato do card (limite do desconto e base
-                 da prévia); data-fim = fim em UTC, para o tempo restante. #}
+              {# PROMOÇÃO DO MODELO: uma linha só, com o seletor de Tipo.
+                   Oferta     desconto em R$ + data e hora de fim.
+                   Relâmpago  desconto em R$ + duração (1 a 24 horas). Com oferta
+                              ativa o valor SOMA por cima dela ("Mais R$") e
+                              acaba no máximo junto com ela; sem oferta, vale
+                              sozinho ("Desconto R$"). Ao acabar, volta a oferta
+                              (se houver) ou o preço cheio.
+                 Só no produto principal: as versões (Slim etc.) herdam.
+                 data-* = estado SALVO: min = sabor mais barato (limite e base da
+                 prévia); fim/desconto = oferta; rel-valor/rel-fim = relâmpago.
+                 O servidor valida tudo (pricing.valida_promo/valida_relampago). #}
               {% if not is_version %}
-              <div class="m-promo {{ 'on' if item.promo.ativa }}" id="promo-{{ m.id }}"
-                   data-min="{{ '%.2f'|format(item.promo.menor_preco) }}" data-fim="{{ item.promo.fim_utc }}"
-                   data-desconto="{{ item.promo.desconto }}">
-                <span class="m-promo-title">⏱ Oferta</span>
-                <label class="m-promo-f" title="Desconto em reais, aplicado a cada sabor deste modelo e das versões dele.">
+              <div class="m-promo" id="promo-{{ m.id }}"
+                   data-min="{{ '%.2f'|format(item.promo.menor_preco) }}"
+                   data-fim="{{ item.promo.fim_utc }}" data-desconto="{{ item.promo.desconto }}"
+                   data-rel-valor="{{ item.promo.relampago_valor }}" data-rel-fim="{{ item.promo.relampago_fim_utc }}">
+                <label class="m-promo-f">
+                  <span class="m-variant-lbl">Tipo</span>
+                  <select class="m-promo-tipo" onchange="previewPromo({{ m.id }})">
+                    <option value="oferta">Oferta</option>
+                    <option value="relampago">Relâmpago</option>
+                  </select>
+                </label>
+                <label class="m-promo-f" data-tipo="oferta" title="Desconto em reais, aplicado a cada sabor deste modelo e das versões dele.">
                   <span class="m-variant-lbl">Desconto R$</span>
                   <input type="number" class="m-promo-val" min="0" step="0.01" inputmode="decimal" placeholder="20,00"
                          value="{{ item.promo.desconto }}" oninput="previewPromo({{ m.id }})">
                 </label>
-                <label class="m-promo-f" title="Quando a oferta acaba, no horário de São Luís. Ao zerar, o preço volta ao normal sozinho.">
+                <label class="m-promo-f" data-tipo="oferta" title="Quando a oferta acaba, no horário de São Luís. Ao zerar, o preço volta ao normal sozinho.">
                   <span class="m-variant-lbl">Acaba em</span>
                   <input type="datetime-local" class="m-promo-fim" value="{{ item.promo.fim_local }}" oninput="previewPromo({{ m.id }})">
                 </label>
-                <button class="mini-btn primary m-promo-save" onclick="savePromo({{ m.id }})">Salvar oferta</button>
-                <button class="mini-btn m-promo-clear" onclick="clearPromo({{ m.id }})" title="Remover a oferta deste modelo">Remover</button>
-                <span class="m-promo-info" aria-live="polite"></span>
-              </div>
-              {# OFERTA RELÂMPAGO: degrau extra por cima da oferta acima. Só
-                 aparece com a oferta ativa (paintPromoRow). "Mais R$" soma ao
-                 desconto da oferta; começa ao salvar e dura 24h (ou até o fim
-                 da oferta). data-valor/data-fim = estado SALVO. #}
-              <div class="m-relampago" id="relampago-{{ m.id }}"
-                   data-valor="{{ item.promo.relampago_valor }}" data-fim="{{ item.promo.relampago_fim_utc }}" hidden>
-                <span class="m-promo-title m-rel-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11"/></svg>Relâmpago</span>
-                <label class="m-promo-f" title="Desconto EXTRA em reais, somado ao desconto da oferta, em cada sabor.">
-                  <span class="m-variant-lbl">Mais R$</span>
+                <label class="m-promo-f" data-tipo="relampago" hidden title="Desconto do relâmpago em reais. Com oferta ativa, soma por cima dela.">
+                  <span class="m-variant-lbl m-rel-lbl">Desconto R$</span>
                   <input type="number" class="m-promo-val m-rel-val" min="0" step="0.01" inputmode="decimal" placeholder="10,00"
-                         value="{{ item.promo.relampago_valor }}" oninput="previewRelampago({{ m.id }})">
+                         value="{{ item.promo.relampago_valor }}" oninput="previewPromo({{ m.id }})">
                 </label>
-                <button class="mini-btn m-rel-save" onclick="saveRelampago({{ m.id }})">Começar (24h)</button>
-                <button class="mini-btn" onclick="clearRelampago({{ m.id }})" title="Encerrar o relâmpago agora (a oferta continua)">Encerrar</button>
+                <label class="m-promo-f" data-tipo="relampago" hidden title="Quanto tempo o relâmpago dura a partir de quando você começar.">
+                  <span class="m-variant-lbl">Duração</span>
+                  <select class="m-rel-horas" onchange="previewPromo({{ m.id }})"><option value="1">1 hora</option><option value="2">2 horas</option><option value="3">3 horas</option><option value="4">4 horas</option><option value="5">5 horas</option><option value="6">6 horas</option><option value="7">7 horas</option><option value="8">8 horas</option><option value="9">9 horas</option><option value="10">10 horas</option><option value="11">11 horas</option><option value="12">12 horas</option><option value="13">13 horas</option><option value="14">14 horas</option><option value="15">15 horas</option><option value="16">16 horas</option><option value="17">17 horas</option><option value="18">18 horas</option><option value="19">19 horas</option><option value="20">20 horas</option><option value="21">21 horas</option><option value="22">22 horas</option><option value="23">23 horas</option><option value="24" selected>24 horas</option></select>
+                </label>
+                <button class="mini-btn primary m-promo-save" onclick="savePromoRow({{ m.id }})">Salvar oferta</button>
+                <button class="mini-btn m-promo-clear" onclick="clearPromoRow({{ m.id }})">Remover</button>
                 <span class="m-promo-info" aria-live="polite"></span>
+                <span class="m-promo-status"></span>
               </div>
               {% endif %}
             </div>
@@ -1115,8 +1131,10 @@
     <div class="admin-tab-panel" data-tab-panel="identity">
       {% if not is_owner %}<div class="readonly-banner">🔒 Somente leitura — apenas o dono da loja pode alterar a identidade visual.</div>{% endif %}
 
-      {# ORGANIZAÇÃO DA ABA. Cinco blocos, um assunto cada, cada um com o seu
-         próprio Salvar (que grava só os campos daquele bloco):
+      {# ORGANIZAÇÃO DA ABA. Cinco blocos, um assunto cada, e só UM aparece por
+         vez: o seletor abaixo escolhe qual (começa em "Topo da loja"; a última
+         escolha fica lembrada neste navegador). Cada bloco tem o seu próprio
+         Salvar, que grava só os campos dele:
            1. Topo da loja  — Black Friday + textos do hero (com ocultar)
            2. Marca         — nome, cidade, assinatura, logos, favicon
            3. Cores         — cores da marca, gradiente, cores do site
@@ -1125,12 +1143,12 @@
          Para mexer em algo, procure o bloco pelo id (idHero, idBrand,
          idColors, idFooter, idSeo). As funções de salvar ficam no <script>,
          em "Identidade Visual · salvar por bloco". #}
-      <nav class="identity-toc" aria-label="Blocos da aba">
-        <a href="#idHero">🏠 Topo da loja</a>
-        <a href="#idBrand">🏷️ Marca</a>
-        <a href="#idColors">🎨 Cores</a>
-        <a href="#idFooter">📍 Rodapé</a>
-        <a href="#idSeo">🔎 Google (SEO)</a>
+      <nav class="identity-toc" aria-label="Escolha o que editar">
+        <button type="button" data-show-block="idHero" aria-pressed="true">🏠 Topo da loja</button>
+        <button type="button" data-show-block="idBrand" aria-pressed="false">🏷️ Marca</button>
+        <button type="button" data-show-block="idColors" aria-pressed="false">🎨 Cores</button>
+        <button type="button" data-show-block="idFooter" aria-pressed="false">📍 Rodapé</button>
+        <button type="button" data-show-block="idSeo" aria-pressed="false">🔎 Google (SEO)</button>
       </nav>
 
       <div class="{{ 'readonly-lock' if not is_owner }} identity-grid">
@@ -1142,7 +1160,7 @@
              Mostrar/ocultar título e frase: valem sempre, com ou sem Black
              Friday. Título oculto sai da tela mas continua no código (é o <h1>
              que o Google lê); frase oculta sai da página. #}
-          <div class="sections-block" id="idHero">
+          <div class="sections-block" id="idHero" data-identity-block>
             <div class="sections-head">
               🏠 Topo da loja <span class="sections-sub">O que o cliente vê primeiro ao abrir o site</span>
             </div>
@@ -1188,7 +1206,7 @@
           </div>
 
           {# ===== 2. MARCA ===== #}
-          <div class="sections-block" id="idBrand">
+          <div class="sections-block" id="idBrand" data-identity-block hidden>
             <div class="sections-head">
               🏷️ Marca <span class="sections-sub">Nome, logos e ícone da aba</span>
             </div>
@@ -1255,7 +1273,7 @@
           {# ===== 3. CORES =====
              Três partes que abrem e fecham (<details>). Um Salvar para as três,
              porque cor inicial do gradiente = cor primária (campos espelhados). #}
-          <div class="sections-block" id="idColors">
+          <div class="sections-block" id="idColors" data-identity-block hidden>
             <div class="sections-head">
               🎨 Cores <span class="sections-sub">Toque em cada parte para abrir · a prévia ao lado muda na hora</span>
             </div>
@@ -1385,7 +1403,7 @@
           </div>
 
           {# ===== 4. RODAPÉ ===== #}
-          <div class="sections-block" id="idFooter">
+          <div class="sections-block" id="idFooter" data-identity-block hidden>
             <div class="sections-head">
               📍 Rodapé <span class="sections-sub">Textos do pé da página</span>
             </div>
@@ -1415,7 +1433,7 @@
           </div>
 
           {# ===== 5. GOOGLE (SEO) ===== #}
-          <div class="sections-block" id="idSeo">
+          <div class="sections-block" id="idSeo" data-identity-block hidden>
             <div class="sections-head">
               🔎 Google (SEO) <span class="sections-sub">Como a loja aparece na busca e na aba do navegador</span>
             </div>
@@ -1832,50 +1850,122 @@
       const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
       return (d ? d + 'd ' : '') + String(h).padStart(2, '0') + 'h ' + String(m).padStart(2, '0') + 'min';
     }
-    // Estado SALVO de cada linha: ativa ou não, com o tempo restante.
+    // Estado SALVO de cada linha (data-*): oferta e relâmpago valendo agora?
+    const ofertaAtiva = (box) => parseFloat(box.dataset.desconto) > 0 && Date.parse(box.dataset.fim) > Date.now();
+    const relAtivo = (box) => parseFloat(box.dataset.relValor) > 0 && Date.parse(box.dataset.relFim) > Date.now();
+    const tipoDe = (box) => box.querySelector('.m-promo-tipo').value;
+    const fimLocal = (ms) => new Date(ms).toLocaleString('pt-BR', {
+      timeZone: 'America/Fortaleza', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+    }).replace(',', ' às');
+    const valorCurto = (v) => 'R$ ' + (Number.isInteger(v) ? String(v) : v.toFixed(2).replace('.', ','));
+
+    // Pinta o estado salvo: bordas, filtro "só em oferta" e a linha de status
+    // ("Valendo: Oferta -R$ 20 até 28/11 às 23:59 · Relâmpago -R$ 10, acaba em 04h 12min").
     function paintPromoRow(box) {
       const row = box.closest('.model-row');
-      const fim = Date.parse(box.dataset.fim);
-      const desconto = parseFloat(box.dataset.desconto);
-      const ativa = desconto > 0 && fim > Date.now();
-      box.classList.toggle('on', ativa);
-      row.classList.toggle('has-promo', ativa);
-      const rel = document.getElementById('relampago-' + box.id.replace('promo-', ''));
-      if (rel) rel.hidden = !ativa;
-      return ativa;
+      const of = ofertaAtiva(box), rel = relAtivo(box);
+      box.classList.toggle('on', of);
+      box.classList.toggle('rel', rel);
+      row.classList.toggle('has-promo', of || rel);
+      const st = box.querySelector('.m-promo-status');
+      st.textContent = '';
+      if (of || rel) {
+        st.append('Valendo: ');
+        if (of) {
+          const b = document.createElement('b');
+          b.textContent = 'Oferta -' + valorCurto(parseFloat(box.dataset.desconto));
+          st.append(b, ' até ' + fimLocal(Date.parse(box.dataset.fim)));
+        }
+        if (of && rel) st.append(' · ');
+        if (rel) {
+          const b = document.createElement('b'); b.className = 'rel';
+          b.textContent = 'Relâmpago -' + valorCurto(parseFloat(box.dataset.relValor));
+          st.append(b, (of ? ' a mais' : '') + ', acaba em ' + promoRestante(Date.parse(box.dataset.relFim) - Date.now()));
+        }
+      }
+      return of || rel;
     }
+
+    // Mostra os campos do tipo escolhido e ajusta rótulos e botões.
+    function applyTipo(box) {
+      const tipo = tipoDe(box);
+      box.dataset.modo = tipo;
+      box.querySelectorAll('[data-tipo]').forEach((el) => { el.hidden = el.dataset.tipo !== tipo; });
+      const save = box.querySelector('.m-promo-save'), clear = box.querySelector('.m-promo-clear');
+      if (tipo === 'oferta') {
+        save.textContent = 'Salvar oferta';
+        clear.textContent = 'Remover';
+        clear.title = 'Remover a oferta deste modelo';
+      } else {
+        const ativo = relAtivo(box);
+        save.textContent = ativo ? 'Salvar valor' : 'Começar relâmpago';
+        clear.textContent = 'Encerrar';
+        clear.title = 'Encerrar o relâmpago agora' + (ofertaAtiva(box) ? ' (a oferta continua)' : '');
+        box.querySelector('.m-rel-lbl').textContent = ofertaAtiva(box) ? 'Mais R$' : 'Desconto R$';
+        // Relâmpago já começou: a duração não muda (encerre e comece outro).
+        box.querySelector('.m-rel-horas').disabled = ativo;
+      }
+    }
+
     function previewPromo(mid) {
       const box = document.getElementById('promo-' + mid);
+      applyTipo(box);
+      paintPromoRow(box);
       const info = box.querySelector('.m-promo-info');
-      const min = parseFloat(box.dataset.min) || 0;
-      const raw = box.querySelector('.m-promo-val').value.replace(',', '.');
-      const fimLocal = box.querySelector('.m-promo-fim').value;
-      const desconto = parseFloat(raw);
       info.className = 'm-promo-info';
       info.textContent = '';
-      const salvoAtivo = paintPromoRow(box);
-      if (!raw && !fimLocal) {
-        info.textContent = 'Sem oferta.';
+      const aviso = (t) => { info.classList.add('warn'); info.textContent = t; };
+      const min = parseFloat(box.dataset.min) || 0;
+      const of = ofertaAtiva(box), rel = relAtivo(box);
+
+      if (tipoDe(box) === 'relampago') {
+        const raw = box.querySelector('.m-rel-val').value.replace(',', '.');
+        const valor = parseFloat(raw);
+        const base = of ? parseFloat(box.dataset.desconto) || 0 : 0;
+        if (!raw) { info.textContent = rel ? '' : 'Escolha o desconto e a duração.'; return; }
+        if (!(valor > 0)) return aviso('Informe o valor do relâmpago.');
+        if (min && base + valor >= min) {
+          return aviso((of ? 'Oferta + relâmpago precisam' : 'O relâmpago precisa') + ' ficar abaixo de ' + fmtBRL(min) + '.');
+        }
+        const preco = document.createElement('span');
+        preco.append('Preço relâmpago: ');
+        const b = document.createElement('b'); b.textContent = fmtBRL(min - base - valor); preco.append(b);
+        if (!rel) {
+          const h = parseInt(box.querySelector('.m-rel-horas').value, 10);
+          const fimOferta = Date.parse(box.dataset.fim);
+          const corta = of && fimOferta < Date.now() + h * 3600e3;
+          preco.append(' · dura ' + h + (h > 1 ? ' horas' : ' hora') + (corta ? ' (ou até a oferta acabar)' : ''));
+          if (of) preco.append(' · depois volta a oferta');
+        }
+        info.append(preco);
         return;
       }
+
+      const raw = box.querySelector('.m-promo-val').value.replace(',', '.');
+      const fimTxt = box.querySelector('.m-promo-fim').value;
+      const desconto = parseFloat(raw);
+      if (!of && rel) {
+        return aviso('Há um relâmpago valendo até ' + fimLocal(Date.parse(box.dataset.relFim)) + '. Encerre ou espere ele acabar para criar a oferta.');
+      }
+      if (!raw && !fimTxt) { info.textContent = of ? '' : 'Sem oferta.'; return; }
       const editado = raw !== String(box.dataset.desconto) || !!box.dataset.sujo;
-      const aviso = (t) => { info.classList.add('warn'); info.textContent = t; };
       if (!(desconto > 0)) return aviso('Informe o valor do desconto.');
       if (min && desconto >= min) return aviso('O desconto precisa ser menor que o sabor mais barato (' + fmtBRL(min) + ').');
-      if (!fimLocal) return aviso('Informe quando a oferta acaba.');
+      if (!fimTxt) return aviso('Informe quando a oferta acaba.');
       // datetime-local não tem fuso: é o horário de São Luís (UTC-3, fixo).
-      const fim = Date.parse(fimLocal + ':00-03:00');
+      const fim = Date.parse(fimTxt + ':00-03:00');
       if (!(fim > Date.now())) {
-        return aviso(salvoAtivo || editado ? 'A data precisa estar no futuro.' : 'Oferta encerrada: o preço já voltou ao normal.');
+        return aviso(of || editado ? 'A data precisa estar no futuro.' : 'Oferta encerrada: o preço já voltou ao normal.');
       }
       const preco = document.createElement('span');
       preco.append('A partir de ' + fmtBRL(min) + ' → ');
       const b = document.createElement('b'); b.textContent = fmtBRL(min - desconto); preco.append(b);
       preco.append(' · acaba em ');
       const left = document.createElement('b'); left.className = 'left'; left.textContent = promoRestante(fim - Date.now()); preco.append(left);
-      if (!salvoAtivo || box.dataset.sujo) preco.append(' (ainda não salva)');
+      if (!of || box.dataset.sujo) preco.append(' (ainda não salva)');
       info.append(preco);
     }
+
     function refreshPromoFilter() {
       let n = 0;
       document.querySelectorAll('.m-promo').forEach((box) => { if (paintPromoRow(box)) n++; });
@@ -1890,20 +1980,22 @@
       btn.setAttribute('aria-pressed', String(on));
       document.body.classList.toggle('promo-only', on);
     }
+
+    // --- salvar: oferta ---
     async function sendPromo(mid, promo) {
       const box = document.getElementById('promo-' + mid);
+      const tinhaOferta = !!box.dataset.desconto;
       const res = await api('/api/model/' + mid, 'POST', { promo });
       if (!res.ok) { toast(res.error || 'Erro ao salvar a oferta'); return false; }
       box.dataset.fim = (res.promo && res.promo.fim) || '';
       box.dataset.desconto = (res.promo && res.promo.desconto) || '';
       delete box.dataset.sujo;
-      // Sem oferta não há relâmpago (o servidor já apagou).
-      const rel = document.getElementById('relampago-' + mid);
-      if (rel && !box.dataset.fim) {
-        rel.dataset.valor = ''; rel.dataset.fim = '';
-        rel.querySelector('.m-rel-val').value = '';
+      // Remover a oferta leva junto o relâmpago que estava por cima dela
+      // (o servidor já apagou).
+      if (tinhaOferta && !box.dataset.desconto) {
+        box.dataset.relValor = ''; box.dataset.relFim = '';
+        box.querySelector('.m-rel-val').value = '';
       }
-      if (rel) previewRelampago(mid);
       return true;
     }
     async function savePromo(mid) {
@@ -1922,8 +2014,50 @@
       toast('Oferta removida');
       refreshPromoFilter(); previewPromo(mid);
     }
+
+    // --- salvar: relâmpago ---
+    async function sendRelampago(mid, valor, horas) {
+      const box = document.getElementById('promo-' + mid);
+      const res = await api('/api/model/' + mid, 'POST', { relampago: { valor, horas } });
+      if (!res.ok) { toast(res.error || 'Erro ao salvar o relâmpago'); return false; }
+      box.dataset.relValor = (res.relampago && res.relampago.valor) || '';
+      box.dataset.relFim = (res.relampago && res.relampago.fim) || '';
+      delete box.dataset.sujo;
+      return true;
+    }
+    async function saveRelampago(mid) {
+      const box = document.getElementById('promo-' + mid);
+      const valor = box.querySelector('.m-rel-val').value;
+      if (!valor) { toast('Informe o valor do relâmpago'); return; }
+      const horas = box.querySelector('.m-rel-horas').value;
+      const jaAtivo = relAtivo(box);
+      if (await sendRelampago(mid, valor, horas)) {
+        toast(jaAtivo ? 'Valor do relâmpago atualizado ✓' : 'Relâmpago começou: ' + horas + 'h ✓');
+        refreshPromoFilter(); previewPromo(mid);
+      }
+    }
+    async function clearRelampago(mid) {
+      const box = document.getElementById('promo-' + mid);
+      if (!(await sendRelampago(mid, '', ''))) return;
+      box.querySelector('.m-rel-val').value = '';
+      toast('Relâmpago encerrado');
+      refreshPromoFilter(); previewPromo(mid);
+    }
+
+    // Os dois botões da linha seguem o Tipo escolhido.
+    function savePromoRow(mid) {
+      const box = document.getElementById('promo-' + mid);
+      return tipoDe(box) === 'relampago' ? saveRelampago(mid) : savePromo(mid);
+    }
+    function clearPromoRow(mid) {
+      const box = document.getElementById('promo-' + mid);
+      return tipoDe(box) === 'relampago' ? clearRelampago(mid) : clearPromo(mid);
+    }
+
     document.querySelectorAll('.m-promo').forEach((box) => {
       const mid = box.id.replace('promo-', '');
+      // Abre no tipo que está valendo (relâmpago tem prioridade).
+      if (relAtivo(box)) box.querySelector('.m-promo-tipo').value = 'relampago';
       box.addEventListener('input', () => { box.dataset.sujo = '1'; });
       previewPromo(mid);
     });
@@ -1937,79 +2071,7 @@
       });
     }, 30000);
 
-    // ---- Oferta relâmpago (degrau por cima da oferta do modelo) ----
-    // Estado SALVO em data-valor/data-fim da linha. O fim nunca passa do fim
-    // da oferta: quem garante é o servidor (pricing.valida_relampago).
-    function relampagoAtivo(rel) {
-      return parseFloat(rel.dataset.valor) > 0 && Date.parse(rel.dataset.fim) > Date.now();
-    }
-    function previewRelampago(mid) {
-      const rel = document.getElementById('relampago-' + mid);
-      const box = document.getElementById('promo-' + mid);
-      if (!rel || !box) return;
-      const info = rel.querySelector('.m-promo-info');
-      const ativo = relampagoAtivo(rel);
-      rel.classList.toggle('on', ativo);
-      rel.querySelector('.m-rel-save').textContent = ativo ? 'Salvar valor' : 'Começar (24h)';
-      info.className = 'm-promo-info';
-      info.textContent = '';
-      const min = parseFloat(box.dataset.min) || 0;
-      const bf = parseFloat(box.dataset.desconto) || 0;
-      const raw = rel.querySelector('.m-rel-val').value.replace(',', '.');
-      const extra = parseFloat(raw);
-      const aviso = (t) => { info.classList.add('warn'); info.textContent = t; };
-      if (!raw) { info.textContent = 'Sem relâmpago.'; return; }
-      if (!(extra > 0)) return aviso('Informe quanto tirar a mais.');
-      if (min && bf + extra >= min) return aviso('Oferta + relâmpago precisam ficar abaixo de ' + fmtBRL(min) + '.');
-      const preco = document.createElement('span');
-      preco.append('Preço relâmpago: ');
-      const b = document.createElement('b'); b.textContent = fmtBRL(min - bf - extra); preco.append(b);
-      if (ativo) {
-        preco.append(' · acaba em ');
-        const left = document.createElement('b'); left.className = 'left';
-        left.textContent = promoRestante(Date.parse(rel.dataset.fim) - Date.now()); preco.append(left);
-      } else {
-        preco.append(' · dura 24h a partir de quando você começar');
-      }
-      info.append(preco);
-    }
-    async function sendRelampago(mid, valor) {
-      const rel = document.getElementById('relampago-' + mid);
-      const res = await api('/api/model/' + mid, 'POST', { relampago: { valor } });
-      if (!res.ok) { toast(res.error || 'Erro ao salvar o relâmpago'); return false; }
-      rel.dataset.valor = (res.relampago && res.relampago.valor) || '';
-      rel.dataset.fim = (res.relampago && res.relampago.fim) || '';
-      delete rel.dataset.sujo;
-      return true;
-    }
-    async function saveRelampago(mid) {
-      const rel = document.getElementById('relampago-' + mid);
-      const valor = rel.querySelector('.m-rel-val').value;
-      if (!valor) { toast('Informe quanto tirar a mais'); return; }
-      const jaAtivo = relampagoAtivo(rel);
-      if (await sendRelampago(mid, valor)) {
-        toast(jaAtivo ? 'Valor do relâmpago atualizado ✓' : 'Relâmpago começou: 24h ✓');
-        previewRelampago(mid);
-      }
-    }
-    async function clearRelampago(mid) {
-      const rel = document.getElementById('relampago-' + mid);
-      if (!(await sendRelampago(mid, ''))) return;
-      rel.querySelector('.m-rel-val').value = '';
-      toast('Relâmpago encerrado');
-      previewRelampago(mid);
-    }
-    document.querySelectorAll('.m-relampago').forEach((rel) => {
-      rel.addEventListener('input', () => { rel.dataset.sujo = '1'; });
-      previewRelampago(rel.id.replace('relampago-', ''));
-    });
-    setInterval(() => {
-      document.querySelectorAll('.m-relampago').forEach((rel) => {
-        if (!rel.dataset.sujo && !rel.contains(document.activeElement)) previewRelampago(rel.id.replace('relampago-', ''));
-      });
-    }, 30000);
-
-    // ---- Seção de ofertas: nome e ícone do título ----
+    // ---- Seção de ofertas: nome e ícone do título ----    // ---- Seção de ofertas: nome e ícone do título ----
     async function saveOffersSection() {
       const icone = document.querySelector('input[name="offersIcon"]:checked');
       const res = await api('/api/offers_section', 'POST', {
@@ -2625,6 +2687,25 @@
         el.value = '';
       }
     }
+
+    // ---- Identidade Visual · um bloco por vez ----
+    // O seletor no topo da aba mostra só o bloco escolhido. A escolha fica
+    // lembrada neste navegador (sessionStorage), então salvar e recarregar
+    // não joga você de volta para "Topo da loja".
+    (function () {
+      const KEY = 'royal_identity_block';
+      const btns = document.querySelectorAll('[data-show-block]');
+      function show(id) {
+        if (!document.getElementById(id)) id = 'idHero';
+        document.querySelectorAll('[data-identity-block]').forEach((b) => { b.hidden = b.id !== id; });
+        btns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.showBlock === id)));
+        try { sessionStorage.setItem(KEY, id); } catch (e) {}
+      }
+      btns.forEach((b) => b.addEventListener('click', () => show(b.dataset.showBlock)));
+      let inicial = 'idHero';
+      try { inicial = sessionStorage.getItem(KEY) || inicial; } catch (e) {}
+      show(inicial);
+    })();
 
     // ---- Identidade Visual · salvar por bloco ----
     // Cada bloco da aba tem o seu botão e grava SÓ os campos dele:

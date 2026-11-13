@@ -3309,7 +3309,7 @@ def api_update_model(mid):
     if "promo" in d:
         promo_in = d["promo"] if isinstance(d["promo"], dict) else {}
         alvo = db.execute(
-            "SELECT parent_id FROM vape_models WHERE id = ?", (mid,)
+            "SELECT * FROM vape_models WHERE id = ?", (mid,)
         ).fetchone()
         if not alvo:
             return jsonify({"ok": False, "error": "modelo não encontrado"}), 404
@@ -3330,19 +3330,32 @@ def api_update_model(mid):
         )
         if erro:
             return jsonify({"ok": False, "error": erro}), 400
+        # Relâmpago SOZINHO valendo: criar uma oferta agora faria ele somar
+        # por cima sem ninguém pedir. Bloqueia e explica a ordem certa.
+        agora_p = pricing.agora_utc()
+        rel_fim = pricing.parse_fim(alvo["relampago_fim"])
+        bf_ativa = pricing.promo_ativa(alvo["desconto_valor"], alvo["promo_fim"], agora_p)
+        if desconto is not None and not bf_ativa and alvo["relampago_valor"] and rel_fim and rel_fim > agora_p:
+            hora = rel_fim.astimezone(pricing.FUSO_LOJA).strftime("%d/%m às %H:%M")
+            return jsonify({
+                "ok": False,
+                "error": f"Há um relâmpago valendo até {hora}. Encerre ou espere ele acabar para criar a oferta.",
+            }), 400
         fields.append("desconto_valor = ?")
         vals.append(desconto)
         fields.append("promo_fim = ?")
         vals.append(fim_utc)
         promo_info = {"desconto": desconto, "fim": fim_utc}
-        # Sem promoção não existe relâmpago (ele é um degrau por cima dela).
-        if desconto is None:
+        # Remover a oferta leva junto o relâmpago que estava POR CIMA dela.
+        # Um relâmpago sozinho (sem oferta) não é tocado.
+        if desconto is None and alvo["desconto_valor"] is not None:
             fields += ["relampago_valor = ?", "relampago_fim = ?"]
             vals += [None, None]
 
-    # Oferta relâmpago: só o valor EXTRA chega (`relampago`: {valor}). Começa
-    # agora e dura 24h (ou até o fim da promoção). Valor vazio encerra.
-    # Mudar o valor de um relâmpago já ativo NÃO reinicia o relógio.
+    # Oferta relâmpago (`relampago`: {valor, horas}). Começa agora e dura as
+    # horas escolhidas (1 a 24). Com oferta ativa o valor soma por cima dela e
+    # o fim não passa do fim dela; sem oferta, vale sozinho. Valor vazio
+    # encerra. Mudar o valor de um relâmpago já ativo NÃO reinicia o relógio.
     relampago_info = None
     if "relampago" in d:
         rel_in = d["relampago"] if isinstance(d["relampago"], dict) else {}
@@ -3361,7 +3374,7 @@ def api_update_model(mid):
         ).fetchone()["p"]
         agora = pricing.agora_utc()
         valor, fim_utc, erro = pricing.valida_relampago(
-            rel_in.get("valor"), alvo["desconto_valor"], alvo["promo_fim"], menor, agora
+            rel_in.get("valor"), rel_in.get("horas"), alvo["desconto_valor"], alvo["promo_fim"], menor, agora
         )
         if erro:
             return jsonify({"ok": False, "error": erro}), 400

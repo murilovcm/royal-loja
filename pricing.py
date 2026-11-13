@@ -9,15 +9,16 @@ A promoção é um DESCONTO EM REAIS por modelo, com data e hora para acabar:
     promo ativa  =  desconto preenchido (> 0)  E  promo_fim no futuro
                     E  o desconto é menor que o preço do sabor
 
-OFERTA RELÂMPAGO (degrau extra, por cima da promoção):
-    relâmpago ativo  =  promoção ativa  E  valor extra > 0  E  relampago_fim
-                        no futuro  E  promoção + extra < preço do sabor
-    Para o cliente é um preço só (o desconto total). Por dentro é uma
-    hierarquia: quando o relâmpago acaba, vale de novo a promoção normal, até o
-    fim dela; depois, o preço cheio. `preco_efetivo` devolve em `depois` o que
-    vale quando o relâmpago acabar, para o navegador trocar sozinho.
-    O relâmpago dura RELAMPAGO_HORAS a partir de quando é salvo, nunca além do
-    fim da promoção (ver `valida_relampago`).
+OFERTA RELÂMPAGO: desconto curto (1 a 24 horas, escolhido no painel), que
+pode valer de dois jeitos:
+    SOZINHO        sem promoção ativa: o valor é o desconto. Quando acaba,
+                   volta o preço cheio.
+    POR CIMA       com promoção ativa: o valor é EXTRA, somado ao desconto da
+                   promoção. Quando acaba, volta a promoção normal até o fim
+                   dela; depois, o preço cheio. Nunca passa do fim da promoção.
+    Para o cliente é sempre um preço só (o desconto total). `preco_efetivo`
+    devolve em `depois` o que vale quando o relâmpago acabar (só no caso "por
+    cima"), para o navegador trocar sozinho. Ver `valida_relampago`.
 
 Datas: gravadas sempre em UTC, como texto ISO terminado em "Z"
 ("2026-11-27T02:59:00Z"). O painel mostra e recebe no horário de São Luís.
@@ -30,7 +31,7 @@ from datetime import datetime, timedelta, timezone
 FUSO_LOJA = timezone(timedelta(hours=-3))
 
 DESCONTO_MAXIMO = 9999.99
-RELAMPAGO_HORAS = 24
+RELAMPAGO_HORAS_MAX = 24
 
 
 def agora_utc():
@@ -131,14 +132,28 @@ def preco_efetivo(preco, desconto_valor=None, promo_fim=None, agora=None,
         "relampago": False,
         "depois": None,
     }
-    if not ativa:
-        return base
-
     extra = _centavos(relampago_valor)
     rel_fim = parse_fim(relampago_fim)
-    if extra <= 0 or rel_fim is None or rel_fim <= agora or desconto + extra >= original:
+    if extra <= 0 or rel_fim is None or rel_fim <= agora:
         return base
-    # O relâmpago nunca passa do fim da promoção (ele existe por cima dela).
+
+    if not ativa:
+        # Relâmpago SOZINHO: o valor é o desconto; ao acabar, preço cheio.
+        if extra >= original:
+            return base
+        return {
+            "original": original / 100,
+            "final": (original - extra) / 100,
+            "desconto": extra / 100,
+            "fim": formata_utc(rel_fim),
+            "ativa": True,
+            "relampago": True,
+            "depois": None,
+        }
+
+    # Relâmpago POR CIMA da promoção. Nunca passa do fim dela.
+    if desconto + extra >= original:
+        return base
     rel_fim = min(rel_fim, parse_fim(promo_fim))
     return {
         "original": original / 100,
@@ -182,11 +197,12 @@ def valida_promo(desconto_valor, promo_fim_local, menor_preco, agora=None):
     return desconto, fim_utc, None
 
 
-def valida_relampago(valor, desconto_valor, promo_fim, menor_preco, agora=None):
+def valida_relampago(valor, horas, desconto_valor, promo_fim, menor_preco, agora=None):
     """Valida o relâmpago que o painel enviou para um modelo.
 
-    `valor` é o EXTRA em reais, somado ao desconto da promoção. Começa agora e
-    dura RELAMPAGO_HORAS, ou acaba junto com a promoção se ela acabar antes.
+    `horas`: duração escolhida, de 1 a RELAMPAGO_HORAS_MAX (vazio = máximo).
+    Com promoção ativa, `valor` é o EXTRA somado a ela, e o fim nunca passa do
+    fim dela. Sem promoção, `valor` é o desconto do relâmpago sozinho.
 
     Retorna (valor, fim_utc, erro). Valor vazio = encerrar o relâmpago:
     (None, None, None).
@@ -194,19 +210,31 @@ def valida_relampago(valor, desconto_valor, promo_fim, menor_preco, agora=None):
     agora = agora or agora_utc()
     if valor in (None, ""):
         return None, None, None
-    if not promo_ativa(desconto_valor, promo_fim, agora):
-        return None, None, "O relâmpago precisa de uma oferta ativa neste modelo. Salve a oferta primeiro."
     try:
         extra = round(float(str(valor).replace(",", ".")), 2)
     except (TypeError, ValueError):
         return None, None, "Valor do relâmpago inválido"
     if not (0 < extra <= DESCONTO_MAXIMO):
         return None, None, "O valor do relâmpago deve ser maior que zero"
-    total = _centavos(desconto_valor) + _centavos(extra)
-    if menor_preco is not None and total >= _centavos(menor_preco):
+    try:
+        h = int(horas) if horas not in (None, "") else RELAMPAGO_HORAS_MAX
+    except (TypeError, ValueError):
+        return None, None, "Duração do relâmpago inválida"
+    if not (1 <= h <= RELAMPAGO_HORAS_MAX):
+        return None, None, f"A duração do relâmpago vai de 1 a {RELAMPAGO_HORAS_MAX} horas"
+    fim = agora + timedelta(hours=h)
+
+    if promo_ativa(desconto_valor, promo_fim, agora):
+        total = _centavos(desconto_valor) + _centavos(extra)
+        if menor_preco is not None and total >= _centavos(menor_preco):
+            return None, None, (
+                "A oferta mais o relâmpago precisam ficar abaixo do preço do sabor "
+                f"mais barato (R$ {menor_preco:.2f})".replace(".", ",")
+            )
+        fim = min(fim, parse_fim(promo_fim))
+    elif menor_preco is not None and _centavos(extra) >= _centavos(menor_preco):
         return None, None, (
-            "A oferta mais o relâmpago precisam ficar abaixo do preço do sabor "
-            f"mais barato (R$ {menor_preco:.2f})".replace(".", ",")
+            "O relâmpago precisa ser menor que o preço do sabor mais barato "
+            f"(R$ {menor_preco:.2f})".replace(".", ",")
         )
-    fim = min(agora + timedelta(hours=RELAMPAGO_HORAS), parse_fim(promo_fim))
     return extra, formata_utc(fim), None

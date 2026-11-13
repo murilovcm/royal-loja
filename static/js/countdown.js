@@ -135,7 +135,7 @@
         return;
       }
       if (modo !== "revert") return;
-      el.classList.remove("is-promo");
+      el.classList.remove("is-promo", "is-relampago");
       Array.prototype.forEach.call(el.querySelectorAll("[data-promo-only]"), function (n) {
         n.parentNode.removeChild(n);
       });

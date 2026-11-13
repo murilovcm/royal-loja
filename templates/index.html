@@ -31,8 +31,9 @@
    `oferta=true` é o card da seção de ofertas: ao zerar ele SAI da seção, em
    vez de voltar ao normal ali dentro.
 
-   RELÂMPAGO (m.promo_relampago): o card mostra o preço com os dois descontos
-   e o relógio do relâmpago. Ao zerar, o countdown.js NÃO devolve o preço
+   RELÂMPAGO (m.promo_relampago): rótulo "Relâmpago" com raio no relógio.
+   Sozinho, ao zerar ele volta ao preço cheio como qualquer oferta. Por cima
+   de uma oferta (m.promo_depois), ao zerar o countdown.js NÃO devolve o preço
    cheio: troca para a oferta normal (data-promo-depois = fim dela) e aplica
      data-depois-text   novo texto do elemento (preço, selo, economia, rótulo)
      data-depois-href   novo ícone do <use> (raio -> relógio)
@@ -40,7 +41,7 @@
 {% macro model_card(m, editor, eager=false, oferta=false) %}
 {% set palette = ['#a855f7','#22d3ee','#f97316','#ec4899','#4ade80','#eab308','#60a5fa','#f43f5e'] %}
 {% set dp = m.promo_depois if m.promo_relampago else none %}
-<article class="model-card{{ ' is-promo' if m.promo_fim }}{{ ' is-relampago' if dp }}"
+<article class="model-card{{ ' is-promo' if m.promo_fim }}{{ ' is-relampago' if m.promo_relampago }}"
          {% if m.promo_fim %}data-promo-fim="{{ m.promo_fim }}"{% if oferta %} data-promo-expire="remove"{% endif %}
          {% if dp %}data-promo-depois="{{ dp.promo_fim }}"
          data-depois-aria="{{ m.brand_name }} {{ m.name }}, a partir de R$ {{ dp.min_price | reais }} na oferta, de R$ {{ m.min_price_original | reais }}. Ver sabores"{% endif %}
@@ -83,7 +84,9 @@
   {% endif %}
   {% if m.promo_fim %}
   <div class="promo-cd" data-promo-only>
-    {% if dp %}<svg class="ico" aria-hidden="true"><use href="#i-bolt" data-depois-href="#i-clock"></use></svg><span class="promo-cd-lbl" data-depois-text="Acaba em">Relâmpago</span>
+    {# Relâmpago por cima de oferta (dp): ao zerar vira "Acaba em" da oferta.
+       Relâmpago sozinho: ao zerar a pílula some com o resto da promoção. #}
+    {% if m.promo_relampago %}<svg class="ico" aria-hidden="true"><use href="#i-bolt"{% if dp %} data-depois-href="#i-clock"{% endif %}></use></svg><span class="promo-cd-lbl"{% if dp %} data-depois-text="Acaba em"{% endif %}>Relâmpago</span>
     {%- else %}<svg class="ico" aria-hidden="true"><use href="#i-clock"></use></svg><span class="promo-cd-lbl">Acaba em</span>{% endif %}<b data-cd>{{ m.promo_fim | promo_resta }}</b>
   </div>
   {% endif %}
