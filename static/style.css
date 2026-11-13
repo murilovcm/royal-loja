@@ -1823,34 +1823,55 @@ header.site-header::after {
 .model-card:active { transform: scale(.97); }
 /* ---- Faixa da promoção (topo do card, fora da foto) ----
    Sangra até as bordas do card (margem negativa = padding do card; o card tem
-   overflow: hidden, então os cantos de cima acompanham o raio dele). Amarela
-   na oferta, vermelha no relâmpago e na última hora de qualquer oferta. Um
-   reflexo atravessa a faixa de tempos em tempos (mais rápido no relâmpago). */
+   overflow: hidden, então os cantos de cima acompanham o raio dele).
+   OFERTA: véu amarelo leve, texto dourado e um ponto pulsando. Não é amarelo
+   sólido de propósito: o único amarelo cheio do card é o "Escolher sabor", e
+   uma faixa sólida competia com ele.
+   RELÂMPAGO e a última hora de qualquer oferta: vermelho sólido, que precisa
+   chamar atenção. Um reflexo atravessa a faixa de tempos em tempos (mais
+   rápido no relâmpago). */
 .deal-cap {
   position: relative; isolation: isolate; overflow: hidden;
   align-self: stretch; margin: -16px -16px 14px; padding: 7px 8px;
   display: flex; justify-content: center;
-  background: var(--btn-grad); color: var(--text-on-primary);
+  background: color-mix(in oklab, var(--primary-yellow), var(--surf-1) 86%);
+  color: var(--primary-yellow);
+  box-shadow: inset 0 -1px 0 rgba(var(--primary-rgb), .18);
   font-size: .7rem; line-height: 1.25; white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .deal-cap-in { display: inline-flex; align-items: center; min-width: 0; }
 .deal-cap-lbl { font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
 .deal-cap-sep { opacity: .45; margin: 0 5px; }
-.deal-cap-pre { font-weight: 600; opacity: .78; margin-right: 4px; }
-.deal-cap-cd { font-weight: 700; letter-spacing: .01em; }
+.deal-cap-pre { font-weight: 600; margin-right: 4px; color: var(--text-dim); }
+.deal-cap-cd { font-weight: 700; letter-spacing: .01em; color: var(--text); }
 .deal-cap-ico { width: 12px; height: 12px; margin-right: 5px; fill: currentColor; stroke: none; }
+/* Ponto pulsando antes de "Oferta" (some no vermelho, onde o raio faz esse papel). */
+.deal-cap-lbl::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; vertical-align: 1px;
+  border-radius: 50%; background: currentColor; animation: dealPing 1.8s ease-out infinite;
+}
+@keyframes dealPing { 0% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb), .6); } 100% { box-shadow: 0 0 0 7px rgba(var(--primary-rgb), 0); } }
 .deal-cap::after {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.55) 50%, transparent 65%);
+  background: linear-gradient(105deg, transparent 35%, rgba(var(--primary-rgb), .2) 50%, transparent 65%);
   transform: translateX(-120%); animation: dealShine 3.6s ease-in-out infinite;
 }
 @keyframes dealShine { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
 .model-card.is-relampago .deal-cap,
 .model-card[data-promo-heat="urgente"] .deal-cap {
   background: linear-gradient(120deg, var(--promo-urgent), color-mix(in oklab, var(--promo-urgent), #ff9a3c 35%));
-  color: #fff;
+  color: #fff; box-shadow: none;
 }
+.model-card.is-relampago .deal-cap::after,
+.model-card[data-promo-heat="urgente"] .deal-cap::after {
+  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.55) 50%, transparent 65%);
+}
+.model-card.is-relampago .deal-cap :is(.deal-cap-cd, .deal-cap-pre),
+.model-card[data-promo-heat="urgente"] .deal-cap :is(.deal-cap-cd, .deal-cap-pre) { color: inherit; }
+.model-card[data-promo-heat="urgente"] .deal-cap-pre { opacity: .8; }
+.model-card.is-relampago .deal-cap-lbl::before,
+.model-card[data-promo-heat="urgente"] .deal-cap-lbl::before { display: none; }
 .model-card.is-relampago .deal-cap::after { animation-duration: 2.4s; }
 .model-card.is-relampago .deal-cap-ico { animation: dealBolt 1s steps(2, jump-none) infinite; }
 @keyframes dealBolt { 50% { opacity: .45; } }
@@ -1872,7 +1893,7 @@ header.site-header::after {
 @media (max-width: 520px) { .deal-cap { margin: -10px -10px 12px; } }
 @media (max-width: 360px) { .deal-cap { margin: -9px -9px 11px; } }
 @media (prefers-reduced-motion: reduce) {
-  .deal-cap::after, .model-card.is-relampago .deal-cap-ico, .cd-clock .in.roll { animation: none; }
+  .deal-cap::after, .deal-cap-lbl::before, .model-card.is-relampago .deal-cap-ico, .cd-clock .in.roll { animation: none; }
 }
 
 /* Puffs: a ficha técnica do aparelho, logo abaixo do nome. */
