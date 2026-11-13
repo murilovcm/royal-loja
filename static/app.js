@@ -1230,6 +1230,11 @@
     if (!on) { box.removeAttribute("data-promo-fim"); return; }
     box.setAttribute("data-promo-fim", m.promo_fim);
     byId("modalPromoOff").textContent = "-" + descontoCurto(m.promo_desconto);
+    // Relâmpago: raio + "Relâmpago" no lugar de "acaba em".
+    const rel = !!m.promo_relampago;
+    box.classList.toggle("is-relampago", rel);
+    byId("modalPromoBolt").hidden = !rel;
+    byId("modalPromoLbl").textContent = rel ? "Relâmpago · em cada sabor · acaba em" : "em cada sabor · acaba em";
     PROMO.refresh();
   }
 
@@ -1306,6 +1311,8 @@
       // carrinho e voltar ao preço cheio quando o relógio zerar.
       price_original: f.price_original != null ? f.price_original : f.price,
       promo_fim: promoOn(f) ? f.promo_fim : null,
+      promo_relampago: promoOn(f) && !!f.promo_relampago,
+      promo_depois: promoOn(f) ? (f.promo_depois || null) : null,
       qty: modalState.qty,
       image_url: f.version_image || m.image_url || "",
     });
@@ -1979,26 +1986,48 @@
       : `${nome} baixou de ${brl(antes)} para ${brl(it.price)}.`;
   }
 
-  // Relógio zerou: catálogo e carrinho voltam ao preço cheio. Devolve as
-  // frases de aviso dos itens do carrinho que mudaram.
+  // O relógio de `x` (modelo, sabor ou item do carrinho) zerou. Com
+  // relâmpago, passa a valer a oferta normal (`promo_depois`) e ela é
+  // devolvida; sem, a promoção acaba e volta null.
+  function proximaPromo(x) {
+    const d = x.promo_depois;
+    x.promo_relampago = false;
+    x.promo_depois = null;
+    if (d && PROMO.ativa(d.promo_fim)) {
+      x.promo_fim = d.promo_fim;
+      x.promo_desconto = d.promo_desconto;
+      return d;
+    }
+    x.promo_fim = null;
+    x.promo_desconto = 0;
+    return null;
+  }
+  const venceu = (x) => !!(x.promo_fim && !PROMO.ativa(x.promo_fim));
+
+  // Relógio zerou: catálogo e carrinho vão para o próximo preço (oferta
+  // normal depois do relâmpago, ou preço cheio). Devolve as frases de aviso
+  // dos itens do carrinho que mudaram.
   function syncPromoPrices() {
     CATALOG.forEach((m) => {
-      if (m.promo_fim && !PROMO.ativa(m.promo_fim)) { m.promo_fim = null; m.promo_desconto = 0; }
+      if (venceu(m)) proximaPromo(m);
       m.flavors.forEach((f) => {
-        if (f.promo_fim && !PROMO.ativa(f.promo_fim)) {
-          f.price = f.price_original;
-          f.promo_fim = null;
-          f.promo_desconto = 0;
+        if (venceu(f)) {
+          const d = proximaPromo(f);
+          f.price = d ? d.price : f.price_original;
         }
       });
     });
     const mudancas = [];
     cart.forEach((it) => {
-      if (it.promo_fim && !PROMO.ativa(it.promo_fim)) {
+      if (venceu(it)) {
         const antes = it.price;
-        it.price = it.price_original;
-        it.promo_fim = null;
-        if (it.price !== antes) mudancas.push(fraseMudanca(it, antes));
+        const eraRelampago = !!it.promo_relampago;
+        const d = proximaPromo(it);
+        it.price = d ? d.price : it.price_original;
+        if (it.price === antes) return;
+        mudancas.push(eraRelampago && d
+          ? `O relâmpago de ${itemLabel(it)} acabou: passou de ${brl(antes)} para ${brl(it.price)}, ainda com o desconto da oferta.`
+          : fraseMudanca(it, antes));
       }
     });
     return mudancas;
@@ -2066,6 +2095,8 @@
           it.price = q.price;
           it.price_original = q.price_original;
           it.promo_fim = q.promo_fim || null;
+          it.promo_relampago = !!q.promo_relampago;
+          it.promo_depois = q.promo_depois || null;
           if (Math.round(antes * 100) !== Math.round(q.price * 100)) mudancas.unshift(fraseMudanca(it, antes));
         }
         lastQuoteAt = Date.now();

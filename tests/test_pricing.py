@@ -11,7 +11,8 @@ PASSADO = "2026-11-27T14:59:59Z"
 
 def test_sem_promo_devolve_preco_cheio():
     pe = pricing.preco_efetivo(129.99, None, None, AGORA)
-    assert pe == {"original": 129.99, "final": 129.99, "desconto": 0.0, "fim": None, "ativa": False}
+    assert pe == {"original": 129.99, "final": 129.99, "desconto": 0.0, "fim": None,
+                  "ativa": False, "relampago": False, "depois": None}
 
 
 def test_promo_ativa_desconta_valor_fixo():

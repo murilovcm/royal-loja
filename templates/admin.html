@@ -68,6 +68,14 @@
     .m-promo-info b { color:var(--text); }
     .m-promo-info.warn { color:#ff8a8a; }
     .m-promo.on .m-promo-info b.left { color:var(--primary-yellow); }
+    /* Relâmpago: mesma linha da oferta, no vermelho de "corre". */
+    .m-relampago { flex-basis:100%; display:flex; align-items:end; gap:10px 12px; flex-wrap:wrap; padding:10px 12px; border:1px dashed rgba(255,90,90,.45); border-radius:10px; }
+    .m-relampago[hidden] { display:none; }
+    .m-relampago.on { border-style:solid; border-color:#ff5a5a; background:rgba(255,90,90,.05); }
+    .m-rel-title { display:inline-flex; align-items:center; gap:6px; color:#ff8a8a; }
+    .m-rel-title svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+    .m-relampago .m-rel-save { background:#ff5a5a; color:#1a0303; border-color:#ff5a5a; font-weight:700; }
+    .m-relampago .m-promo-info b.left { color:#ff8a8a; }
     .promo-filter { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
     .promo-filter .mini-btn[aria-pressed="true"] { border-color:var(--primary-yellow); color:var(--primary-yellow); }
     body.promo-only .model-row:not(.has-promo), body.promo-only .brand-block:not(.has-promo) { display:none; }
@@ -730,6 +738,22 @@
                 </label>
                 <button class="mini-btn primary m-promo-save" onclick="savePromo({{ m.id }})">Salvar oferta</button>
                 <button class="mini-btn m-promo-clear" onclick="clearPromo({{ m.id }})" title="Remover a oferta deste modelo">Remover</button>
+                <span class="m-promo-info" aria-live="polite"></span>
+              </div>
+              {# OFERTA RELÂMPAGO: degrau extra por cima da oferta acima. Só
+                 aparece com a oferta ativa (paintPromoRow). "Mais R$" soma ao
+                 desconto da oferta; começa ao salvar e dura 24h (ou até o fim
+                 da oferta). data-valor/data-fim = estado SALVO. #}
+              <div class="m-relampago" id="relampago-{{ m.id }}"
+                   data-valor="{{ item.promo.relampago_valor }}" data-fim="{{ item.promo.relampago_fim_utc }}" hidden>
+                <span class="m-promo-title m-rel-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11"/></svg>Relâmpago</span>
+                <label class="m-promo-f" title="Desconto EXTRA em reais, somado ao desconto da oferta, em cada sabor.">
+                  <span class="m-variant-lbl">Mais R$</span>
+                  <input type="number" class="m-promo-val m-rel-val" min="0" step="0.01" inputmode="decimal" placeholder="10,00"
+                         value="{{ item.promo.relampago_valor }}" oninput="previewRelampago({{ m.id }})">
+                </label>
+                <button class="mini-btn m-rel-save" onclick="saveRelampago({{ m.id }})">Começar (24h)</button>
+                <button class="mini-btn" onclick="clearRelampago({{ m.id }})" title="Encerrar o relâmpago agora (a oferta continua)">Encerrar</button>
                 <span class="m-promo-info" aria-live="polite"></span>
               </div>
               {% endif %}
@@ -1816,6 +1840,8 @@
       const ativa = desconto > 0 && fim > Date.now();
       box.classList.toggle('on', ativa);
       row.classList.toggle('has-promo', ativa);
+      const rel = document.getElementById('relampago-' + box.id.replace('promo-', ''));
+      if (rel) rel.hidden = !ativa;
       return ativa;
     }
     function previewPromo(mid) {
@@ -1871,6 +1897,13 @@
       box.dataset.fim = (res.promo && res.promo.fim) || '';
       box.dataset.desconto = (res.promo && res.promo.desconto) || '';
       delete box.dataset.sujo;
+      // Sem oferta não há relâmpago (o servidor já apagou).
+      const rel = document.getElementById('relampago-' + mid);
+      if (rel && !box.dataset.fim) {
+        rel.dataset.valor = ''; rel.dataset.fim = '';
+        rel.querySelector('.m-rel-val').value = '';
+      }
+      if (rel) previewRelampago(mid);
       return true;
     }
     async function savePromo(mid) {
@@ -1901,6 +1934,78 @@
       refreshPromoFilter();
       document.querySelectorAll('.m-promo').forEach((box) => {
         if (!box.dataset.sujo && !box.contains(document.activeElement)) previewPromo(box.id.replace('promo-', ''));
+      });
+    }, 30000);
+
+    // ---- Oferta relâmpago (degrau por cima da oferta do modelo) ----
+    // Estado SALVO em data-valor/data-fim da linha. O fim nunca passa do fim
+    // da oferta: quem garante é o servidor (pricing.valida_relampago).
+    function relampagoAtivo(rel) {
+      return parseFloat(rel.dataset.valor) > 0 && Date.parse(rel.dataset.fim) > Date.now();
+    }
+    function previewRelampago(mid) {
+      const rel = document.getElementById('relampago-' + mid);
+      const box = document.getElementById('promo-' + mid);
+      if (!rel || !box) return;
+      const info = rel.querySelector('.m-promo-info');
+      const ativo = relampagoAtivo(rel);
+      rel.classList.toggle('on', ativo);
+      rel.querySelector('.m-rel-save').textContent = ativo ? 'Salvar valor' : 'Começar (24h)';
+      info.className = 'm-promo-info';
+      info.textContent = '';
+      const min = parseFloat(box.dataset.min) || 0;
+      const bf = parseFloat(box.dataset.desconto) || 0;
+      const raw = rel.querySelector('.m-rel-val').value.replace(',', '.');
+      const extra = parseFloat(raw);
+      const aviso = (t) => { info.classList.add('warn'); info.textContent = t; };
+      if (!raw) { info.textContent = 'Sem relâmpago.'; return; }
+      if (!(extra > 0)) return aviso('Informe quanto tirar a mais.');
+      if (min && bf + extra >= min) return aviso('Oferta + relâmpago precisam ficar abaixo de ' + fmtBRL(min) + '.');
+      const preco = document.createElement('span');
+      preco.append('Preço relâmpago: ');
+      const b = document.createElement('b'); b.textContent = fmtBRL(min - bf - extra); preco.append(b);
+      if (ativo) {
+        preco.append(' · acaba em ');
+        const left = document.createElement('b'); left.className = 'left';
+        left.textContent = promoRestante(Date.parse(rel.dataset.fim) - Date.now()); preco.append(left);
+      } else {
+        preco.append(' · dura 24h a partir de quando você começar');
+      }
+      info.append(preco);
+    }
+    async function sendRelampago(mid, valor) {
+      const rel = document.getElementById('relampago-' + mid);
+      const res = await api('/api/model/' + mid, 'POST', { relampago: { valor } });
+      if (!res.ok) { toast(res.error || 'Erro ao salvar o relâmpago'); return false; }
+      rel.dataset.valor = (res.relampago && res.relampago.valor) || '';
+      rel.dataset.fim = (res.relampago && res.relampago.fim) || '';
+      delete rel.dataset.sujo;
+      return true;
+    }
+    async function saveRelampago(mid) {
+      const rel = document.getElementById('relampago-' + mid);
+      const valor = rel.querySelector('.m-rel-val').value;
+      if (!valor) { toast('Informe quanto tirar a mais'); return; }
+      const jaAtivo = relampagoAtivo(rel);
+      if (await sendRelampago(mid, valor)) {
+        toast(jaAtivo ? 'Valor do relâmpago atualizado ✓' : 'Relâmpago começou: 24h ✓');
+        previewRelampago(mid);
+      }
+    }
+    async function clearRelampago(mid) {
+      const rel = document.getElementById('relampago-' + mid);
+      if (!(await sendRelampago(mid, ''))) return;
+      rel.querySelector('.m-rel-val').value = '';
+      toast('Relâmpago encerrado');
+      previewRelampago(mid);
+    }
+    document.querySelectorAll('.m-relampago').forEach((rel) => {
+      rel.addEventListener('input', () => { rel.dataset.sujo = '1'; });
+      previewRelampago(rel.id.replace('relampago-', ''));
+    });
+    setInterval(() => {
+      document.querySelectorAll('.m-relampago').forEach((rel) => {
+        if (!rel.dataset.sujo && !rel.contains(document.activeElement)) previewRelampago(rel.id.replace('relampago-', ''));
       });
     }, 30000);
 

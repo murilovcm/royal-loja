@@ -29,11 +29,21 @@
      data-promo-price   guarda o preço cheio, que volta a ser exibido ao zerar
      data-promo-aria    rótulo acessível sem a promoção
    `oferta=true` é o card da seção de ofertas: ao zerar ele SAI da seção, em
-   vez de voltar ao normal ali dentro. #}
+   vez de voltar ao normal ali dentro.
+
+   RELÂMPAGO (m.promo_relampago): o card mostra o preço com os dois descontos
+   e o relógio do relâmpago. Ao zerar, o countdown.js NÃO devolve o preço
+   cheio: troca para a oferta normal (data-promo-depois = fim dela) e aplica
+     data-depois-text   novo texto do elemento (preço, selo, economia, rótulo)
+     data-depois-href   novo ícone do <use> (raio -> relógio)
+     data-depois-aria   novo rótulo acessível do card #}
 {% macro model_card(m, editor, eager=false, oferta=false) %}
 {% set palette = ['#a855f7','#22d3ee','#f97316','#ec4899','#4ade80','#eab308','#60a5fa','#f43f5e'] %}
-<article class="model-card{{ ' is-promo' if m.promo_fim }}"
+{% set dp = m.promo_depois if m.promo_relampago else none %}
+<article class="model-card{{ ' is-promo' if m.promo_fim }}{{ ' is-relampago' if dp }}"
          {% if m.promo_fim %}data-promo-fim="{{ m.promo_fim }}"{% if oferta %} data-promo-expire="remove"{% endif %}
+         {% if dp %}data-promo-depois="{{ dp.promo_fim }}"
+         data-depois-aria="{{ m.brand_name }} {{ m.name }}, a partir de R$ {{ dp.min_price | reais }} na oferta, de R$ {{ m.min_price_original | reais }}. Ver sabores"{% endif %}
          data-promo-aria="{{ m.brand_name }} {{ m.name }}, a partir de R$ {{ m.min_price_original | reais }}. Ver sabores"{% endif %}
          {# Acesso por teclado: invisível na tela, mas sem isto a grade inteira
             é inalcançável sem mouse ou toque (o clique vive num listener do
@@ -61,7 +71,7 @@
          loading="{{ 'eager' if eager else 'lazy' }}"
          {% if eager %}fetchpriority="high"{% endif %} decoding="async">
     {% else %}<span class="ph">{{ m.name[0] }}</span>{% endif %}
-    {% if m.promo_fim %}<span class="promo-off" data-promo-only>-R$ {{ m.promo_desconto | desconto_curto }}</span>{% endif %}
+    {% if m.promo_fim %}<span class="promo-off" data-promo-only{% if dp %} data-depois-text="-R$ {{ dp.promo_desconto | desconto_curto }}"{% endif %}>-R$ {{ m.promo_desconto | desconto_curto }}</span>{% endif %}
   </div>
   <span class="brand-lbl">{{ m.brand_name }}</span>
   <h3>{{ m.name }}</h3>
@@ -73,14 +83,15 @@
   {% endif %}
   {% if m.promo_fim %}
   <div class="promo-cd" data-promo-only>
-    <svg class="ico" aria-hidden="true"><use href="#i-clock"></use></svg><span class="promo-cd-lbl">Acaba em</span><b data-cd>{{ m.promo_fim | promo_resta }}</b>
+    {% if dp %}<svg class="ico" aria-hidden="true"><use href="#i-bolt" data-depois-href="#i-clock"></use></svg><span class="promo-cd-lbl" data-depois-text="Acaba em">Relâmpago</span>
+    {%- else %}<svg class="ico" aria-hidden="true"><use href="#i-clock"></use></svg><span class="promo-cd-lbl">Acaba em</span>{% endif %}<b data-cd>{{ m.promo_fim | promo_resta }}</b>
   </div>
   {% endif %}
   <div class="card-foot">
     <div class="price-wrap">
       <span class="from">a partir de</span><br>
       {% if m.promo_fim %}<s class="price-was" data-promo-only>R$ {{ m.min_price_original | reais }}</s>
-      <span class="price"><span class="cur">R$</span><span data-promo-price="{{ m.min_price_original | reais }}">{{ m.min_price | reais }}</span></span>
+      <span class="price"><span class="cur">R$</span><span data-promo-price="{{ m.min_price_original | reais }}"{% if dp %} data-depois-text="{{ dp.min_price | reais }}"{% endif %}>{{ m.min_price | reais }}</span></span>
       {% else %}<span class="price"><span class="cur">R$</span>{{ '%.2f' | format(m.min_price) | replace('.', ',') }}</span>{% endif %}
     </div>
     <span class="card-plus" aria-hidden="true"><svg class="plus-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
@@ -88,7 +99,7 @@
   {# Faixa de economia: fecha o card em oferta, de ponta a ponta, com o valor
      que o cliente deixa de pagar. Mesmo verde do "Você economiza" do carrinho.
      Some junto com a oferta (data-promo-only). #}
-  {% if m.promo_fim %}<div class="promo-economia" data-promo-only>Economia de <b>R$ {{ m.promo_desconto | desconto_curto }}</b></div>{% endif %}
+  {% if m.promo_fim %}<div class="promo-economia" data-promo-only>Economia de <b{% if dp %} data-depois-text="R$ {{ dp.promo_desconto | desconto_curto }}"{% endif %}>R$ {{ m.promo_desconto | desconto_curto }}</b></div>{% endif %}
 </article>
 {% endmacro %}
 <!DOCTYPE html>
@@ -387,18 +398,22 @@
        TODAS as ofertas ativas estão aqui, em ordem de término, e só a primeira
        aparece. Quando o relógio dela zera, o countdown.js a remove e revela a
        seguinte (data-promo-group="first"); sem nenhuma, o bloco inteiro sai do
-       DOM. Sem promoção cadastrada, nada disto é gerado. #}
+       DOM. Sem promoção cadastrada, nada disto é gerado.
+       Relâmpago: o modelo entra duas vezes na fila (destaques_do_hero, app.py),
+       uma com o relâmpago ("Relâmpago" + raio) e outra com a oferta normal,
+       que aparece sozinha quando o relâmpago zera. #}
     {% if ofertas %}
     <div class="promo-next" data-promo-group="first">
-      {% for m in ofertas %}
-      <a class="promo-next-item" href="#ofertas" data-open-model="{{ m.id }}" data-promo-fim="{{ m.promo_fim }}" data-promo-expire="remove"{% if not loop.first %} hidden{% endif %}>
+      {% for d in destaques %}{% set m = d.m %}
+      <a class="promo-next-item{{ ' is-relampago' if d.relampago }}" href="#ofertas" data-open-model="{{ m.id }}" data-promo-fim="{{ d.fim }}" data-promo-expire="remove"{% if not loop.first %} hidden{% endif %}>
         {% if m.image_url %}<img class="promo-next-img" src="{{ m.image_url }}" alt="" width="56" height="56" loading="{{ 'eager' if loop.first else 'lazy' }}" decoding="async">{% endif %}
         <span class="promo-next-info">
-          <span class="promo-next-eyebrow">Acaba primeiro</span>
+          {% if d.relampago %}<span class="promo-next-eyebrow"><svg class="ico" aria-hidden="true"><use href="#i-bolt"></use></svg>Relâmpago</span>
+          {% else %}<span class="promo-next-eyebrow">Acaba primeiro</span>{% endif %}
           <span class="promo-next-name">{{ m.brand_name }} {{ m.name }}</span>
-          <span class="promo-next-prices"><s>R$ {{ m.min_price_original | reais }}</s> <b>R$ {{ m.min_price | reais }}</b></span>
+          <span class="promo-next-prices"><s>R$ {{ m.min_price_original | reais }}</s> <b>R$ {{ d.price | reais }}</b></span>
         </span>
-        <span class="promo-next-cd"><svg class="ico" aria-hidden="true"><use href="#i-clock"></use></svg><b data-cd>{{ m.promo_fim | promo_resta }}</b></span>
+        <span class="promo-next-cd"><svg class="ico" aria-hidden="true"><use href="#i-clock"></use></svg><b data-cd>{{ d.fim | promo_resta }}</b></span>
       </a>
       {% endfor %}
     </div>
@@ -758,7 +773,9 @@
            ao zerar, o app.js esconde de novo (data-promo-expire="none"). #}
         <div class="modal-promo" id="modalPromo" data-promo-expire="none" hidden>
           <span class="promo-off" id="modalPromoOff"></span>
-          <span class="modal-promo-txt">em cada sabor · acaba em <b data-cd></b></span>
+          {# Com relâmpago o app.js troca o rótulo para "Relâmpago" e mostra o
+             raio (#modalPromoBolt). #}
+          <span class="modal-promo-txt"><span class="modal-promo-bolt" id="modalPromoBolt" hidden><svg class="ico" aria-hidden="true"><use href="#i-bolt"></use></svg></span><span id="modalPromoLbl">em cada sabor · acaba em</span> <b data-cd></b></span>
         </div>
         <div class="modal-label">Escolha o sabor</div>
         <div class="flavor-grid" id="modalFlavors"></div>

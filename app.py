@@ -662,6 +662,16 @@ def init_db():
     if "promo_fim" not in model_cols:
         db.execute("ALTER TABLE vape_models ADD COLUMN promo_fim TEXT")
         db.commit()
+    # Migração: OFERTA RELÂMPAGO, degrau extra por cima da promoção.
+    # `relampago_valor` é o desconto EXTRA em reais (somado a desconto_valor);
+    # `relampago_fim` é o fim em UTC (salvar + 24h, nunca além de promo_fim).
+    # Nascem NULL: publicar não altera preço nenhum. Ver pricing.py.
+    if "relampago_valor" not in model_cols:
+        db.execute("ALTER TABLE vape_models ADD COLUMN relampago_valor REAL")
+        db.commit()
+    if "relampago_fim" not in model_cols:
+        db.execute("ALTER TABLE vape_models ADD COLUMN relampago_fim TEXT")
+        db.commit()
 
     # Semeia a conta "dono" (acesso completo) só na primeiríssima vez que a
     # loja roda — depois disso, a senha real mora hasheada no banco, e essas
@@ -1190,15 +1200,25 @@ def get_shipping_zones():
 
 
 def _promo_of(model, parent=None):
-    """(desconto_valor, promo_fim) que vale para os sabores de um modelo.
+    """(desconto_valor, promo_fim, relampago_valor, relampago_fim) que vale
+    para os sabores de um modelo.
     Versões (Slim, geração anterior) herdam a promoção do produto principal:
     para o cliente é o mesmo card, com um relógio só — a mesma regra pela qual
     o cupom do principal já alcança as versões."""
     dono = parent if parent is not None else model
-    return dono["desconto_valor"], dono["promo_fim"]
+    return (dono["desconto_valor"], dono["promo_fim"],
+            dono["relampago_valor"], dono["relampago_fim"])
 
 
-def _flavors_of(db, model, promo=(None, None), agora=None):
+def _depois(pe):
+    """`depois` do pricing no formato dos sabores/itens do carrinho."""
+    d = pe["depois"]
+    if not d:
+        return None
+    return {"price": d["final"], "promo_desconto": d["desconto"], "promo_fim": d["fim"]}
+
+
+def _flavors_of(db, model, promo=(None, None, None, None), agora=None):
     """Sabores de UM modelo, já carimbados com os dados da versão a que pertencem.
 
     O carimbo é o que permite achatar várias versões numa lista só: o sabor sabe
@@ -1225,11 +1245,15 @@ def _flavors_of(db, model, promo=(None, None), agora=None):
         # `price` passa a ser o preço QUE VALE AGORA (regra única em
         # pricing.preco_efetivo). O cheio vai em `price_original`, e o front
         # usa `promo_fim` para voltar a ele sozinho quando o relógio zera.
-        pe = pricing.preco_efetivo(f["price"], promo[0], promo[1], agora)
+        pe = pricing.preco_efetivo(f["price"], promo[0], promo[1], agora, promo[2], promo[3])
         f["price_original"] = pe["original"]
         f["price"] = pe["final"]
         f["promo_desconto"] = pe["desconto"]
         f["promo_fim"] = pe["fim"]
+        # Relâmpago: `promo_depois` é o preço da promoção normal, que volta a
+        # valer quando o relâmpago zera (o navegador troca sozinho).
+        f["promo_relampago"] = pe["relampago"]
+        f["promo_depois"] = _depois(pe)
         flavors.append(f)
     return flavors
 
@@ -1312,6 +1336,16 @@ def build_catalog(agora=None):
                 "min_price_original": barato["price_original"] if barato else 0,
                 "promo_desconto": em_promo[0]["promo_desconto"] if em_promo else 0,
                 "promo_fim": em_promo[0]["promo_fim"] if em_promo else None,
+                # Relâmpago do card e o que vale depois dele (preço "a partir
+                # de" e desconto da promoção normal), para o card trocar sozinho.
+                "promo_relampago": bool(em_promo and em_promo[0]["promo_relampago"]),
+                "promo_depois": (
+                    {"min_price": barato["promo_depois"]["price"],
+                     "promo_desconto": barato["promo_depois"]["promo_desconto"],
+                     "promo_fim": barato["promo_depois"]["promo_fim"]}
+                    if em_promo and em_promo[0]["promo_relampago"] and barato and barato["promo_depois"]
+                    else None
+                ),
             }
         )
     return catalog
@@ -1322,6 +1356,23 @@ def ofertas_do_catalogo(catalog):
     último. Alimenta a seção de ofertas e o destaque "próxima oferta" do topo.
     Lista vazia faz os dois sumirem do HTML."""
     return sorted((m for m in catalog if m["promo_fim"]), key=lambda m: m["promo_fim"])
+
+
+def destaques_do_hero(ofertas):
+    """Entradas do card "Acaba primeiro" embaixo do hero, em ordem de término.
+
+    Um modelo em relâmpago entra DUAS vezes: a entrada do relâmpago (acaba
+    primeiro) e a da promoção normal dele, mais adiante na fila. Quando o
+    relâmpago zera, o countdown.js remove a primeira e revela a próxima da
+    fila, sem nenhuma lógica nova no navegador."""
+    out = []
+    for m in ofertas:
+        out.append({"m": m, "fim": m["promo_fim"], "price": m["min_price"],
+                    "relampago": m["promo_relampago"]})
+        if m["promo_depois"]:
+            out.append({"m": m, "fim": m["promo_depois"]["promo_fim"],
+                        "price": m["promo_depois"]["min_price"], "relampago": False})
+    return sorted(out, key=lambda e: e["fim"])
 
 
 # Ícone de cada pergunta frequente, escolhido pelo QUE A PERGUNTA DIZ.
@@ -1716,6 +1767,7 @@ def home():
         # relógio do cliente a partir dela (ver static/js/countdown.js).
         server_now_ms=int(agora.timestamp() * 1000),
         ofertas=ofertas_do_catalogo(catalog),
+        destaques=destaques_do_hero(ofertas_do_catalogo(catalog)),
         ofertas_secao=offers_section(config),
         bf_ativo=config.get("bf_tema_ativo") == "1",
         reviews=get_google_reviews(only_active=True) if reviews_on else [],
@@ -1876,6 +1928,10 @@ def admin():
             "fim_utc": pricing.formata_utc(fim) if fim else "",
             "ativa": pricing.promo_ativa(m.get("desconto_valor"), m.get("promo_fim"), agora),
             "menor_preco": min(precos) if precos else 0,
+            # Relâmpago (degrau por cima da oferta). O painel decide se está
+            # ativo comparando o fim com a hora, igual à oferta.
+            "relampago_valor": m.get("relampago_valor") or "",
+            "relampago_fim_utc": m.get("relampago_fim") or "",
         }
 
     tree = []
@@ -2827,7 +2883,9 @@ def precos_dos_sabores(ids, agora=None):
                COALESCE(pai.active, m.active)  AS visivel,
                m.active                        AS versao_ativa,
                CASE WHEN m.parent_id IS NULL THEN m.desconto_valor ELSE pai.desconto_valor END AS desconto_valor,
-               CASE WHEN m.parent_id IS NULL THEN m.promo_fim      ELSE pai.promo_fim      END AS promo_fim
+               CASE WHEN m.parent_id IS NULL THEN m.promo_fim      ELSE pai.promo_fim      END AS promo_fim,
+               CASE WHEN m.parent_id IS NULL THEN m.relampago_valor ELSE pai.relampago_valor END AS relampago_valor,
+               CASE WHEN m.parent_id IS NULL THEN m.relampago_fim   ELSE pai.relampago_fim   END AS relampago_fim
         FROM products p
         JOIN vape_models m ON m.id = p.model_id
         LEFT JOIN vape_models pai ON pai.id = m.parent_id
@@ -2838,7 +2896,8 @@ def precos_dos_sabores(ids, agora=None):
     agora = agora or pricing.agora_utc()
     out = {}
     for r in rows:
-        pe = pricing.preco_efetivo(r["price"], r["desconto_valor"], r["promo_fim"], agora)
+        pe = pricing.preco_efetivo(r["price"], r["desconto_valor"], r["promo_fim"], agora,
+                                   r["relampago_valor"], r["relampago_fim"])
         pe["is_in_stock"] = bool(r["is_in_stock"]) and bool(r["visivel"]) and bool(r["versao_ativa"])
         out[r["id"]] = pe
     return out
@@ -2879,6 +2938,8 @@ def api_cart_quote():
                         "price_original": oficiais[fid]["original"],
                         "promo_desconto": oficiais[fid]["desconto"],
                         "promo_fim": oficiais[fid]["fim"],
+                        "promo_relampago": oficiais[fid]["relampago"],
+                        "promo_depois": _depois(oficiais[fid]),
                         "is_in_stock": oficiais[fid]["is_in_stock"],
                     }
                     if fid in oficiais else {}
@@ -3274,6 +3335,42 @@ def api_update_model(mid):
         fields.append("promo_fim = ?")
         vals.append(fim_utc)
         promo_info = {"desconto": desconto, "fim": fim_utc}
+        # Sem promoção não existe relâmpago (ele é um degrau por cima dela).
+        if desconto is None:
+            fields += ["relampago_valor = ?", "relampago_fim = ?"]
+            vals += [None, None]
+
+    # Oferta relâmpago: só o valor EXTRA chega (`relampago`: {valor}). Começa
+    # agora e dura 24h (ou até o fim da promoção). Valor vazio encerra.
+    # Mudar o valor de um relâmpago já ativo NÃO reinicia o relógio.
+    relampago_info = None
+    if "relampago" in d:
+        rel_in = d["relampago"] if isinstance(d["relampago"], dict) else {}
+        alvo = db.execute("SELECT * FROM vape_models WHERE id = ?", (mid,)).fetchone()
+        if not alvo:
+            return jsonify({"ok": False, "error": "modelo não encontrado"}), 404
+        if alvo["parent_id"] is not None:
+            return jsonify({
+                "ok": False,
+                "error": "o relâmpago é definido no produto principal e vale para as versões dele",
+            }), 400
+        menor = db.execute(
+            "SELECT MIN(price) AS p FROM products WHERE model_id = ? "
+            "OR model_id IN (SELECT id FROM vape_models WHERE parent_id = ?)",
+            (mid, mid),
+        ).fetchone()["p"]
+        agora = pricing.agora_utc()
+        valor, fim_utc, erro = pricing.valida_relampago(
+            rel_in.get("valor"), alvo["desconto_valor"], alvo["promo_fim"], menor, agora
+        )
+        if erro:
+            return jsonify({"ok": False, "error": erro}), 400
+        fim_atual = pricing.parse_fim(alvo["relampago_fim"])
+        if valor is not None and fim_atual and fim_atual > agora and alvo["relampago_valor"]:
+            fim_utc = pricing.formata_utc(fim_atual)
+        fields += ["relampago_valor = ?", "relampago_fim = ?"]
+        vals += [valor, fim_utc]
+        relampago_info = {"valor": valor, "fim": fim_utc}
 
     if not fields:
         return jsonify({"ok": False}), 400
@@ -3281,9 +3378,12 @@ def api_update_model(mid):
     db.execute(f"UPDATE vape_models SET {', '.join(fields)} WHERE id = ?", vals)
     db.commit()
     # (A auditoria da alteração já é feita pelo guard de escrita da rota.)
+    out = {"ok": True}
     if promo_info is not None:
-        return jsonify({"ok": True, "promo": promo_info})
-    return jsonify({"ok": True})
+        out["promo"] = promo_info
+    if relampago_info is not None:
+        out["relampago"] = relampago_info
+    return jsonify(out)
 
 
 @app.route("/api/model/<int:mid>", methods=["DELETE"])

@@ -3908,6 +3908,26 @@ body.editor-mode .model-card { cursor: default; }
 .modal-promo[hidden] { display: none; }
 .modal-promo-txt b { color: var(--text); font-weight: 700; display: inline-block; min-width: 8ch; }
 .modal-promo[data-promo-heat="urgente"] .modal-promo-txt b { color: var(--promo-urgent); }
+
+/* ---- Oferta relâmpago ----
+   Mesmo layout da oferta normal; muda só a palavra ("Relâmpago"), o ícone
+   (raio do sprite, nunca emoji) e o tom do rótulo, no vermelho que as ofertas
+   já usam para "corre". Quando o relâmpago zera, o countdown.js tira a classe
+   .is-relampago e o card volta ao visual da oferta normal. */
+/* Na última hora vale a pílula vermelha cheia da urgência (regra acima). */
+.model-card.is-relampago:not([data-promo-heat="urgente"]) .promo-cd {
+  color: var(--promo-urgent);
+  border-color: color-mix(in oklab, var(--promo-urgent), transparent 55%);
+}
+.promo-next-item.is-relampago .promo-next-eyebrow {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--promo-urgent); font-weight: 700;
+}
+.promo-next-eyebrow .ico { width: 13px; height: 13px; }
+.modal-promo-bolt { display: inline-flex; vertical-align: -2px; margin-right: 4px; color: var(--promo-urgent); }
+.modal-promo-bolt[hidden] { display: none; }
+.modal-promo-bolt .ico { width: 14px; height: 14px; }
+.modal-promo.is-relampago #modalPromoLbl { color: var(--promo-urgent); font-weight: 700; }
 .modal-was {
   display: block; font-size: .82rem; color: var(--text-dim);
   font-variant-numeric: tabular-nums; line-height: 1.2;

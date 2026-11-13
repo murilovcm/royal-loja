@@ -20,6 +20,14 @@
                         destaque do topo)
      "none"             nada aqui; quem desenhou cuida (modal e carrinho, no app.js)
 
+   RELÂMPAGO: com data-promo-depois="<ISO>" no escopo, ao zerar ele NÃO
+   expira: passa para a oferta normal, que vale até aquela data. O escopo
+   recebe o novo data-promo-fim, perde .is-relampago, e dentro dele
+     [data-depois-text]  recebe o texto do atributo (preço, selo, rótulo)
+     [data-depois-href]  vira o novo href do <use> (raio -> relógio)
+     data-depois-aria    (no escopo) vira o aria-label
+   O evento "promo:expired" dispara do mesmo jeito (o app.js troca os preços).
+
    [data-promo-group] é removido inteiro quando não sobra nenhuma promoção
    dentro dele, então a seção de ofertas e o destaque somem sem deixar buraco.
    Com data-promo-group="first", o próximo item escondido passa a aparecer:
@@ -94,8 +102,30 @@
     }, { rootMargin: "300px" });
   }
 
+  // Relâmpago zerou: o escopo continua em oferta, agora com o preço e o
+  // relógio da oferta normal.
+  function rebaixar(el, depois) {
+    el.setAttribute("data-promo-fim", depois);
+    el.removeAttribute("data-promo-depois");
+    el.removeAttribute("data-promo-heat");
+    el.classList.remove("is-relampago");
+    Array.prototype.forEach.call(el.querySelectorAll("[data-depois-text]"), function (n) {
+      n.textContent = n.getAttribute("data-depois-text");
+      n.removeAttribute("data-depois-text");
+    });
+    Array.prototype.forEach.call(el.querySelectorAll("[data-depois-href]"), function (n) {
+      n.setAttribute("href", n.getAttribute("data-depois-href"));
+      n.removeAttribute("data-depois-href");
+    });
+    var aria = el.getAttribute("data-depois-aria");
+    if (aria) { el.setAttribute("aria-label", aria); el.removeAttribute("data-depois-aria"); }
+    pintar(el, fimDe(el) - agora());
+  }
+
   function expirar(lista) {
     lista.forEach(function (el) {
+      var depois = el.getAttribute("data-promo-depois");
+      if (depois && ativa(depois)) { rebaixar(el, depois); return; }
       var modo = el.getAttribute("data-promo-expire") || "revert";
       el.removeAttribute("data-promo-fim");
       el.removeAttribute("data-promo-heat");
