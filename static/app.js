@@ -640,24 +640,124 @@
   // ---------------------------------------------------------------
   // CATALOG FILTER + SEARCH
   // ---------------------------------------------------------------
+  // Três camadas, todas combinadas (E entre elas):
+  //   1. busca       texto livre: modelo, marca ou SABOR em estoque
+  //   2. fileira     Todos / Mais Vendidos / uma marca
+  //   3. filtros     painel "Filtros": puffs, sabor, preço, só em oferta, ordem
+  // Dentro de um mesmo grupo do painel as opções se SOMAM (25-40 mil OU 40 mil+);
+  // entre grupos elas se CRUZAM (esses puffs E gelado E até R$ 140).
+  //
+  // Nada disso depende de cadastro: tudo sai do catálogo que a página já
+  // recebe (puffs do modelo, nomes dos sabores em estoque, preço que vale agora).
   const grid = byId("catalogGrid");
   const cards = Array.from(grid.querySelectorAll(".model-card"));
   let activeFilter = "all";
 
+  // "Açaí" e "acai", "MENTHOL" e "menthol" têm que casar.
+  const semAcento = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+  // "15.500 Puffs" -> 15500, "50K puffs" -> 50000. Texto que não fala de puffs
+  // (ex.: "20mg" de um spray) devolve null: o modelo fica fora das faixas em
+  // vez de cair, errado, em "até 10 mil".
+  function puffsDe(model) {
+    const t = semAcento(model.puff_count);
+    if (!t.includes("puff")) return null;
+    const mil = t.match(/(\d+(?:[.,]\d+)?)\s*k\b/);
+    const n = mil ? Math.round(parseFloat(mil[1].replace(",", ".")) * 1000) : parseInt(t.replace(/\D/g, ""), 10);
+    return n >= 1000 ? n : null;
+  }
+
+  const FAIXAS_PUFFS = [
+    { id: "p10", label: "Até 10 mil", curto: "Até 10 mil puffs", ok: (n) => n <= 10000 },
+    { id: "p25", label: "10 a 25 mil", curto: "10 a 25 mil puffs", ok: (n) => n > 10000 && n <= 25000 },
+    { id: "p40", label: "25 a 40 mil", curto: "25 a 40 mil puffs", ok: (n) => n > 25000 && n <= 40000 },
+    { id: "p40mais", label: "Mais de 40 mil", curto: "Mais de 40 mil puffs", ok: (n) => n > 40000 },
+  ];
+  const FAIXAS_PRECO = [
+    { id: "r100", label: "Até R$ 100", ok: (p) => p <= 100 },
+    { id: "r140", label: "R$ 100 a R$ 140", ok: (p) => p > 100 && p <= 140 },
+    { id: "r140mais", label: "Acima de R$ 140", ok: (p) => p > 140 },
+  ];
+  // Famílias de sabor, reconhecidas pelo nome que o lojista já cadastra (em
+  // inglês ou português). \b evita que "grape" case com "grapefruit" e afins.
+  const SABORES = [
+    { id: "gelado", label: "Gelado", re: /\b(ice|icy|iced|frozen|gelad[oa]|gelo)\b|🧊|❄/ },
+    { id: "mentolado", label: "Mentolado", re: /\b(mint|minty|menthol|mentol|menta|hortela)\b/ },
+    { id: "morango", label: "Morango", re: /\b(strawberry|morango)\b/ },
+    { id: "uva", label: "Uva", re: /\b(grape|uva)\b/ },
+    { id: "melancia", label: "Melancia", re: /\b(watermelon|melancia)\b/ },
+    { id: "maca", label: "Maçã", re: /\b(apple|maca)\b/ },
+    { id: "tropical", label: "Tropicais", re: /\b(mango|manga|pineapple|abacaxi|passion|maracuja|guava|goiaba|kiwi|banana|coconut|coco|tropical)\b/ },
+  ];
+  const ORDENS = [
+    { id: "padrao", label: "Padrão da loja" },
+    { id: "menor", label: "Menor preço" },
+    { id: "maior", label: "Maior preço" },
+  ];
+
+  // Ficha de cada card, calculada uma vez. O preço e a oferta NÃO entram aqui:
+  // mudam quando uma oferta zera, então são lidos na hora de filtrar.
+  const fichas = new Map();
+  cards.forEach((card, ordem) => {
+    const model = CATALOG.find((m) => m.id === Number(card.dataset.id));
+    const sabores = model ? model.flavors.filter((f) => f.is_in_stock).map((f) => semAcento(f.name)) : [];
+    fichas.set(card, {
+      model,
+      ordem,
+      puffs: model ? puffsDe(model) : null,
+      busca: semAcento([card.dataset.name, card.dataset.brandname].concat(sabores).join(" | ")),
+      sabores: new Set(SABORES.filter((s) => sabores.some((nome) => s.re.test(nome))).map((s) => s.id)),
+    });
+  });
+  // Preço que vale agora (já com oferta): o do sabor mais barato à venda.
+  function precoDe(model) {
+    if (!model) return 0;
+    const venda = model.flavors.filter((f) => f.is_in_stock);
+    const lista = (venda.length ? venda : model.flavors).map((f) => f.price);
+    return lista.length ? Math.min(...lista) : 0;
+  }
+  const emOferta = (model) => !!model && model.flavors.some((f) => f.is_in_stock && promoOn(f));
+
+  const filtros = { ordem: "padrao", puffs: new Set(), sabor: new Set(), preco: new Set(), oferta: false };
+  const totalFiltros = () => filtros.puffs.size + filtros.sabor.size + filtros.preco.size + (filtros.oferta ? 1 : 0) + (filtros.ordem !== "padrao" ? 1 : 0);
+
+  function passaNosFiltros(ficha) {
+    if (filtros.puffs.size && !(ficha.puffs !== null && FAIXAS_PUFFS.some((f) => filtros.puffs.has(f.id) && f.ok(ficha.puffs)))) return false;
+    if (filtros.sabor.size && ![...filtros.sabor].some((id) => ficha.sabores.has(id))) return false;
+    if (filtros.preco.size) {
+      const p = precoDe(ficha.model);
+      if (!FAIXAS_PRECO.some((f) => filtros.preco.has(f.id) && f.ok(p))) return false;
+    }
+    if (filtros.oferta && !emOferta(ficha.model)) return false;
+    return true;
+  }
+
   function applyFilter() {
-    const q = (byId("searchInput").value || "").toLowerCase().trim();
+    const q = semAcento(byId("searchInput").value).trim();
     let visible = 0;
     cards.forEach((c) => {
-      const matchSearch = !q ||
-        c.dataset.name.includes(q) || c.dataset.brandname.includes(q);
+      const ficha = fichas.get(c);
+      const matchSearch = !q || ficha.busca.includes(q);
       let matchFilter = true;
       if (activeFilter === "best") matchFilter = c.dataset.best === "1";
       else if (activeFilter.startsWith("brand-")) matchFilter = c.dataset.brand === activeFilter.split("-")[1];
-      const show = matchSearch && matchFilter;
+      const show = matchSearch && matchFilter && passaNosFiltros(ficha);
       c.style.display = show ? "" : "none";
       if (show) visible++;
     });
+
+    // Ordem: reposiciona os cards na grade. "Padrão" devolve a ordem que o
+    // lojista definiu no painel.
+    const ordenados = cards.slice().sort((a, b) => {
+      const fa = fichas.get(a), fb = fichas.get(b);
+      if (filtros.ordem === "menor") return precoDe(fa.model) - precoDe(fb.model) || fa.ordem - fb.ordem;
+      if (filtros.ordem === "maior") return precoDe(fb.model) - precoDe(fa.model) || fa.ordem - fb.ordem;
+      return fa.ordem - fb.ordem;
+    });
+    if (ordenados.some((c, i) => grid.children[i] !== c)) ordenados.forEach((c) => grid.appendChild(c));
+
     byId("catalogCount").textContent = visible + " modelo" + (visible !== 1 ? "s" : "");
+    paintFilterState(visible);
 
     // Estado vazio: diz O QUE não foi achado e dá a saída. Antes era um
     // "Nenhum modelo encontrado 🔍" genérico, que deixava o cliente sem saber
@@ -667,10 +767,11 @@
       if (!empty) {
         empty = document.createElement("div");
         empty.className = "empty-msg";
-        grid.appendChild(empty);
       }
+      grid.appendChild(empty); // sempre por último, depois dos cards reordenados
       const termo = (byId("searchInput").value || "").trim();
       const filtrando = activeFilter !== "all";
+      const comPainel = totalFiltros() - (filtros.ordem !== "padrao" ? 1 : 0) > 0;
       empty.innerHTML = "";
 
       const titulo = document.createElement("p");
@@ -681,6 +782,8 @@
         const forte = document.createElement("strong");
         forte.textContent = "“" + termo + "”";
         titulo.append(forte);
+      } else if (comPainel) {
+        titulo.textContent = "Nenhum produto com esses filtros";
       } else {
         titulo.textContent = "Nenhum produto nesta categoria";
       }
@@ -688,20 +791,23 @@
 
       const dica = document.createElement("p");
       dica.className = "empty-msg-hint";
-      dica.textContent = filtrando && termo
-        ? "Talvez o produto esteja em outra marca. Toque abaixo para buscar no catálogo inteiro."
-        : filtrando
-          ? "Esta marca está sem produtos no momento."
-          : "Confira a grafia ou tente pelo nome da marca.";
+      dica.textContent = comPainel
+        ? "Tire um dos filtros para ver mais opções, ou veja o catálogo inteiro."
+        : filtrando && termo
+          ? "Talvez o produto esteja em outra marca. Toque abaixo para buscar no catálogo inteiro."
+          : filtrando
+            ? "Esta marca está sem produtos no momento."
+            : "Confira a grafia ou tente pelo nome da marca ou do sabor.";
       empty.appendChild(dica);
 
-      if (filtrando || termo) {
+      if (filtrando || termo || comPainel) {
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "empty-msg-reset";
         btn.textContent = "Ver todos os produtos";
         btn.addEventListener("click", () => {
           byId("searchInput").value = "";
+          limparFiltros(false);
           const todos = byId("filterBar").querySelector('.pill[data-filter="all"]');
           if (todos) todos.click();
           else applyFilter();
@@ -720,6 +826,160 @@
     applyFilter();
   });
   byId("searchInput").addEventListener("input", applyFilter);
+
+  // ---- Painel "Filtros" ----
+  const filterPanel = byId("filterPanel");
+  const filterOverlay = byId("filterOverlay");
+  const filterOpenBtn = byId("filterOpen");
+
+  // Um botão de opção. Texto por textContent: rótulos são fixos daqui, mas a
+  // regra da casa é não montar HTML com string.
+  function opcao(grupo, id, label, ligado) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "filter-opt";
+    b.dataset.grupo = grupo;
+    b.dataset.id = id;
+    b.setAttribute("aria-pressed", String(ligado));
+    b.textContent = label;
+    return b;
+  }
+  function grupo(titulo, botoes) {
+    const g = document.createElement("div");
+    g.className = "filter-group";
+    g.setAttribute("role", "group");
+    g.setAttribute("aria-label", titulo);
+    const h = document.createElement("h4");
+    h.textContent = titulo;
+    const linha = document.createElement("div");
+    linha.className = "filter-opts";
+    botoes.forEach((b) => linha.appendChild(b));
+    g.append(h, linha);
+    return g;
+  }
+
+  // Monta os grupos a cada abertura: só entram opções que existem no catálogo
+  // de agora (uma família de sabor sem nenhum modelo, ou "só em oferta" sem
+  // oferta ativa, seriam botões que sempre dão zero resultados).
+  function renderFilterPanel() {
+    const body = byId("filterBody");
+    body.textContent = "";
+    const todas = [...fichas.values()];
+    body.appendChild(grupo("Ordenar por", ORDENS.map((o) => opcao("ordem", o.id, o.label, filtros.ordem === o.id))));
+    const faixasPuffs = FAIXAS_PUFFS.filter((f) => todas.some((x) => x.puffs !== null && f.ok(x.puffs)));
+    if (faixasPuffs.length) body.appendChild(grupo("Puffs", faixasPuffs.map((f) => opcao("puffs", f.id, f.label, filtros.puffs.has(f.id)))));
+    const familias = SABORES.filter((s) => todas.some((x) => x.sabores.has(s.id)));
+    if (familias.length) body.appendChild(grupo("Sabor", familias.map((s) => opcao("sabor", s.id, s.label, filtros.sabor.has(s.id)))));
+    const faixasPreco = FAIXAS_PRECO.filter((f) => todas.some((x) => f.ok(precoDe(x.model))));
+    if (faixasPreco.length) body.appendChild(grupo("Preço", faixasPreco.map((f) => opcao("preco", f.id, f.label, filtros.preco.has(f.id)))));
+    if (todas.some((x) => emOferta(x.model)) || filtros.oferta) {
+      body.appendChild(grupo("Ofertas", [opcao("oferta", "sim", "Só em oferta", filtros.oferta)]));
+    }
+  }
+
+  byId("filterBody").addEventListener("click", (e) => {
+    const b = e.target.closest(".filter-opt");
+    if (!b) return;
+    const g = b.dataset.grupo, id = b.dataset.id;
+    if (g === "ordem") filtros.ordem = id;
+    else if (g === "oferta") filtros.oferta = !filtros.oferta;
+    else if (filtros[g].has(id)) filtros[g].delete(id);
+    else filtros[g].add(id);
+    renderFilterPanel();
+    applyFilter();
+    // O grupo foi redesenhado: devolve o foco ao botão que a pessoa acabou de usar.
+    const de_novo = byId("filterBody").querySelector(`.filter-opt[data-grupo="${g}"][data-id="${id}"]`);
+    if (de_novo) de_novo.focus();
+  });
+
+  function limparFiltros(aplicar) {
+    filtros.ordem = "padrao";
+    filtros.puffs.clear(); filtros.sabor.clear(); filtros.preco.clear();
+    filtros.oferta = false;
+    if (filterPanel.classList.contains("open")) renderFilterPanel();
+    if (aplicar !== false) applyFilter();
+  }
+
+  // Tudo o que mostra o estado dos filtros FORA do painel: o número no botão,
+  // as etiquetas removíveis acima da grade e o texto do botão "Ver N modelos".
+  function paintFilterState(visible) {
+    const n = totalFiltros();
+    const badge = byId("filterCount");
+    badge.hidden = n === 0;
+    badge.textContent = n;
+    filterOpenBtn.classList.toggle("is-on", n > 0);
+    filterOpenBtn.setAttribute("aria-label", n ? `Filtros (${n} ativo${n > 1 ? "s" : ""})` : "Filtros");
+    byId("filterApply").textContent = visible === 0 ? "Nenhum modelo" : `Ver ${visible} modelo${visible !== 1 ? "s" : ""}`;
+    byId("filterClear").disabled = n === 0;
+
+    const box = byId("filterActive");
+    box.textContent = "";
+    box.hidden = n === 0;
+    if (!n) return;
+    const etiqueta = (texto, tirar) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "filter-chip";
+      b.setAttribute("aria-label", `Tirar o filtro ${texto}`);
+      const t = document.createElement("span");
+      t.textContent = texto;
+      const x = document.createElement("span");
+      x.className = "filter-chip-x";
+      x.setAttribute("aria-hidden", "true");
+      x.textContent = "✕";
+      b.append(t, x);
+      b.addEventListener("click", () => { tirar(); applyFilter(); });
+      box.appendChild(b);
+    };
+    if (filtros.ordem !== "padrao") etiqueta(ORDENS.find((o) => o.id === filtros.ordem).label, () => { filtros.ordem = "padrao"; });
+    FAIXAS_PUFFS.forEach((f) => { if (filtros.puffs.has(f.id)) etiqueta(f.curto, () => filtros.puffs.delete(f.id)); });
+    SABORES.forEach((s) => { if (filtros.sabor.has(s.id)) etiqueta(s.label, () => filtros.sabor.delete(s.id)); });
+    FAIXAS_PRECO.forEach((f) => { if (filtros.preco.has(f.id)) etiqueta(f.label, () => filtros.preco.delete(f.id)); });
+    if (filtros.oferta) etiqueta("Só em oferta", () => { filtros.oferta = false; });
+    const limpar = document.createElement("button");
+    limpar.type = "button";
+    limpar.className = "filter-clear-link";
+    limpar.textContent = "Limpar";
+    limpar.addEventListener("click", () => limparFiltros());
+    box.appendChild(limpar);
+  }
+
+  function openFilter() {
+    renderFilterPanel();
+    filterPanel.classList.add("open");
+    filterOverlay.classList.add("open");
+    filterPanel.setAttribute("aria-hidden", "false");
+    filterOpenBtn.setAttribute("aria-expanded", "true");
+    lockBodyScroll();
+    byId("filterClose").focus();
+  }
+  function closeFilter() {
+    if (!filterPanel.classList.contains("open")) return;
+    filterPanel.classList.remove("open");
+    filterOverlay.classList.remove("open");
+    filterPanel.setAttribute("aria-hidden", "true");
+    filterOpenBtn.setAttribute("aria-expanded", "false");
+    unlockBodyScroll();
+    filterOpenBtn.focus({ preventScroll: true });
+  }
+  filterOpenBtn.addEventListener("click", openFilter);
+  byId("filterClose").addEventListener("click", closeFilter);
+  filterOverlay.addEventListener("click", closeFilter);
+  byId("filterClear").addEventListener("click", () => limparFiltros());
+  // "Ver N modelos": fecha e leva o cliente para o começo da grade filtrada.
+  byId("filterApply").addEventListener("click", () => {
+    closeFilter();
+    const reduzido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    byId("catalogo").scrollIntoView({ behavior: reduzido ? "auto" : "smooth", block: "start" });
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeFilter(); });
+  // Uma oferta zerou: preço e "só em oferta" mudaram. Espera o app.js devolver
+  // os preços cheios (outro ouvinte do mesmo evento) e refaz o filtro.
+  document.addEventListener("promo:expired", () => setTimeout(() => {
+    if (filterPanel.classList.contains("open")) renderFilterPanel();
+    applyFilter();
+  }, 0));
+
   applyFilter();
 
   // ---------------------------------------------------------------

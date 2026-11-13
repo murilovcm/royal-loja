@@ -466,9 +466,19 @@
       </h2>
       <p id="catalogCount"></p>
     </div>
-    <div class="search-wrap">
-      <span class="search-ico"><svg class="ico" aria-hidden="true"><use href="#i-search"></use></svg></span>
-      <input type="text" id="searchInput" placeholder="Buscar modelo ou marca...">
+    {# Busca + botão "Filtros". A busca acha modelo, marca e SABOR em estoque;
+       o botão abre o painel de filtros (puffs, sabor, preço, ofertas, ordem),
+       que fica no fim do <body>. Lógica em app.js, "CATALOG FILTER + SEARCH". #}
+    <div class="catalog-tools">
+      <div class="search-wrap">
+        <span class="search-ico"><svg class="ico" aria-hidden="true"><use href="#i-search"></use></svg></span>
+        <input type="text" id="searchInput" placeholder="Buscar modelo, marca ou sabor..." aria-label="Buscar modelo, marca ou sabor">
+      </div>
+      <button type="button" class="filter-btn" id="filterOpen" aria-haspopup="dialog" aria-controls="filterPanel" aria-expanded="false" aria-label="Filtros">
+        <svg class="ico" aria-hidden="true"><use href="#i-filter"></use></svg>
+        <span>Filtros</span>
+        <span class="filter-btn-count" id="filterCount" hidden>0</span>
+      </button>
     </div>
     <div class="filter-bar" id="filterBar">
       <button class="pill active" data-filter="all">Todos</button>
@@ -477,6 +487,8 @@
       <button class="pill" data-filter="brand-{{ b.id }}">{{ b.name }}</button>
       {% endfor %}
     </div>
+    {# Etiquetas dos filtros ativos (preenchidas pelo app.js). Vazio = oculto. #}
+    <div class="filter-active" id="filterActive" aria-label="Filtros ativos" hidden></div>
     <div class="grid" id="catalogGrid">
       {% for m in catalog %}{{ model_card(m, editor) }}{% endfor %}
     </div>
@@ -828,6 +840,22 @@
       <button class="whatsapp-btn sheen-btn" id="whatsappBtn" disabled>
         <span>📱</span> Finalizar Pedido →
       </button>
+    </div>
+  </aside>
+
+  <!-- ============ FILTROS DO CATÁLOGO ============ -->
+  {# Os grupos de opções são montados pelo app.js a cada abertura: só entram
+     as opções que existem no catálogo daquele momento. #}
+  <div class="filter-overlay" id="filterOverlay"></div>
+  <aside class="filter-panel" id="filterPanel" role="dialog" aria-modal="true" aria-labelledby="filterTitle" aria-hidden="true">
+    <div class="filter-head">
+      <h3 id="filterTitle"><svg class="ico" aria-hidden="true"><use href="#i-filter"></use></svg> Filtros</h3>
+      <button type="button" class="filter-close" id="filterClose" aria-label="Fechar filtros"><svg class="ico" aria-hidden="true"><use href="#i-x"></use></svg></button>
+    </div>
+    <div class="filter-body" id="filterBody"></div>
+    <div class="filter-foot">
+      <button type="button" class="filter-reset" id="filterClear" disabled>Limpar</button>
+      <button type="button" class="filter-apply" id="filterApply">Ver modelos</button>
     </div>
   </aside>
 
