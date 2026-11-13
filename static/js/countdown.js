@@ -9,6 +9,10 @@
      [data-promo-fim="2026-11-27T02:59:00Z"]  escopo de uma promoção (ISO, UTC)
      [data-cd]            dentro do escopo: recebe "2 dias" (mais de 24h, parado)
                           ou "04:12:09" (últimas 24h, contando)
+     [data-cd-roll]       no mesmo elemento: a contagem vira uma cápsula
+                          (.cd-clock) com um span por dígito, e o dígito que
+                          acabou de mudar ganha .roll (desliza de baixo). O
+                          elemento recebe .is-clock enquanto está contando.
      data-promo-heat      escrito aqui no escopo: "dias" | "horas" | "urgente"
                           (urgente = menos de 1h; é o gancho do estilo de urgência)
 
@@ -77,6 +81,29 @@
     return dois(t.h) + ":" + dois(t.m) + ":" + dois(t.s);
   }
 
+  /** Relógio dos cards: "04:12:09" vira uma cápsula com um span por dígito;
+      só o que mudou desde a última pintura recebe .roll. Fora das últimas
+      24h ("2 dias") fica texto puro, sem cápsula. */
+  function rolar(el, txt) {
+    var antes = el.getAttribute("data-cd-prev");
+    if (antes === txt) return;
+    el.setAttribute("data-cd-prev", txt);
+    if (txt.indexOf(":") < 0) {
+      el.classList.remove("is-clock");
+      el.textContent = txt;
+      return;
+    }
+    el.classList.add("is-clock");
+    var animar = !!antes && antes.length === txt.length && antes.indexOf(":") >= 0;
+    var html = '<span class="cd-clock">';
+    for (var i = 0; i < txt.length; i++) {
+      var ch = txt.charAt(i);
+      if (ch === ":") { html += '<span class="cl">:</span>'; continue; }
+      html += '<span class="dg"><span class="in' + (animar && antes.charAt(i) !== ch ? " roll" : "") + '">' + ch + "</span></span>";
+    }
+    el.innerHTML = html + "</span>";
+  }
+
   function pintar(scope, resta) {
     var calor = resta < HORA ? "urgente" : resta < DIA ? "horas" : "dias";
     if (scope.getAttribute("data-promo-heat") !== calor) scope.setAttribute("data-promo-heat", calor);
@@ -87,7 +114,8 @@
       // Um escopo pode conter outro (linha do carrinho dentro de nada, mas o
       // modal dentro do overlay): cada [data-cd] obedece ao escopo mais próximo.
       if (el.closest("[data-promo-fim]") !== scope) continue;
-      if (el.textContent !== txt) el.textContent = txt;
+      if (el.hasAttribute("data-cd-roll")) rolar(el, txt);
+      else if (el.textContent !== txt) el.textContent = txt;
     }
   }
 

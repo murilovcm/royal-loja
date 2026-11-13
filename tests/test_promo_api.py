@@ -273,7 +273,7 @@ def test_black_friday_liga_e_desliga_so_o_hero(admin_client, loja):
         assert "fonts.googleapis.com" not in html
         # Com o botão desligado as ofertas continuam todas lá.
         assert 'id="ofertas"' in html and 'class="promo-next"' in html
-        assert 'class="promo-economia"' in html
+        assert 'class="deal-cap"' in html
 
         assert admin_client.post("/api/black_friday", json={}).status_code == 400
     finally:

@@ -59,10 +59,21 @@
             deixaria de achar o produto. Invisível na tela. #}
          data-name="{{ (m.name ~ ' ' ~ m.version_search) | trim | lower }}"
          data-brandname="{{ m.brand_name | lower }}">
-  <div class="card-top">
-    <span class="puff-badge"><i class="ico-bolt"></i>{{ m.puff_count }}</span>
-    {% if m.is_best_seller %}<span class="best-tag">★ TOP</span>{% endif %}
+  {# Faixa da promoção, de borda a borda no topo do card (fora da foto): amarela
+     na oferta, vermelha no relâmpago, com um reflexo que passa de tempos em
+     tempos. O prazo vem do countdown.js: "2 dias" parado ou, nas últimas 24h,
+     o relógio numa cápsula com os dígitos rolando (data-cd-roll).
+     Relâmpago por cima de oferta (dp): ao zerar, a faixa vira a da oferta
+     ("Oferta · acaba em ...") sem recarregar. Sem dp, some com a promoção. #}
+  {% if m.promo_fim %}
+  <div class="deal-cap" data-promo-only>
+    <span class="deal-cap-in">
+      {%- if m.promo_relampago %}<svg class="ico deal-cap-ico" aria-hidden="true"><use href="#i-bolt"{% if dp %} data-depois-href="#i-clock"{% endif %}></use></svg><span class="deal-cap-lbl"{% if dp %} data-depois-text="Oferta"{% endif %}>Relâmpago</span>
+      {%- else %}<span class="deal-cap-lbl">Oferta</span>{% endif -%}
+      <span class="deal-cap-sep" aria-hidden="true">·</span><span class="deal-cap-pre">acaba em</span><b class="deal-cap-cd" data-cd data-cd-roll>{{ m.promo_fim | promo_resta }}</b>
+    </span>
   </div>
+  {% endif %}
   <div class="card-img">
     {# alt com marca + modelo, dimensões nominais e lazy abaixo da dobra: tudo
        invisível na tela, só peso de rede e leitor de tela. As primeiras saem
@@ -72,37 +83,32 @@
          loading="{{ 'eager' if eager else 'lazy' }}"
          {% if eager %}fetchpriority="high"{% endif %} decoding="async">
     {% else %}<span class="ph">{{ m.name[0] }}</span>{% endif %}
-    {% if m.promo_fim %}<span class="promo-off" data-promo-only{% if dp %} data-depois-text="-R$ {{ dp.promo_desconto | desconto_curto }}"{% endif %}>-R$ {{ m.promo_desconto | desconto_curto }}</span>{% endif %}
   </div>
   <span class="brand-lbl">{{ m.brand_name }}</span>
   <h3>{{ m.name }}</h3>
+  {# Puffs: a ficha técnica do aparelho, logo abaixo do nome. #}
+  {% if m.puff_count %}<div class="card-puffs"><i class="ico-bolt"></i>{{ m.puff_count }}</div>{% endif %}
   {% set instock = m.flavors | selectattr('is_in_stock') | list %}
   {% if instock %}
   <div class="flavor-dots">
     <span class="flavor-badge"><span class="dot" style="background: {{ instock[0].color or palette[0] }}"></span><span class="fn">{{ instock[0].name }}</span>{% set extra = instock|length - 1 %}{% if extra > 0 %}<span class="more">+{{ extra }} sabor{{ 'es' if extra > 1 }}</span>{% endif %}</span>
   </div>
   {% endif %}
-  {% if m.promo_fim %}
-  <div class="promo-cd" data-promo-only>
-    {# Relâmpago por cima de oferta (dp): ao zerar vira "Acaba em" da oferta.
-       Relâmpago sozinho: ao zerar a pílula some com o resto da promoção. #}
-    {% if m.promo_relampago %}<svg class="ico" aria-hidden="true"><use href="#i-bolt"{% if dp %} data-depois-href="#i-clock"{% endif %}></use></svg><span class="promo-cd-lbl"{% if dp %} data-depois-text="Acaba em"{% endif %}>Relâmpago</span>
-    {%- else %}<svg class="ico" aria-hidden="true"><use href="#i-clock"></use></svg><span class="promo-cd-lbl">Acaba em</span>{% endif %}<b data-cd>{{ m.promo_fim | promo_resta }}</b>
-  </div>
-  {% endif %}
   <div class="card-foot">
     <div class="price-wrap">
-      <span class="from">a partir de</span><br>
-      {% if m.promo_fim %}<s class="price-was" data-promo-only>R$ {{ m.min_price_original | reais }}</s>
-      <span class="price"><span class="cur">R$</span><span data-promo-price="{{ m.min_price_original | reais }}"{% if dp %} data-depois-text="{{ dp.min_price | reais }}"{% endif %}>{{ m.min_price | reais }}</span></span>
+      {# Em oferta: "de R$ X" riscado no lugar do "a partir de". Quando a
+         oferta zera, o countdown.js remove o [data-promo-only] e tira o
+         .is-promo do card, e o "a partir de" (.from-base) volta a aparecer. #}
+      {% if m.promo_fim %}<span class="from from-was" data-promo-only>de <s class="price-was">R$ {{ m.min_price_original | reais }}</s></span>{% endif %}
+      <span class="from from-base">a partir de</span>
+      {% if m.promo_fim %}<span class="price"><span class="cur">R$</span><span data-promo-price="{{ m.min_price_original | reais }}"{% if dp %} data-depois-text="{{ dp.min_price | reais }}"{% endif %}>{{ m.min_price | reais }}</span></span>
       {% else %}<span class="price"><span class="cur">R$</span>{{ '%.2f' | format(m.min_price) | replace('.', ',') }}</span>{% endif %}
     </div>
-    <span class="card-plus" aria-hidden="true"><svg class="plus-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+    {# O card inteiro é o botão (listener no <article>); isto é o rótulo que
+       diz o que acontece ao tocar. O "+" antigo dava a entender que o produto
+       ia direto para o carrinho. #}
+    <span class="card-cta" aria-hidden="true">Escolher sabor<svg class="ico card-cta-arrow"><use href="#i-arrow-right"></use></svg></span>
   </div>
-  {# Faixa de economia: fecha o card em oferta, de ponta a ponta, com o valor
-     que o cliente deixa de pagar. Mesmo verde do "Você economiza" do carrinho.
-     Some junto com a oferta (data-promo-only). #}
-  {% if m.promo_fim %}<div class="promo-economia" data-promo-only>Economia de <b{% if dp %} data-depois-text="R$ {{ dp.promo_desconto | desconto_curto }}"{% endif %}>R$ {{ m.promo_desconto | desconto_curto }}</b></div>{% endif %}
 </article>
 {% endmacro %}
 <!DOCTYPE html>

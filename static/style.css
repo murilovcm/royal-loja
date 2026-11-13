@@ -430,7 +430,7 @@ button { font-family: inherit; cursor: pointer; border: none; }
   border-radius: var(--r-sm);
 }
 /* Elementos que já são redondos mantêm o anel redondo. */
-:where(.nav-icon, .btn-social, .card-plus, .qty-ctrl button, .ci-qty button):focus-visible {
+:where(.nav-icon, .btn-social, .qty-ctrl button, .ci-qty button):focus-visible {
   border-radius: 50%;
 }
 :where(.btn, .pill, .flavor-pill, .announce-msg, .coupon-apply-btn):focus-visible {
@@ -1553,7 +1553,7 @@ header.site-header::after {
    ruído de fundo. Só transform/opacity num ::after — nada de repaint, custo
    ~zero no celular. O overflow: hidden recorta a faixa na borda arredondada.
    Usado nos CTAs de AÇÃO (Adicionar, Finalizar, Confirmar no WhatsApp, Usar
-   localização). Os cards de produto NÃO usam — a setinha/"+" mantém o addSpin. */
+   localização). Os cards de produto têm o brilho próprio na faixa da promoção (.deal-cap). */
 .sheen-btn { position: relative; overflow: hidden; isolation: isolate; }
 .sheen-btn::after {
   content: "";
@@ -1813,50 +1813,79 @@ header.site-header::after {
     border-color: rgba(var(--accent-soft-rgb),.45);
     box-shadow: 0 14px 30px rgba(var(--accent-rgb),.16), 0 0 0 1px rgba(var(--accent-soft-rgb),.2);
   }
-  .model-card:hover .card-plus {
-    transform: scale(1.12);
-    background: transparent; border-color: transparent;
-    box-shadow: 0 12px 30px rgba(var(--arrow-rgb),.5);
+  .model-card:hover .card-cta {
+    filter: brightness(1.06);
+    box-shadow: 0 12px 26px rgba(var(--primary-rgb), .38), inset 0 1px 0 rgba(255,255,255,.4);
   }
-  .model-card:hover .card-plus::before { opacity: 0; }
-  .model-card:hover .card-plus::after { opacity: 1; transform: scale(1); }
-  .model-card:hover .card-plus .plus-i {
-    color: var(--text-on-primary);
-    transform: rotate(90deg);
-  }
+  .model-card:hover .card-cta-arrow { transform: translateX(3px); animation: none; }
 }
 /* :active depois do hover na cascata para "vencer" o lift quando os dois se aplicam ao mesmo tempo (clique) */
 .model-card:active { transform: scale(.97); }
-/* Faixa fixa do topo: badge de puffs (esq.) + selo TOP (dir.), fora da foto */
-.model-card .card-top {
-  width: 100%;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  min-height: 32px; margin-bottom: 12px;
+/* ---- Faixa da promoção (topo do card, fora da foto) ----
+   Sangra até as bordas do card (margem negativa = padding do card; o card tem
+   overflow: hidden, então os cantos de cima acompanham o raio dele). Amarela
+   na oferta, vermelha no relâmpago e na última hora de qualquer oferta. Um
+   reflexo atravessa a faixa de tempos em tempos (mais rápido no relâmpago). */
+.deal-cap {
+  position: relative; isolation: isolate; overflow: hidden;
+  align-self: stretch; margin: -16px -16px 14px; padding: 7px 8px;
+  display: flex; justify-content: center;
+  background: var(--btn-grad); color: var(--text-on-primary);
+  font-size: .7rem; line-height: 1.25; white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-/* Com selo TOP: puffs à esquerda, TOP à direita. Sem TOP: puffs centralizado. */
-.model-card .card-top:has(.best-tag) { justify-content: space-between; }
-.model-card .best-tag {
-  background: var(--primary-yellow);
-  color: var(--text-on-primary);
-  font-size: .66rem; font-weight: 700;
-  padding: 5px 11px;
-  border-radius: var(--r-pill);
-  letter-spacing: .5px;
-  display: inline-flex; align-items: center; gap: 4px;
-  white-space: nowrap; flex-shrink: 0;
+.deal-cap-in { display: inline-flex; align-items: center; min-width: 0; }
+.deal-cap-lbl { font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.deal-cap-sep { opacity: .45; margin: 0 5px; }
+.deal-cap-pre { font-weight: 600; opacity: .78; margin-right: 4px; }
+.deal-cap-cd { font-weight: 700; letter-spacing: .01em; }
+.deal-cap-ico { width: 12px; height: 12px; margin-right: 5px; fill: currentColor; stroke: none; }
+.deal-cap::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.55) 50%, transparent 65%);
+  transform: translateX(-120%); animation: dealShine 3.6s ease-in-out infinite;
 }
-/* B2: contorno dourado sobre superfície NEUTRA. Antes era pílula de dourado
-   translúcido a 9%, que sobre fundo escuro não vira dourado suave: vira
-   marrom-oliva. E o texto dourado por cima dessa mesma tinta perdia contraste.
-   Agora o dourado está só na borda e no texto, em opacidade cheia. */
-.model-card .puff-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: .8rem; font-weight: 700; color: var(--brand);
-  background: var(--surf-2);
-  border: 1px solid rgba(var(--primary-rgb),.42);
-  padding: 6px 13px; border-radius: var(--r-pill);
-  letter-spacing: .2px; white-space: nowrap;
+@keyframes dealShine { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
+.model-card.is-relampago .deal-cap,
+.model-card[data-promo-heat="urgente"] .deal-cap {
+  background: linear-gradient(120deg, var(--promo-urgent), color-mix(in oklab, var(--promo-urgent), #ff9a3c 35%));
+  color: #fff;
 }
+.model-card.is-relampago .deal-cap::after { animation-duration: 2.4s; }
+.model-card.is-relampago .deal-cap-ico { animation: dealBolt 1s steps(2, jump-none) infinite; }
+@keyframes dealBolt { 50% { opacity: .45; } }
+/* No relâmpago o raio e o vermelho já dizem tudo: sem "acaba em". */
+.model-card.is-relampago .deal-cap-pre { display: none; }
+/* Relógio (últimas 24h): cápsula escura com os dígitos rolando. O countdown.js
+   monta os .dg/.cl e marca com .roll o dígito que acabou de mudar. */
+.deal-cap-cd.is-clock { display: inline-flex; }
+.cd-clock {
+  display: inline-flex; align-items: center; padding: 2px 7px; border-radius: var(--r-pill);
+  background: rgba(0,0,0,.3); box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+  font-family: var(--font-num); font-weight: 700; line-height: 1.25;
+}
+.cd-clock .dg { display: inline-block; width: .62em; height: 1.25em; overflow: hidden; text-align: center; }
+.cd-clock .in { display: block; }
+.cd-clock .in.roll { animation: cdRoll .45s cubic-bezier(.22, 1, .36, 1); }
+.cd-clock .cl { opacity: .7; padding: 0 1px; }
+@keyframes cdRoll { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@media (max-width: 520px) { .deal-cap { margin: -10px -10px 12px; } }
+@media (max-width: 360px) { .deal-cap { margin: -9px -9px 11px; } }
+@media (prefers-reduced-motion: reduce) {
+  .deal-cap::after, .model-card.is-relampago .deal-cap-ico, .cd-clock .in.roll { animation: none; }
+}
+
+/* Puffs: a ficha técnica do aparelho, logo abaixo do nome. */
+.model-card .card-puffs {
+  display: inline-flex; align-items: center; gap: 4px; margin: -4px 0 12px;
+  font-size: .76rem; font-weight: 600; letter-spacing: .01em; color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.model-card .card-puffs .ico-bolt { width: 12px; height: 12px; color: var(--primary-yellow); }
+/* Card sem faixa ao lado de um com faixa: a sobra de altura vai para o TOPO,
+   na altura da faixa do vizinho. Assim foto, nome, preço e botão ficam
+   alinhados lado a lado (antes a sobra virava um vão acima do preço). */
+.model-card .card-img { margin-top: auto; }
 .model-card .card-img {
   aspect-ratio: 4/5;
   width: 100%;
@@ -1952,18 +1981,21 @@ header.site-header::after {
 .flavor-badge .fn { vertical-align: middle; }
 .flavor-badge .more { color: var(--flavor-more-color); font-weight: 500; margin-left: 6px; white-space: nowrap; vertical-align: middle; }
 .card-foot {
-  margin-top: auto;
   padding: 13px 2px 2px;
   border-top: 1px solid rgba(255,255,255,.08);
-  /* Preço centralizado no espaço à esquerda; botão "+" encostado à direita,
-     perfeitamente centralizado na vertical. */
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  /* Preço centralizado em cima; "Escolher sabor" de ponta a ponta embaixo. */
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 12px;
 }
-.card-foot .price-wrap { text-align: center; flex: 1 1 auto; padding-left: 10px; }
+.card-foot .price-wrap { text-align: center; flex: 1 1 100%; }
 .card-foot .from {
+  display: block;
   font-size: .58rem; text-transform: uppercase; letter-spacing: 1.2px;
   color: var(--text-dim); font-weight: 500;
 }
+/* Em oferta: "de R$ X" riscado no lugar do "a partir de". */
+.model-card.is-promo .card-foot .from-base { display: none; }
+.card-foot .from-was { font-size: .72rem; letter-spacing: .3px; text-transform: none; }
+.card-foot .from-was .price-was { display: inline; font-size: 1em; }
 .card-foot .price {
   font-size: 1.6rem; font-weight: 700; color: var(--price-color);
   line-height: 1.15; letter-spacing: -.5px;
@@ -1972,53 +2004,26 @@ header.site-header::after {
   font-size: .62em; font-weight: 700; color: var(--price-color);
   opacity: .8; margin-right: 3px; vertical-align: 1px;
 }
-/* ---- Botão "+" dos cards ----
-   Cores 100% do painel (--arrow-color / --arrow-rgb / --btn-grad).
-   Ocioso: anel de gradiente girando (borda via máscara, centro transparente).
-   Hover: preenche com o gradiente do tema e o "+" gira 90°. */
-.card-foot .card-plus {
-  position: relative; isolation: isolate;
-  width: 52px; height: 52px; min-width: 52px; border-radius: 50%;
-  color: var(--arrow-color); flex-shrink: 0;
-  background: rgba(var(--arrow-rgb),.08);
-  border: 1px solid rgba(var(--arrow-rgb),.16);
-  display: grid; place-items: center;
-  transition: transform .4s cubic-bezier(.34,1.56,.64,1), background .25s ease-out,
-              border-color .25s ease-out, box-shadow .3s ease-out;
+/* ---- "Escolher sabor" ----
+   Rótulo do card (o card inteiro é o botão). Diz o que acontece ao tocar: abre
+   a escolha de sabor. A seta respira devagar para puxar o toque. */
+.card-cta {
+  flex: 1 1 100%; height: 40px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--btn-grad); color: var(--text-on-primary);
+  font-weight: 700; font-size: .86rem; white-space: nowrap;
+  box-shadow: 0 8px 20px rgba(var(--primary-rgb), .22), inset 0 1px 0 rgba(255,255,255,.35);
+  transition: filter .2s ease-out, box-shadow .25s ease-out;
 }
-/* Anel de gradiente giratório: só a borda, via mask-composite. */
-.card-foot .card-plus::before {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: 1;
-  padding: 2px;
-  /* Cor do anel = --ring-rgb (controlada no painel), fallback p/ a cor da seta. */
-  background: conic-gradient(from 0deg,
-      rgba(var(--ring-rgb, var(--arrow-rgb)),0) 0deg,
-      rgba(var(--ring-rgb, var(--arrow-rgb)),.9) 110deg,
-      rgba(var(--ring-rgb, var(--arrow-rgb)),0) 210deg,
-      rgba(var(--ring-rgb, var(--arrow-rgb)),0) 360deg);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          mask-composite: exclude;
-  animation: addSpin 4.5s linear infinite;
-  transition: opacity .3s ease-out;
-}
-/* Preenchimento com o gradiente do tema (surge no hover). */
-.card-foot .card-plus::after {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: 0;
-  background: var(--btn-grad);
-  opacity: 0; transform: scale(.6);
-  transition: opacity .32s ease-out, transform .42s cubic-bezier(.34,1.56,.64,1);
-}
-.card-foot .card-plus .plus-i {
-  position: relative; z-index: 2;
-  width: 22px; height: 22px; display: block;
-  transition: transform .42s cubic-bezier(.34,1.56,.64,1), color .25s ease-out;
-}
-@keyframes addSpin { to { transform: rotate(1turn); } }
-@media (prefers-reduced-motion: reduce) {
-  .card-foot .card-plus::before { animation: none; }
-}
+.card-cta-arrow { width: 16px; height: 16px; transition: transform .25s ease-out; animation: ctaBreathe 1.8s ease-in-out infinite; }
+@keyframes ctaBreathe { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(3px); } }
+@media (prefers-reduced-motion: reduce) { .card-cta-arrow { animation: none; } }
+
+/* Sabor: "Watermelon+2 sabores" não tinha onde quebrar (sem espaço entre os
+   spans) e vazava da pílula no card estreito. Um espaço de largura zero depois
+   do nome cria esse ponto de quebra: "+N sabores" desce inteiro para a linha
+   de baixo quando não cabe, e o ponto continua colado ao nome. */
+.flavor-badge .fn::after { content: "\200B"; }
 
 /* Estado vazio: não é um aviso de erro, é um convite a agir. Por isso tem
    título, causa provável e uma saída clicável, em vez de uma frase solta. */
@@ -3616,9 +3621,6 @@ body.editor-mode .model-card { cursor: default; }
 
   /* --- Card compacto e refinado --- */
   .model-card { padding: 10px; border-radius: var(--r-lg); }
-  .model-card .card-top { min-height: 28px; margin-bottom: 10px; gap: 6px; }
-  .model-card .best-tag { font-size: .58rem; padding: 4px 9px; }
-  .model-card .puff-badge { font-size: .74rem; padding: 5px 11px; }
   .model-card .card-img { aspect-ratio: 4/5; margin-bottom: 10px; border-radius: var(--r-lg); }
   /* Sem override de tamanho aqui: 26cqw já escala sozinho com a largura do
      card, então o valor por breakpoint virou redundante. */
@@ -3629,11 +3631,10 @@ body.editor-mode .model-card { cursor: default; }
   .flavor-dots { margin: 0 0 13px; }
   .flavor-badge { font-size: .78rem; padding: 5px 12px; }
 
-  .card-foot { padding-top: 12px; gap: 12px; }
+  .card-foot { padding-top: 12px; gap: 10px; }
   .card-foot .from { font-size: .56rem; }
+  .card-foot .from-was { font-size: .7rem; }
   .card-foot .price { font-size: 1.45rem; }
-  .card-foot .card-plus { width: 48px; height: 48px; min-width: 48px; border-radius: 50%; }
-  .card-foot .card-plus .plus-i { width: 20px; height: 20px; }
 
   /* --- Modal ocupa a tela como uma folha vinda de baixo --- */
   .modal-overlay { padding: 0; align-items: flex-end; }
@@ -3736,7 +3737,7 @@ body.editor-mode .model-card { cursor: default; }
   .model-card h3 { font-size: 1.05rem; }
   .card-foot .price { font-size: 1.25rem; }
   .card-foot { padding-top: 10px; }
-  .card-foot .card-plus { width: 46px; height: 46px; min-width: 46px; }
+  .card-cta { height: 38px; font-size: .8rem; }
 }
 
 /* -------- Telas de pouca altura: menos rolagem até "Mais Vendidos" -------- */
@@ -3909,71 +3910,20 @@ body.editor-mode .model-card { cursor: default; }
   font-feature-settings: "tnum" 1;
 }
 
-/* ---- Selo "-R$ 20" ---- */
-.promo-off {
-  display: inline-flex; align-items: center;
-  background: var(--promo-bg); color: var(--promo-ink);
-  font-size: .78rem; font-weight: 700; line-height: 1;
-  padding: 6px 10px; border-radius: var(--r-pill);
-  white-space: nowrap; flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-}
-[data-promo-heat="urgente"] .promo-off { background: var(--promo-urgent); color: var(--promo-urgent-ink); }
-
-/* ---- Card ---- */
-/* O selo fica no canto da FOTO, não na faixa do topo: ali já moram o selo de
-   puffs e o "TOP", e um terceiro não cabe na largura do card no celular. */
-.model-card .card-img .promo-off {
-  position: absolute; left: 8px; top: 8px; z-index: 1;
-  box-shadow: 0 2px 8px rgba(var(--bg-rgb),.35);
-}
-.model-card.is-promo { border-color: rgba(var(--primary-rgb),.38); }
-.model-card.is-promo[data-promo-heat="urgente"] { border-color: var(--promo-urgent); }
-
-.promo-cd {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  margin: -4px 0 14px; padding: 6px 12px;
-  background: var(--surf-2); border: 1px solid var(--line); border-radius: var(--r-pill);
-  font-size: .78rem; color: var(--text-dim); white-space: nowrap; max-width: 100%;
-}
-.promo-cd .ico { width: 14px; height: 14px; vertical-align: 0; }
-.promo-cd b { color: var(--text); font-weight: 700; min-width: 8ch; text-align: left; }
-
-/* O relógio NUNCA pode vazar da pílula. Com dias na contagem o texto cresce
-   ("Acaba em 2d 21:44:48") e, na grade de duas colunas do celular, passava da
-   borda. A pílula mede o próprio card (container query) e se ajusta em dois
-   degraus: primeiro aperta, depois abre mão do rótulo "Acaba em" — o ícone de
-   relógio continua dizendo o que o número é. O `overflow: hidden` é a rede de
-   segurança para qualquer largura que as regras não prevejam.
-   O container só existe em card COM promoção, então um card sem oferta não
-   muda em nada. */
-.model-card.is-promo { container: promocard / inline-size; }
-.promo-cd { overflow: hidden; }
-/* Largura medida com a pílula já apertada: "Acaba em 23:59:59" precisa de
-   ~148px. Abaixo disso o rótulo sai. (Com mais de 24h o texto é curto,
-   "Acaba em 2 dias", e cabe com folga.) */
+/* ---- Card em promoção ---- */
+/* O container é usado pela faixa (encolhe no card estreito, abaixo). */
+.model-card.is-promo { container: promocard / inline-size; border-color: rgba(var(--primary-rgb),.38); }
+.model-card.is-relampago,
+.model-card.is-promo[data-promo-heat="urgente"] { border-color: color-mix(in oklab, var(--promo-urgent), transparent 45%); }
 @container promocard (max-width: 200px) {
-  .promo-cd { gap: 4px; padding-inline: 7px; font-size: .72rem; }
-  .promo-cd .ico { width: 13px; height: 13px; }
-  /* "23:59:59" são seis dígitos e dois sinais mais estreitos: 7.1ch bastam.
-     A folga de 8ch custava o espaço que faltava para o rótulo caber em 390px. */
-  .promo-cd b { min-width: 7.1ch; }
+  .deal-cap { font-size: .62rem; }
+  .deal-cap-lbl { letter-spacing: .04em; }
+  .deal-cap-sep { margin: 0 4px; }
+  .deal-cap-pre { display: none; }
+  .cd-clock { padding: 1px 5px; }
 }
-@container promocard (max-width: 148px) {
-  .model-card:not([data-promo-heat="dias"]) .promo-cd-lbl { display: none; }
-}
-/* Card muito estreito (telas de 320px): nem "Acaba em 12 dias" cabe inteiro. */
-@container promocard (max-width: 130px) {
-  .promo-cd-lbl { display: none; }
-}
-/* "2 dias" é mais curto que a contagem: sem a largura mínima dos dígitos, o
-   texto fica centrado na pílula em vez de sobrar espaço à direita. */
-[data-promo-heat="dias"] .promo-cd b,
+/* "2 dias" é mais curto que a contagem: sem largura mínima de dígitos. */
 [data-promo-heat="dias"] .promo-next-cd b { min-width: 0; }
-[data-promo-heat="urgente"] .promo-cd {
-  background: var(--promo-urgent); border-color: transparent; color: var(--promo-urgent-ink);
-}
-[data-promo-heat="urgente"] .promo-cd b { color: var(--promo-urgent-ink); }
 
 .card-foot .price-was {
   display: block; font-size: .78rem; color: var(--text-dim);
@@ -3981,22 +3931,6 @@ body.editor-mode .model-card { cursor: default; }
   /* Risco vermelho e um pouco mais grosso: lê como "esse preço saiu". */
   text-decoration-color: var(--promo-urgent); text-decoration-thickness: 1.5px;
 }
-
-/* Faixa de economia: fecha o card em oferta, de ponta a ponta. Sangra até as
-   bordas (margem negativa = padding do card; o card tem overflow: hidden,
-   então os cantos de baixo acompanham o raio dele). Mesmo verde do
-   "Você economiza" do carrinho. */
-.promo-economia {
-  align-self: stretch; margin: 12px -16px -16px; padding: 8px 6px;
-  background: color-mix(in oklab, var(--green), transparent 86%);
-  border-top: 1px solid color-mix(in oklab, var(--green), transparent 62%);
-  color: var(--green-soft); font-size: .74rem; font-weight: 500; text-align: center;
-  white-space: nowrap; font-variant-numeric: tabular-nums;
-}
-.promo-economia b { color: var(--green); font-weight: 700; }
-/* O padding do card muda nestes dois pontos (ver os @media da grade). */
-@media (max-width: 520px) { .promo-economia { margin: 10px -10px -10px; } }
-@media (max-width: 360px) { .promo-economia { margin: 10px -9px -9px; } }
 
 /* ---- Destaque "próxima oferta acabando" (hero) ---- */
 .promo-next { margin: 26px auto 0; max-width: 460px; }
@@ -4039,15 +3973,9 @@ body.editor-mode .model-card { cursor: default; }
 .promo-offers-ico { width: 22px; height: 22px; color: var(--brand); flex-shrink: 0; }
 
 /* ---- Oferta relâmpago ----
-   Mesmo layout da oferta normal; muda só a palavra ("Relâmpago"), o ícone
-   (raio do sprite, nunca emoji) e o tom do rótulo, no vermelho que as ofertas
-   já usam para "corre". Quando o relâmpago zera, o countdown.js tira a classe
-   .is-relampago e o card volta ao visual da oferta normal. */
-/* Na última hora vale a pílula vermelha cheia da urgência (regra acima). */
-.model-card.is-relampago:not([data-promo-heat="urgente"]) .promo-cd {
-  color: var(--promo-urgent);
-  border-color: color-mix(in oklab, var(--promo-urgent), transparent 55%);
-}
+   No card, a faixa fica vermelha com o raio (regras da .deal-cap). Quando o
+   relâmpago zera, o countdown.js tira a classe .is-relampago e a faixa volta
+   à da oferta normal. */
 .promo-next-item.is-relampago .promo-next-eyebrow {
   display: inline-flex; align-items: center; gap: 5px;
   color: var(--promo-urgent); font-weight: 700;
