@@ -4074,3 +4074,19 @@ body.editor-mode .model-card { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   .filter-overlay, .filter-panel, .filter-btn, .filter-opt, .filter-chip { transition-duration: .01ms !important; }
 }
+
+/* Esconde da tela mas mantém no HTML (leitores de tela e Google continuam
+   lendo). Usado no <h1> do hero quando o título está oculto no painel
+   (Identidade Visual → Topo da loja). !important porque .hero h1 e o tema
+   de Black Friday definem tamanho e margens com seletores mais fortes. */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}

@@ -375,6 +375,30 @@
       font-weight:800; font-size:.8rem; background:#25D366; color:#04331b;
     }
     .identity-save-row { display:flex; justify-content:flex-end; margin-top:20px; }
+    /* Índice da aba: atalhos para os 5 blocos (ids idHero, idBrand...). */
+    .identity-toc { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+    .identity-toc a {
+      font-size:.82rem; font-weight:700; padding:7px 14px; border-radius:999px; text-decoration:none;
+      color:var(--text); background:var(--surface); border:1px solid var(--border); transition:.15s;
+    }
+    .identity-toc a:hover { border-color:var(--primary-yellow); color:var(--primary-yellow); }
+    [data-tab-panel="identity"] .sections-block { scroll-margin-top:16px; }
+    /* Topo da loja: cada linha = texto/campo à esquerda + botão à direita. */
+    .hero-admin-row { display:flex; gap:16px; align-items:flex-start; padding:14px 0; border-bottom:1px solid var(--border); }
+    .hero-admin-row:first-of-type { margin-top:8px; }
+    .hero-admin-row .hero-admin-text { flex:1; min-width:0; margin:0; display:flex; flex-direction:column; gap:6px; }
+    .hero-admin-row .pp-switch { margin:4px 0 0; flex:0 0 auto; }
+    .hero-admin-row .sw-label { min-width:78px; font-size:.82rem; }
+    /* Cores: três partes que abrem e fecham. */
+    .color-group { border-top:1px solid var(--border); padding:12px 0 4px; }
+    .color-group:first-of-type { margin-top:10px; }
+    .color-group > summary {
+      cursor:pointer; font-weight:800; font-size:.95rem; list-style:none;
+      display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; padding:4px 0 10px;
+    }
+    .color-group > summary::-webkit-details-marker { display:none; }
+    .color-group > summary::before { content:"▸"; color:var(--text-dim); transition:transform .15s; display:inline-block; }
+    .color-group[open] > summary::before { transform:rotate(90deg); }
 
     /* ---- Controle de acesso (funcionários) ---- */
     .readonly-lock { pointer-events:none; opacity:.55; user-select:none; }
@@ -1066,33 +1090,105 @@
 
     <div class="admin-tab-panel" data-tab-panel="identity">
       {% if not is_owner %}<div class="readonly-banner">🔒 Somente leitura — apenas o dono da loja pode alterar a identidade visual.</div>{% endif %}
+
+      {# ORGANIZAÇÃO DA ABA. Cinco blocos, um assunto cada, cada um com o seu
+         próprio Salvar (que grava só os campos daquele bloco):
+           1. Topo da loja  — Black Friday + textos do hero (com ocultar)
+           2. Marca         — nome, cidade, assinatura, logos, favicon
+           3. Cores         — cores da marca, gradiente, cores do site
+           4. Rodapé        — os quatro textos do rodapé
+           5. Google (SEO)  — título da aba e metas
+         Para mexer em algo, procure o bloco pelo id (idHero, idBrand,
+         idColors, idFooter, idSeo). As funções de salvar ficam no <script>,
+         em "Identidade Visual · salvar por bloco". #}
+      <nav class="identity-toc" aria-label="Blocos da aba">
+        <a href="#idHero">🏠 Topo da loja</a>
+        <a href="#idBrand">🏷️ Marca</a>
+        <a href="#idColors">🎨 Cores</a>
+        <a href="#idFooter">📍 Rodapé</a>
+        <a href="#idSeo">🔎 Google (SEO)</a>
+      </nav>
+
       <div class="{{ 'readonly-lock' if not is_owner }} identity-grid">
         <div>
-          {# Hero de Black Friday: um botão só. Troca APENAS o hero da loja (entra
-             o letreiro "Black Friday" acima do título); desligar devolve o hero
-             normal. As ofertas com hora marcada dos modelos (aba Catálogo) são
-             do sistema e funcionam com este botão ligado OU desligado. #}
-          <div class="sections-block">
+
+          {# ===== 1. TOPO DA LOJA (hero) =====
+             Black Friday: troca SÓ o hero (entra o letreiro acima do título).
+             As ofertas com hora marcada (aba Catálogo) não dependem dela.
+             Mostrar/ocultar título e frase: valem sempre, com ou sem Black
+             Friday. Título oculto sai da tela mas continua no código (é o <h1>
+             que o Google lê); frase oculta sai da página. #}
+          <div class="sections-block" id="idHero">
             <div class="sections-head">
-              🖤 Black Friday <span class="sections-sub">Troca só o topo da loja (hero) · liga e desliga a qualquer momento</span>
+              🏠 Topo da loja <span class="sections-sub">O que o cliente vê primeiro ao abrir o site</span>
             </div>
-            <div class="bf-admin">
-              <label class="pp-switch">
-                <span class="switch {{ 'on' if config.bf_tema_ativo == '1' }}" id="bfSwitch" onclick="this.classList.toggle('on')"></span>
-                <span>Mostrar o letreiro “Black Friday” no topo da loja</span>
-              </label>
-              <span class="sections-sub">Ligado: o topo da loja ganha o letreiro “Black Friday” e o título da loja fica logo abaixo dele. Desligado: o topo volta ao normal. As ofertas, os relógios e a seção “Ofertas com hora marcada” não dependem deste botão: aparecem sempre que algum modelo estiver em oferta (aba Catálogo).</span>
-              <div class="identity-save-row" style="justify-content:space-between; align-items:center; margin-top:0;">
-                <span class="bf-status {{ 'on' if config.bf_tema_ativo == '1' }}" id="bfStatus">{{ 'Black Friday ligada no site' if config.bf_tema_ativo == '1' else 'Black Friday desligada' }}</span>
-                <button class="mini-btn primary" id="saveBfBtn" onclick="saveBlackFriday()">Salvar</button>
+
+            <div class="hero-admin-row">
+              <div class="hero-admin-text">
+                <b>Black Friday</b>
+                <small class="pp-hint">Coloca o letreiro “Black Friday” acima do título. As ofertas com relógio não dependem deste botão: aparecem sempre que algum modelo estiver em oferta (aba Catálogo).</small>
               </div>
+              <label class="pp-switch">
+                <span class="switch {{ 'on' if config.bf_tema_ativo == '1' }}" id="bfSwitch" onclick="toggleLabeledSwitch(this)"></span>
+                <span class="sw-label" data-on="Ligada" data-off="Desligada">{{ 'Ligada' if config.bf_tema_ativo == '1' else 'Desligada' }}</span>
+              </label>
+            </div>
+
+            <div class="hero-admin-row">
+              <div class="pp-field hero-admin-text">
+                <label for="cfgHeroTitle">Título principal</label>
+                <input type="text" id="cfgHeroTitle" maxlength="120" value="{{ config.hero_title or '' }}" placeholder="Ex: Pods de qualidade em | São Luís | você encontra aqui">
+                <small class="pp-hint">O trecho <b>entre as barras</b> ganha o destaque na cor da marca. Vazio usa o texto padrão com o nome da cidade. Oculto: some da tela, mas o Google continua lendo (é o título da página na busca).</small>
+              </div>
+              <label class="pp-switch">
+                <span class="switch {{ 'on' if config.hero_title_visible != '0' }}" id="heroTitleSwitch" onclick="toggleLabeledSwitch(this)"></span>
+                <span class="sw-label" data-on="Mostrando" data-off="Oculto">{{ 'Oculto' if config.hero_title_visible == '0' else 'Mostrando' }}</span>
+              </label>
+            </div>
+
+            <div class="hero-admin-row">
+              <div class="pp-field hero-admin-text">
+                <label for="cfgHeroSubtitle">Frase de apoio</label>
+                <input type="text" id="cfgHeroSubtitle" maxlength="200" value="{{ config.hero_subtitle or '' }}" placeholder="Ex: Entrega rápida em toda São Luís. Produtos originais, pedido direto pelo WhatsApp.">
+                <small class="pp-hint">Linha menor logo abaixo do título. Vazio usa o texto padrão. Oculta: sai da página.</small>
+              </div>
+              <label class="pp-switch">
+                <span class="switch {{ 'on' if config.hero_subtitle_visible != '0' }}" id="heroSubtitleSwitch" onclick="toggleLabeledSwitch(this)"></span>
+                <span class="sw-label" data-on="Mostrando" data-off="Oculta">{{ 'Oculta' if config.hero_subtitle_visible == '0' else 'Mostrando' }}</span>
+              </label>
+            </div>
+
+            <div class="identity-save-row">
+              <button class="mini-btn primary" id="saveHeroBtn" onclick="saveHero()">Salvar topo</button>
             </div>
           </div>
 
-          <div class="sections-block">
+          {# ===== 2. MARCA ===== #}
+          <div class="sections-block" id="idBrand">
             <div class="sections-head">
-              🖼️ Logos <span class="sections-sub">Logo principal (navbar) e logo secundário (rodapé) da loja</span>
+              🏷️ Marca <span class="sections-sub">Nome, logos e ícone da aba</span>
             </div>
+
+            <div class="pp-row">
+              <div class="pp-field">
+                <label for="cfgStoreName">Nome da loja</label>
+                <input type="text" id="cfgStoreName" maxlength="80" value="{{ config.store_name or '' }}" placeholder="Ex: Royal">
+              </div>
+              <div class="pp-field">
+                <label for="cfgStoreCity">Cidade</label>
+                <input type="text" id="cfgStoreCity" maxlength="80" value="{{ config.store_city or '' }}" placeholder="Ex: São Luís">
+              </div>
+            </div>
+
+            <div class="pp-field">
+              <label for="cfgStoreTagline">Assinatura da loja</label>
+              <input type="text" id="cfgStoreTagline" maxlength="80" value="{{ config.store_tagline or '' }}" placeholder="Ex: Pods e Vapes">
+              <small class="pp-hint">Complementa o nome da loja no título da aba quando o campo abaixo está vazio.</small>
+            </div>
+
+
+            <div class="pp-field">
+              <label>Logos</label>
             <div class="logo-upload-row">
               <div class="logo-upload-box" id="logoBoxMain" onclick="document.getElementById('logoInputMain').click()">
                 <div class="lu-label">Logo principal (navbar)</div>
@@ -1111,13 +1207,37 @@
                 <input type="file" accept=".png,.svg,image/png,image/svg+xml" class="logo-upload-input" id="logoInputFooter" onchange="handleLogoInput('footer', this)" onclick="event.stopPropagation()">
               </div>
             </div>
-          </div>
-
-          <div class="sections-block">
-            <div class="sections-head">
-              🎨 Cores da marca <span class="sections-sub">Cor principal e texto dos botões</span>
             </div>
 
+            <div class="pp-field">
+              <label for="cfgFavicon">Favicon</label>
+              <div class="favicon-row">
+                <img id="faviconPreview" class="favicon-preview" src="{{ config.favicon_url or url_for('static', filename='favicon-64.png') }}" alt="favicon">
+                <div class="favicon-actions">
+                  <input type="file" id="faviconFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="uploadFavicon(this)">
+                  <button type="button" class="mini-btn" onclick="document.getElementById('faviconFile').click()">Enviar imagem</button>
+                </div>
+              </div>
+              <input type="text" id="cfgFavicon" maxlength="300" value="{{ config.favicon_url or '' }}" placeholder="https://.../favicon.png ou envie uma imagem acima">
+              <small class="pp-hint">Envie um PNG/JPG/WEBP (será reduzido a 64×64) ou cole uma URL. Vazio usa o favicon padrão da loja.</small>
+            </div>
+
+
+            <div class="identity-save-row">
+              <button class="mini-btn primary" id="saveBrandBtn" onclick="saveBrand()">Salvar marca</button>
+            </div>
+          </div>
+
+          {# ===== 3. CORES =====
+             Três partes que abrem e fecham (<details>). Um Salvar para as três,
+             porque cor inicial do gradiente = cor primária (campos espelhados). #}
+          <div class="sections-block" id="idColors">
+            <div class="sections-head">
+              🎨 Cores <span class="sections-sub">Toque em cada parte para abrir · a prévia ao lado muda na hora</span>
+            </div>
+
+            <details class="color-group" open>
+              <summary>Cores da marca <span class="sections-sub">Cor principal, preços, setas e detalhes dos cards</span></summary>
             <div class="color-row">
               <div class="cr-label">Cor primária<small>Início do gradiente · badges · destaques</small></div>
               <input type="color" id="colorPrimary" value="{{ config.theme_primary_color or '#FFD60A' }}">
@@ -1153,13 +1273,10 @@
               <input type="color" id="colorFlavorMore" value="{{ config.theme_flavor_more_color or config.theme_accent_soft_color or '#a855f7' }}">
               <input type="text" id="colorFlavorMoreHex" value="{{ config.theme_flavor_more_color or config.theme_accent_soft_color or '#a855f7' }}" maxlength="7">
             </div>
-          </div>
+            </details>
 
-          <div class="sections-block">
-            <div class="sections-head">
-              🌈 Gradiente dos botões <span class="sections-sub">Escolha um preset ou ajuste manualmente — vale para todos os botões</span>
-            </div>
-
+            <details class="color-group">
+              <summary>Gradiente dos botões <span class="sections-sub">Preset ou ajuste manual · vale para todos os botões</span></summary>
             <div class="grad-preview-bar" id="gradPreviewBar">Botão de exemplo</div>
 
             <div class="grad-presets" id="gradPresets">
@@ -1186,13 +1303,10 @@
               <input type="range" id="gradAngle" min="0" max="360" step="5" value="{{ config.theme_grad_angle or '120' }}">
               <span class="grad-angle-val" id="gradAngleVal">{{ config.theme_grad_angle or '120' }}°</span>
             </div>
-          </div>
+            </details>
 
-          <div class="sections-block">
-            <div class="sections-head">
-              🎛️ Cores do site <span class="sections-sub">Fundos, superfícies, bordas e textos da loja inteira</span>
-            </div>
-
+            <details class="color-group">
+              <summary>Cores do site <span class="sections-sub">Fundos, superfícies, bordas e textos</span></summary>
             <div class="color-row">
               <div class="cr-label">Fundo principal<small>Fundo geral da loja</small></div>
               <input type="color" id="colorBg" value="{{ config.theme_bg_color or '#0d0d1a' }}">
@@ -1239,43 +1353,47 @@
               <input type="text" id="colorTextDimHex" value="{{ config.theme_text_dim_color or '#9a97a5' }}" maxlength="7">
             </div>
 
+            </details>
+
             <div class="identity-save-row">
-              <button class="mini-btn primary" id="saveIdentityBtn" onclick="saveIdentity()">Salvar Identidade Visual</button>
+              <button class="mini-btn primary" id="saveColorsBtn" onclick="saveColors()">Salvar cores</button>
             </div>
           </div>
 
-          <div class="sections-block">
+          {# ===== 4. RODAPÉ ===== #}
+          <div class="sections-block" id="idFooter">
             <div class="sections-head">
-              ⚙️ Configurações Gerais <span class="sections-sub">Nome, título da aba e SEO da loja — o contato e as redes ficam na aba "Redes Sociais"</span>
-            </div>
-
-            <div class="pp-row">
-              <div class="pp-field">
-                <label for="cfgStoreName">Nome da loja</label>
-                <input type="text" id="cfgStoreName" maxlength="80" value="{{ config.store_name or '' }}" placeholder="Ex: Royal">
-              </div>
-              <div class="pp-field">
-                <label for="cfgStoreCity">Cidade</label>
-                <input type="text" id="cfgStoreCity" maxlength="80" value="{{ config.store_city or '' }}" placeholder="Ex: São Luís">
-              </div>
+              📍 Rodapé <span class="sections-sub">Textos do pé da página</span>
             </div>
 
             <div class="pp-field">
-              <label for="cfgStoreTagline">Assinatura da loja</label>
-              <input type="text" id="cfgStoreTagline" maxlength="80" value="{{ config.store_tagline or '' }}" placeholder="Ex: Pods e Vapes">
-              <small class="pp-hint">Complementa o nome da loja no título da aba quando o campo abaixo está vazio.</small>
+              <label for="cfgFooterDelivery">Área de entrega</label>
+              <input type="text" id="cfgFooterDelivery" maxlength="200" value="{{ config.footer_delivery_area or '' }}" placeholder="Ex: Entregamos em toda São Luís e região metropolitana.">
+            </div>
+            <div class="pp-field">
+              <label for="cfgFooterHours">Horário de atendimento</label>
+              <input type="text" id="cfgFooterHours" maxlength="200" value="{{ config.footer_hours or '' }}" placeholder="Ex: Todos os dias, das 10h às 23h.">
+            </div>
+            <div class="pp-field">
+              <label for="cfgFooterPayment">Formas de pagamento</label>
+              <input type="text" id="cfgFooterPayment" maxlength="200" value="{{ config.footer_payment or '' }}" placeholder="Ex: Pix, dinheiro, cartão de crédito e débito na entrega.">
+            </div>
+            <div class="pp-field">
+              <label for="cfgFooterExchange">Política de trocas</label>
+              <textarea id="cfgFooterExchange" rows="2" maxlength="300" placeholder="Ex: Troca em até 7 dias para produto com defeito de fábrica.">{{ config.footer_exchange or '' }}</textarea>
+              <small class="pp-hint">Deixe um campo vazio para esconder aquele bloco do rodapé.</small>
             </div>
 
-            <div class="pp-field">
-              <label for="cfgHeroTitle">Hero · Título principal</label>
-              <input type="text" id="cfgHeroTitle" maxlength="120" value="{{ config.hero_title or '' }}" placeholder="Ex: Pods de qualidade em | São Luís | você encontra aqui">
-              <small class="pp-hint">O trecho <b>entre as barras</b> ganha o destaque na cor da marca, igual ao título das perguntas. Vazio usa o texto padrão com o nome da cidade. É o texto de maior peso da página no Google — se você tem mais de uma loja, vale ser diferente em cada uma.</small>
-            </div>
 
-            <div class="pp-field">
-              <label for="cfgHeroSubtitle">Hero · Frase de apoio</label>
-              <input type="text" id="cfgHeroSubtitle" maxlength="200" value="{{ config.hero_subtitle or '' }}" placeholder="Ex: Entrega rápida em toda São Luís. Produtos originais, pedido direto pelo WhatsApp.">
-              <small class="pp-hint">Aparece logo abaixo do título principal. Vazio usa o texto padrão.</small>
+            <div class="identity-save-row">
+              <button class="mini-btn primary" id="saveFooterBtn" onclick="saveFooter()">Salvar rodapé</button>
+            </div>
+          </div>
+
+          {# ===== 5. GOOGLE (SEO) ===== #}
+          <div class="sections-block" id="idSeo">
+            <div class="sections-head">
+              🔎 Google (SEO) <span class="sections-sub">Como a loja aparece na busca e na aba do navegador</span>
             </div>
 
             <div class="pp-field">
@@ -1292,39 +1410,9 @@
               <label for="cfgMetaKeywords">Meta keywords (SEO)</label>
               <input type="text" id="cfgMetaKeywords" maxlength="300" value="{{ config.meta_keywords or '' }}" placeholder="vape, pods, descartáveis">
             </div>
-            <div class="pp-field">
-              <label for="cfgFavicon">Favicon</label>
-              <div class="favicon-row">
-                <img id="faviconPreview" class="favicon-preview" src="{{ config.favicon_url or url_for('static', filename='favicon-64.png') }}" alt="favicon">
-                <div class="favicon-actions">
-                  <input type="file" id="faviconFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="uploadFavicon(this)">
-                  <button type="button" class="mini-btn" onclick="document.getElementById('faviconFile').click()">Enviar imagem</button>
-                </div>
-              </div>
-              <input type="text" id="cfgFavicon" maxlength="300" value="{{ config.favicon_url or '' }}" placeholder="https://.../favicon.png ou envie uma imagem acima">
-              <small class="pp-hint">Envie um PNG/JPG/WEBP (será reduzido a 64×64) ou cole uma URL. Vazio usa o favicon padrão da loja.</small>
-            </div>
-
-            <div class="pp-field">
-              <label for="cfgFooterDelivery">Rodapé · Área de entrega</label>
-              <input type="text" id="cfgFooterDelivery" maxlength="200" value="{{ config.footer_delivery_area or '' }}" placeholder="Ex: Entregamos em toda São Luís e região metropolitana.">
-            </div>
-            <div class="pp-field">
-              <label for="cfgFooterHours">Rodapé · Horário de atendimento</label>
-              <input type="text" id="cfgFooterHours" maxlength="200" value="{{ config.footer_hours or '' }}" placeholder="Ex: Todos os dias, das 10h às 23h.">
-            </div>
-            <div class="pp-field">
-              <label for="cfgFooterPayment">Rodapé · Formas de pagamento</label>
-              <input type="text" id="cfgFooterPayment" maxlength="200" value="{{ config.footer_payment or '' }}" placeholder="Ex: Pix, dinheiro, cartão de crédito e débito na entrega.">
-            </div>
-            <div class="pp-field">
-              <label for="cfgFooterExchange">Rodapé · Política de trocas</label>
-              <textarea id="cfgFooterExchange" rows="2" maxlength="300" placeholder="Ex: Troca em até 7 dias para produto com defeito de fábrica.">{{ config.footer_exchange or '' }}</textarea>
-              <small class="pp-hint">Deixe um campo vazio para esconder aquele bloco do rodapé.</small>
-            </div>
 
             <div class="identity-save-row">
-              <button class="mini-btn primary" id="saveGeneralBtn" onclick="saveGeneralSettings()">Salvar Configurações</button>
+              <button class="mini-btn primary" id="saveSeoBtn" onclick="saveSeo()">Salvar SEO</button>
             </div>
           </div>
         </div>
@@ -1489,7 +1577,7 @@
         </div>
         <div class="pp-field">
               {# Cada linha guarda o índice getDay() (0 = domingo) em data-day;
-                 saveGeneralSettings() monta o JSON de store_hours a partir daqui. #}
+                 saveStoreHours() monta o JSON de store_hours a partir daqui. #}
               <div class="hours-grid" id="hoursGrid">
                 {% for idx, name, abbr in week_days %}
                 {% set d = store_hours[idx] %}
@@ -1815,18 +1903,6 @@
         if (!box.dataset.sujo && !box.contains(document.activeElement)) previewPromo(box.id.replace('promo-', ''));
       });
     }, 30000);
-
-    // ---- Hero de Black Friday ----
-    async function saveBlackFriday() {
-      const on = document.getElementById('bfSwitch').classList.contains('on');
-      const res = await api('/api/black_friday', 'POST', { bf_tema_ativo: on });
-      if (!res.ok) { toast(res.error || 'Erro ao salvar'); return; }
-      const ligado = res.bf_tema_ativo === '1';
-      const st = document.getElementById('bfStatus');
-      st.textContent = ligado ? 'Black Friday ligada no site' : 'Black Friday desligada';
-      st.classList.toggle('on', ligado);
-      toast(ligado ? 'Black Friday ligada ✓' : 'Black Friday desligada ✓');
-    }
 
     // ---- Seção de ofertas: nome e ícone do título ----
     async function saveOffersSection() {
@@ -2400,7 +2476,7 @@
         if (slot === 'main') document.getElementById('ipLogo').src = e.target.result;
       };
       reader.readAsDataURL(file);
-      toast("Preview atualizado — clique em Salvar para confirmar");
+      toast("Prévia atualizada — clique em Salvar marca para confirmar");
     }
 
     async function uploadPendingLogo(slot) {
@@ -2445,15 +2521,81 @@
       }
     }
 
-    async function saveIdentity() {
-      const btn = document.getElementById('saveIdentityBtn');
+    // ---- Identidade Visual · salvar por bloco ----
+    // Cada bloco da aba tem o seu botão e grava SÓ os campos dele:
+    //   saveHero()   → Topo da loja (Black Friday + textos e visibilidade do hero)
+    //   saveBrand()  → Marca (nome, cidade, assinatura, logos, favicon)
+    //   saveColors() → Cores (marca, gradiente, site)
+    //   saveFooter() → Rodapé
+    //   saveSeo()    → Google (SEO)
+    // Campo de texto vazio = o site usa o texto padrão daquele campo.
+
+    // Botão liga/desliga com legenda ao lado (a legenda lê data-on/data-off).
+    function toggleLabeledSwitch(sw) {
+      sw.classList.toggle('on');
+      const lbl = sw.parentElement.querySelector('.sw-label');
+      if (lbl) lbl.textContent = sw.classList.contains('on') ? lbl.dataset.on : lbl.dataset.off;
+    }
+    const isOn = (id) => document.getElementById(id).classList.contains('on') ? '1' : '0';
+    const txt = (id) => document.getElementById(id).value.trim();
+
+    // Desliga o botão enquanto salva e devolve true se TUDO gravou.
+    async function withSaving(btnId, job) {
+      const btn = document.getElementById(btnId);
+      const label = btn.textContent;
       btn.disabled = true;
-      const originalLabel = btn.textContent;
       btn.textContent = "Salvando...";
       try {
+        return await job();
+      } catch (e) {
+        return false;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    }
+
+    async function saveConfigFields(fields) {
+      let ok = true;
+      for (const [key, value] of Object.entries(fields)) {
+        const res = await api('/api/update_config', 'POST', { key, value });
+        if (!res || !res.ok) ok = false;
+      }
+      return ok;
+    }
+
+    async function saveHero() {
+      const ok = await withSaving('saveHeroBtn', async () => {
+        const bf = await api('/api/black_friday', 'POST', { bf_tema_ativo: isOn('bfSwitch') === '1' });
+        const rest = await saveConfigFields({
+          hero_title: txt('cfgHeroTitle'),
+          hero_subtitle: txt('cfgHeroSubtitle'),
+          hero_title_visible: isOn('heroTitleSwitch'),
+          hero_subtitle_visible: isOn('heroSubtitleSwitch'),
+        });
+        return !!(bf && bf.ok) && rest;
+      });
+      toast(ok ? "Topo da loja salvo ✓" : "Algumas alterações do topo não foram salvas");
+    }
+
+    async function saveBrand() {
+      const ok = await withSaving('saveBrandBtn', async () => {
         const okMain = await uploadPendingLogo('main');
         const okFooter = await uploadPendingLogo('footer');
-        const colors = {
+        const rest = await saveConfigFields({
+          store_name: txt('cfgStoreName'),
+          store_city: txt('cfgStoreCity'),
+          store_tagline: txt('cfgStoreTagline'),
+          favicon_url: txt('cfgFavicon'),
+        });
+        return okMain && okFooter && rest;
+      });
+      toast(ok ? "Marca salva ✓" : "Algumas alterações da marca não foram salvas");
+    }
+
+    async function saveColors() {
+      const ok = await withSaving('saveColorsBtn', async () => {
+        const res = await api('/api/update_theme_colors', 'POST', {
           theme_primary_color: cval('colorPrimary'),
           theme_primary_grad_end: cval('colorGradEnd'),
           theme_grad_angle: gradAngleEl.value,
@@ -2472,16 +2614,29 @@
           theme_ring_color: cval('colorRing'),
           theme_brand_label_color: cval('colorBrandLabel'),
           theme_flavor_more_color: cval('colorFlavorMore'),
-        };
-        const res = await api('/api/update_theme_colors', 'POST', colors);
-        if (okMain && okFooter && res.ok) toast("Identidade visual salva com sucesso ✓");
-        else toast("Algumas alterações não foram salvas");
-      } catch (e) {
-        toast("Erro ao salvar identidade visual");
-      } finally {
-        btn.disabled = false;
-        btn.textContent = originalLabel;
-      }
+        });
+        return !!(res && res.ok);
+      });
+      toast(ok ? "Cores salvas ✓" : "Erro ao salvar as cores");
+    }
+
+    async function saveFooter() {
+      const ok = await withSaving('saveFooterBtn', () => saveConfigFields({
+        footer_delivery_area: txt('cfgFooterDelivery'),
+        footer_hours: txt('cfgFooterHours'),
+        footer_payment: txt('cfgFooterPayment'),
+        footer_exchange: txt('cfgFooterExchange'),
+      }));
+      toast(ok ? "Rodapé salvo ✓" : "Algumas alterações do rodapé não foram salvas");
+    }
+
+    async function saveSeo() {
+      const ok = await withSaving('saveSeoBtn', () => saveConfigFields({
+        page_title: txt('cfgPageTitle'),
+        meta_description: txt('cfgMetaDesc'),
+        meta_keywords: txt('cfgMetaKeywords'),
+      }));
+      toast(ok ? "SEO salvo ✓" : "Algumas alterações de SEO não foram salvas");
     }
 
     // Lê a grade de horários na ordem getDay() (0 = domingo ... 6 = sábado),
@@ -2514,40 +2669,6 @@
       }
     }
 
-    async function saveGeneralSettings() {
-      const btn = document.getElementById('saveGeneralBtn');
-      btn.disabled = true;
-      const originalLabel = btn.textContent;
-      btn.textContent = "Salvando...";
-      try {
-        const fields = {
-          store_name: document.getElementById('cfgStoreName').value.trim(),
-          store_city: document.getElementById('cfgStoreCity').value.trim(),
-          store_tagline: document.getElementById('cfgStoreTagline').value.trim(),
-          hero_title: document.getElementById('cfgHeroTitle').value.trim(),
-          hero_subtitle: document.getElementById('cfgHeroSubtitle').value.trim(),
-          footer_delivery_area: document.getElementById('cfgFooterDelivery').value.trim(),
-          footer_hours: document.getElementById('cfgFooterHours').value.trim(),
-          footer_payment: document.getElementById('cfgFooterPayment').value.trim(),
-          footer_exchange: document.getElementById('cfgFooterExchange').value.trim(),
-          page_title: document.getElementById('cfgPageTitle').value.trim(),
-          meta_description: document.getElementById('cfgMetaDesc').value.trim(),
-          meta_keywords: document.getElementById('cfgMetaKeywords').value.trim(),
-          favicon_url: document.getElementById('cfgFavicon').value.trim(),
-        };
-        let allOk = true;
-        for (const [key, value] of Object.entries(fields)) {
-          const res = await api('/api/update_config', 'POST', { key, value });
-          if (!res || !res.ok) allOk = false;
-        }
-        toast(allOk ? "Configurações salvas com sucesso ✓" : "Algumas configurações não foram salvas");
-      } catch (e) {
-        toast("Erro ao salvar configurações");
-      } finally {
-        btn.disabled = false;
-        btn.textContent = originalLabel;
-      }
-    }
 
     // ---- Avisos rotativos: cor por palavra ----
     // Mesmo marcador que parse_announce() (app.py) lê: [#RRGGBB]texto[/].

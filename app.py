@@ -726,6 +726,13 @@ def init_db():
         # nenhuma loja antes de o dono escrever a versão dele.
         "hero_title": "",
         "hero_subtitle": "",
+        # Mostrar/ocultar os dois textos do hero (aba Identidade Visual, bloco
+        # "Topo da loja"). Valem sempre, com ou sem Black Friday. Começam em
+        # "1" (mostrando) para publicar sem mudar loja nenhuma. Título oculto
+        # continua no HTML como <h1> visualmente escondido: é o título da
+        # página para o Google. Frase oculta sai da página.
+        "hero_title_visible": "1",
+        "hero_subtitle_visible": "1",
         "store_name": "Royal",
         "store_city": "São Luís",
         # Complemento do título da aba quando `page_title` está vazio. Antes o
@@ -1427,7 +1434,12 @@ def parse_hero(config):
             "Produtos originais, pedido direto pelo WhatsApp."
         )
 
-    return {"segments": segments, "subtitle": subtitle}
+    return {
+        "segments": segments,
+        "subtitle": subtitle,
+        "title_visible": config.get("hero_title_visible") != "0",
+        "subtitle_visible": config.get("hero_subtitle_visible") != "0",
+    }
 
 
 # Marcador de cor dos avisos rotativos: "[#FF3B30]R$ 250[/]". Só casa com hex

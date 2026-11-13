@@ -335,9 +335,12 @@
        três lojas em três domínios não podem compartilhar o <h1>, que é o texto
        de mais peso da página. Os trechos entre pipes viram a pílula — mesma
        convenção que o "Título da seção de perguntas" já usa no painel. #}
-    <h1>{% for seg in hero.segments %}{% if seg.accent %}<span class="cidade">{{ seg.text }}</span>{% else %}{{ seg.text }}{% endif %}{{ ' ' if not loop.last else '' }}{% endfor %}</h1>
+    {# Mostrar/ocultar (painel → Identidade Visual → Topo da loja): título
+       oculto ganha .sr-only, some da tela e continua sendo o <h1> que o Google
+       lê. A frase de apoio oculta simplesmente não é renderizada. #}
+    <h1{% if not hero.title_visible %} class="sr-only"{% endif %}>{% for seg in hero.segments %}{% if seg.accent %}<span class="cidade">{{ seg.text }}</span>{% else %}{{ seg.text }}{% endif %}{{ ' ' if not loop.last else '' }}{% endfor %}</h1>
 
-    <p class="hero-subhead">{{ hero.subtitle }}</p>
+    {% if hero.subtitle_visible %}<p class="hero-subhead">{{ hero.subtitle }}</p>{% endif %}
 
     <div class="hero-cta">
       {# .ring-btn = cometa no contorno (opção F): um ponto de luz percorre a
