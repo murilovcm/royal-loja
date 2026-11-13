@@ -18,8 +18,6 @@
   const PROMO = window.PROMO || { now: () => Date.now(), ativa: () => false, refresh() {}, acertar() {} };
   // Vale para um sabor, um modelo ou um item do carrinho: todos carregam promo_fim.
   const promoOn = (x) => !!(x && x.promo_fim && PROMO.ativa(x.promo_fim));
-  // Texto do selo: "R$ 20" quando o desconto é redondo, "R$ 15,50" quando não.
-  const descontoCurto = (v) => "R$ " + (Number.isInteger(v) ? String(v) : v.toFixed(2).replace(".", ","));
 
   // ---------------------------------------------------------------
   // Altura real da tela (--app-vvh)
@@ -1244,24 +1242,9 @@
            }
          </button>`).join("");
     }
-    paintModalPromo();
     updateModalTotal();
     overlay.classList.add("open");
     document.body.style.overflow = "hidden";
-  }
-
-  // Selo da promoção do modelo aberto. O bloco nasce `hidden` no
-  // template; só aparece com promoção ativa e volta a sumir quando ela zera
-  // (ver o listener de "promo:expired").
-  function paintModalPromo() {
-    const box = byId("modalPromo");
-    const m = modalState.model;
-    const on = promoOn(m);
-    box.hidden = !on;
-    if (!on) { box.removeAttribute("data-promo-fim"); return; }
-    box.setAttribute("data-promo-fim", m.promo_fim);
-    byId("modalPromoOff").textContent = "-" + descontoCurto(m.promo_desconto);
-    PROMO.refresh();
   }
 
   function closeModal() {
@@ -1441,7 +1424,7 @@
     });
   });
 
-  // Quantidade da última renderização: o botão pulsa quando ela SOBE (item
+  // Quantidade da última renderização: a pílula pulsa quando ela SOBE (item
   // adicionado), nunca na carga da página com o carrinho salvo.
   let lastFabCount = null;
   function renderCart() {
@@ -1449,9 +1432,7 @@
     const totalCount = cart.reduce((s, it) => s + it.qty, 0);
     byId("cartFabBadge").textContent = totalCount;
     cartFab.classList.toggle("show", totalCount > 0);
-    document.body.classList.toggle("cart-fab-on", totalCount > 0);
-    if (lastFabCount !== null && totalCount > lastFabCount
-        && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (lastFabCount !== null && totalCount > lastFabCount) {
       cartFab.classList.remove("bump");
       void cartFab.offsetWidth; // reinicia a animação se já estava rodando
       cartFab.classList.add("bump");
@@ -1498,8 +1479,7 @@
                <div class="m">${it.model_name}</div>
                <div class="f">${it.flavor_name}</div>
                ${promoOn(it)
-                 ? `<div class="p"><s class="ci-was">${brl(it.price_original)}</s> ${brl(it.price)}</div>
-                    <div class="ci-promo" data-promo-fim="${escapeHtml(it.promo_fim)}" data-promo-expire="none">Oferta por mais <b data-cd></b></div>`
+                 ? `<div class="p"><s class="ci-was">${brl(it.price_original)}</s> ${brl(it.price)}</div>`
                  : `<div class="p">${brl(it.price)}</div>`}
              </div>
              <div class="ci-right">
@@ -1713,27 +1693,6 @@
          </div>`;
   }
 
-  // Botão flutuante do carrinho: total (já com cupom) e o anel do frete
-  // grátis, com a mesma conta da barra do carrinho (t.pct / t.remaining).
-  const FAB_RING = 2 * Math.PI * 21; // circunferência do anel (r=21 no index.html)
-  function renderCartFab(t) {
-    const count = cart.reduce((s, it) => s + it.qty, 0);
-    const ship = t.freeShipEnabled;
-    const done = ship && t.remaining <= 0;
-    cartFab.classList.toggle("no-ship", !ship);
-    cartFab.classList.toggle("free", done);
-    byId("cartFabTotal").textContent = brl(t.discountedTotal);
-    byId("cartFabRing").style.strokeDashoffset = (FAB_RING * (1 - (ship ? t.pct : 0))).toFixed(2);
-    const msg = byId("cartFabMsg");
-    if (!ship) msg.textContent = "";
-    else if (done) msg.textContent = "Frete grátis liberado";
-    else msg.innerHTML = `faltam <strong>${brl(t.remaining)}</strong> p/ frete grátis`;
-    // O texto visível é aria-hidden; o leitor de tela ouve tudo numa frase só.
-    cartFab.setAttribute("aria-label",
-      `Ver carrinho: ${count} ${count === 1 ? "item" : "itens"}, ${brl(t.discountedTotal)}`
-      + (!ship ? "" : done ? ", frete grátis liberado" : `, faltam ${brl(t.remaining)} para o frete grátis`));
-  }
-
   // Barra "faltam R$ X para o frete grátis", no rodapé do carrinho.
   function renderFreeShipBar(t) {
     const bar = byId("freeShipBar");
@@ -1794,7 +1753,10 @@
     }
 
     renderFreeShipBar(t);
-    renderCartFab(t);
+    // Pílula do carrinho: total já com o cupom, o mesmo do rodapé do carrinho.
+    byId("cartFabTotal").textContent = brl(t.discountedTotal);
+    const n = cart.reduce((s, it) => s + it.qty, 0);
+    cartFab.setAttribute("aria-label", `Ver carrinho: ${n} ${n === 1 ? "item" : "itens"}, ${brl(t.discountedTotal)}`);
 
     const checkoutShippingRow = byId("checkoutShippingRow");
     const checkoutShippingWas = byId("checkoutShippingWas");
@@ -2109,7 +2071,6 @@
   document.addEventListener("promo:expired", () => {
     const mudancas = syncPromoPrices();
     if (overlay.classList.contains("open") && modalState.model) {
-      paintModalPromo();
       updateModalTotal();
     }
     if (cart.length) aposMudancaDePreco(mudancas);

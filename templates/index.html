@@ -796,13 +796,8 @@
         <span class="brand-lbl" id="modalBrand"></span>
         <h2 id="modalName"></h2>
         <span class="puffs" id="modalPuffs"></span>
-        {# Promoção do modelo aberto: só o selo com o desconto (o preço riscado
-           fica no rodapé do modal). Fica `hidden` e só é revelado pelo app.js
-           quando o modelo está em oferta; ao zerar, o app.js esconde de novo
-           (data-promo-expire="none"). #}
-        <div class="modal-promo" id="modalPromo" data-promo-expire="none" hidden>
-          <span class="promo-off" id="modalPromoOff"></span>
-        </div>
+        {# Sem selo de desconto aqui: na escolha do sabor a oferta aparece só
+           como preço riscado no rodapé do modal (.modal-was). #}
         <div class="modal-label">Escolha o sabor</div>
         <div class="flavor-grid" id="modalFlavors"></div>
         {# Só aparece quando o sabor escolhido é de outra versão do aparelho
@@ -905,22 +900,12 @@
     </div>
   </aside>
 
-  {# Botão flutuante do carrinho (só aparece com item): pílula com o total e um
-     anel que enche até o mínimo do frete grátis. Atualizado por
-     renderCartFab() no app.js. #}
+  {# Botão flutuante do carrinho (só com item): pílula amarela com o ícone e o
+     total do pedido. Total e aria-label atualizados por renderCartFab(). #}
   <button class="cart-fab" id="cartFab" aria-label="Ver carrinho">
-    <span class="cart-fab-ring">
-      <svg class="cart-fab-prog" viewBox="0 0 46 46" aria-hidden="true">
-        <circle class="trk" cx="23" cy="23" r="21" fill="none" stroke-width="3"></circle>
-        <circle class="val" id="cartFabRing" cx="23" cy="23" r="21" fill="none" stroke-width="3" stroke-linecap="round" stroke-dasharray="131.95" stroke-dashoffset="131.95"></circle>
-      </svg>
-      <span class="cart-fab-ic"><svg class="ico cart-ico" aria-hidden="true"><use href="#i-cart"></use></svg></span>
-      <span class="cart-fab-badge" id="cartFabBadge">0</span>
-    </span>
-    <span class="cart-fab-txt" aria-hidden="true">
-      <span class="cart-fab-total" id="cartFabTotal">R$ 0,00</span>
-      <span class="cart-fab-msg" id="cartFabMsg"></span>
-    </span>
+    <svg class="ico cart-ico" aria-hidden="true"><use href="#i-cart"></use></svg>
+    <span class="cart-fab-total" id="cartFabTotal" aria-hidden="true">R$ 0,00</span>
+    <span class="cart-fab-badge" id="cartFabBadge">0</span>
   </button>
 
   <!-- ============ CHECKOUT PANEL ============ -->
