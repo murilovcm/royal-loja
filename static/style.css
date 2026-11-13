@@ -1242,6 +1242,42 @@ header.site-header::after {
   text-wrap: pretty;
 }
 
+/* Passo a passo no lugar da frase de apoio (painel → Topo da loja → "Abaixo
+   do título": Passo a passo). Uma cápsula só, no mesmo formato da pill de
+   status lá em cima, para o hero ganhar uma linha e não um bloco. Ocupa ~40px,
+   menos que a frase que substitui, e o "Ver Catálogo" sobe na tela.
+   Ícones na cor da marca; o do WhatsApp em verde porque é ele que diz "pelo
+   WhatsApp" no passo do meio, que só tem o verbo "Envie". */
+.hero-steps {
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 auto 28px;
+  padding: 7px 8px;
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(255,255,255,.10);
+}
+.hero-steps li { display: inline-flex; align-items: center; gap: 2px; }
+.hero-steps-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 13.5px;
+  font-weight: var(--fw-medium);
+  color: var(--text);
+  white-space: nowrap;
+}
+.hero-steps-item .ico { width: 16px; height: 16px; color: var(--primary-yellow); }
+.hero-steps-item.is-wa .ico { color: var(--ok); }
+.hero-steps-sep { width: 12px; height: 12px; color: var(--text-dim); opacity: .6; }
+@media (max-width: 360px) {
+  .hero-steps { padding: 6px 4px; gap: 0; }
+  .hero-steps-item { font-size: 12.5px; gap: 5px; padding: 4px 6px; }
+}
+
 /* Status da loja: a pill INTEIRA muda de estado, não só o ponto. "Dá para
    pedir agora" é a primeira pergunta de um cliente recorrente, então merece
    ler de longe. É estado semântico real, o único lugar da página onde uma cor

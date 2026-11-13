@@ -743,6 +743,11 @@ def init_db():
         # página para o Google. Frase oculta sai da página.
         "hero_title_visible": "1",
         "hero_subtitle_visible": "1",
+        # O que fica abaixo do título: "steps" (passo a passo Escolha → Envie
+        # → Receba) ou "text" (a frase de apoio de hero_subtitle). Padrão
+        # "steps": o passo a passo substituiu a frase nas três lojas, e a frase
+        # continua no painel caso alguma precise voltar a ela.
+        "hero_support": "steps",
         "store_name": "Royal",
         "store_city": "São Luís",
         # Complemento do título da aba quando `page_title` está vazio. Antes o
@@ -1490,6 +1495,8 @@ def parse_hero(config):
         "subtitle": subtitle,
         "title_visible": config.get("hero_title_visible") != "0",
         "subtitle_visible": config.get("hero_subtitle_visible") != "0",
+        # Qualquer valor que não seja "text" cai no passo a passo, o padrão.
+        "support": "text" if config.get("hero_support") == "text" else "steps",
     }
 
 

@@ -1190,13 +1190,25 @@
 
             <div class="hero-admin-row">
               <div class="pp-field hero-admin-text">
-                <label for="cfgHeroSubtitle">Frase de apoio</label>
+                <label>Abaixo do título</label>
+                <div class="icon-choice" role="radiogroup" aria-label="O que aparece abaixo do título">
+                  <label class="icon-opt">
+                    <input type="radio" name="heroSupport" value="steps" {{ 'checked' if config.hero_support != 'text' }}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M15 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 17h-11v-14h-2"/><path d="M6 5l14 1l-1 7h-13"/></svg>
+                    <span>Passo a passo</span>
+                  </label>
+                  <label class="icon-opt">
+                    <input type="radio" name="heroSupport" value="text" {{ 'checked' if config.hero_support == 'text' }}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>
+                    <span>Frase de apoio</span>
+                  </label>
+                </div>
                 <input type="text" id="cfgHeroSubtitle" maxlength="200" value="{{ config.hero_subtitle or '' }}" placeholder="Ex: Entrega rápida em toda São Luís. Produtos originais, pedido direto pelo WhatsApp.">
-                <small class="pp-hint">Linha menor logo abaixo do título. Vazio usa o texto padrão. Oculta: sai da página.</small>
+                <small class="pp-hint"><b>Passo a passo:</b> Escolha → Envie (WhatsApp) → Receba, numa linha só. <b>Frase de apoio:</b> usa o texto acima; vazio usa o texto padrão. Oculto: nenhum dos dois aparece.</small>
               </div>
               <label class="pp-switch">
                 <span class="switch {{ 'on' if config.hero_subtitle_visible != '0' }}" id="heroSubtitleSwitch" onclick="toggleLabeledSwitch(this)"></span>
-                <span class="sw-label" data-on="Mostrando" data-off="Oculta">{{ 'Oculta' if config.hero_subtitle_visible == '0' else 'Mostrando' }}</span>
+                <span class="sw-label" data-on="Mostrando" data-off="Oculto">{{ 'Oculto' if config.hero_subtitle_visible == '0' else 'Mostrando' }}</span>
               </label>
             </div>
 
@@ -2758,6 +2770,7 @@
           hero_subtitle: txt('cfgHeroSubtitle'),
           hero_title_visible: isOn('heroTitleSwitch'),
           hero_subtitle_visible: isOn('heroSubtitleSwitch'),
+          hero_support: (document.querySelector('input[name="heroSupport"]:checked') || {}).value || 'steps',
         });
         return !!(bf && bf.ok) && rest;
       });

@@ -354,7 +354,20 @@
        lê. A frase de apoio oculta simplesmente não é renderizada. #}
     <h1{% if not hero.title_visible %} class="sr-only"{% endif %}>{% for seg in hero.segments %}{% if seg.accent %}<span class="cidade">{{ seg.text }}</span>{% else %}{{ seg.text }}{% endif %}{{ ' ' if not loop.last else '' }}{% endfor %}</h1>
 
-    {% if hero.subtitle_visible %}<p class="hero-subhead">{{ hero.subtitle }}</p>{% endif %}
+    {# Abaixo do título: passo a passo (padrão) ou a frase de apoio antiga,
+       escolha no painel → Topo da loja. O <ol> é lido inteiro por leitor de
+       tela pelo aria-label, já que os itens visíveis mostram só o verbo. #}
+    {% if hero.subtitle_visible %}
+    {% if hero.support == 'steps' %}
+    <ol class="hero-steps" aria-label="Como pedir: escolha no catálogo, envie no WhatsApp, receba em casa">
+      <li><span class="hero-steps-item"><svg class="ico" aria-hidden="true"><use href="#i-cart"></use></svg>Escolha</span></li>
+      <li><svg class="ico hero-steps-sep" aria-hidden="true"><use href="#i-chevron-right"></use></svg><span class="hero-steps-item is-wa"><svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg>Envie</span></li>
+      <li><svg class="ico hero-steps-sep" aria-hidden="true"><use href="#i-chevron-right"></use></svg><span class="hero-steps-item"><svg class="ico" aria-hidden="true"><use href="#i-scooter"></use></svg>Receba</span></li>
+    </ol>
+    {% else %}
+    <p class="hero-subhead">{{ hero.subtitle }}</p>
+    {% endif %}
+    {% endif %}
 
     <div class="hero-cta">
       {# .ring-btn = cometa no contorno (opção F): um ponto de luz percorre a
