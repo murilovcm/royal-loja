@@ -583,7 +583,7 @@
     .mt-privacy { margin-top:14px; font-size:.76rem; color:var(--text-dim); display:flex; gap:8px; align-items:flex-start; }
     .mt-privacy .ico { width:15px; height:15px; margin-top:1px; vertical-align:0; }
     .mt-empty { color:var(--text-dim); font-size:.85rem; padding:30px 0; text-align:center; }
-    .mt-funnel-block { margin-bottom:18px; }
+    .mt-funnel-block { margin:18px 0 0; }
     .mt-funnel { display:flex; flex-direction:column; margin-top:14px; }
     .mt-fstep { display:grid; grid-template-columns:170px minmax(0,1fr) 70px 56px; align-items:center; gap:12px; }
     .mt-fname { font-weight:700; font-size:.88rem; }
@@ -1914,13 +1914,6 @@
         </div>
       </div>
 
-      <div class="sections-block mt-funnel-block">
-        <div class="sections-head">Funil de vendas <span class="sections-sub">pessoas que chegaram a cada passo no período</span></div>
-        <div class="mt-funnel" id="mtFunnel"></div>
-        <div class="mt-funnel-worst" id="mtFunnelWorst" hidden></div>
-        <div class="mt-hero" id="mtHero"></div>
-      </div>
-
       <div class="mt-grid">
         <div class="sections-block">
           <div class="sections-head">Visitantes <span class="sections-sub" id="mtChartSub"></span></div>
@@ -1944,6 +1937,13 @@
           </div>
           <div class="mt-privacy"><svg class="ico" aria-hidden="true"><use href="#i-shield"></use></svg>Sem cookies e sem guardar IP. Robôs e quem está logado no painel não contam.</div>
         </div>
+      </div>
+
+      <div class="sections-block mt-funnel-block">
+        <div class="sections-head">Funil de vendas <span class="sections-sub">pessoas que chegaram a cada passo no período</span></div>
+        <div class="mt-funnel" id="mtFunnel"></div>
+        <div class="mt-funnel-worst" id="mtFunnelWorst" hidden></div>
+        <div class="mt-hero" id="mtHero"></div>
       </div>
     </div>
     {% endif %}
