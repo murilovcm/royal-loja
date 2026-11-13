@@ -1178,6 +1178,14 @@
 
             <div class="hero-admin-row">
               <div class="pp-field hero-admin-text">
+                <label for="cfgBfSign">Nome embaixo do “Black Friday”</label>
+                <input type="text" id="cfgBfSign" maxlength="16" value="{{ config.bf_assinatura or '' }}" placeholder="{{ config.store_name or 'Ex: Royal' }}">
+                <small class="pp-hint">Aparece em letras espaçadas entre dois fios dourados, embaixo do letreiro. Vazio usa o nome da loja. Até 16 caracteres; nomes longos diminuem sozinhos para caber.</small>
+              </div>
+            </div>
+
+            <div class="hero-admin-row">
+              <div class="pp-field hero-admin-text">
                 <label for="cfgHeroTitle">Título principal</label>
                 <input type="text" id="cfgHeroTitle" maxlength="120" value="{{ config.hero_title or '' }}" placeholder="Ex: Pods de qualidade em | São Luís | você encontra aqui">
                 <small class="pp-hint">O trecho <b>entre as barras</b> ganha o destaque na cor da marca. Vazio usa o texto padrão com o nome da cidade. Oculto: some da tela, mas o Google continua lendo (é o título da página na busca).</small>
@@ -1204,7 +1212,7 @@
                   </label>
                 </div>
                 <input type="text" id="cfgHeroSubtitle" maxlength="200" value="{{ config.hero_subtitle or '' }}" placeholder="Ex: Entrega rápida em toda São Luís. Produtos originais, pedido direto pelo WhatsApp.">
-                <small class="pp-hint"><b>Passo a passo:</b> Escolha → Envie (WhatsApp) → Receba, numa linha só. <b>Frase de apoio:</b> usa o texto acima; vazio usa o texto padrão. Oculto: nenhum dos dois aparece.</small>
+                <small class="pp-hint"><b>Passo a passo:</b> três ícones — Escolha no catálogo, Envie no WhatsApp, Receba em casa. <b>Frase de apoio:</b> usa o texto acima; vazio usa o texto padrão. Oculto: nenhum dos dois aparece.</small>
               </div>
               <label class="pp-switch">
                 <span class="switch {{ 'on' if config.hero_subtitle_visible != '0' }}" id="heroSubtitleSwitch" onclick="toggleLabeledSwitch(this)"></span>
@@ -2766,6 +2774,7 @@
       const ok = await withSaving('saveHeroBtn', async () => {
         const bf = await api('/api/black_friday', 'POST', { bf_tema_ativo: isOn('bfSwitch') === '1' });
         const rest = await saveConfigFields({
+          bf_assinatura: txt('cfgBfSign'),
           hero_title: txt('cfgHeroTitle'),
           hero_subtitle: txt('cfgHeroSubtitle'),
           hero_title_visible: isOn('heroTitleSwitch'),

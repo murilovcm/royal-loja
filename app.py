@@ -748,6 +748,11 @@ def init_db():
         # "steps": o passo a passo substituiu a frase nas três lojas, e a frase
         # continua no painel caso alguma precise voltar a ela.
         "hero_support": "steps",
+        # Assinatura embaixo do letreiro "Black Friday", entre dois fios
+        # dourados (painel → Topo da loja). Vazio = nome da loja (store_name),
+        # então cada uma das três lojas já sai com o próprio nome sem mexer em
+        # nada. Ver parse_hero() e BF_SIGN_MAX.
+        "bf_assinatura": "",
         "store_name": "Royal",
         "store_city": "São Luís",
         # Complemento do título da aba quando `page_title` está vazio. Antes o
@@ -1452,6 +1457,11 @@ def parse_faq(config):
     return faq
 
 
+# Máximo de caracteres da assinatura do letreiro de Black Friday. Cabe
+# "PODS ILHA" com folga; acima disso a fonte já teria de encolher demais.
+BF_SIGN_MAX = 16
+
+
 def parse_hero(config):
     """Título e subtítulo do hero, editáveis por loja.
 
@@ -1490,9 +1500,19 @@ def parse_hero(config):
             "Produtos originais, pedido direto pelo WhatsApp."
         )
 
+    # Assinatura do letreiro de Black Friday. Espaços repetidos viram um só
+    # (cada caractere vira uma letra espaçada no template) e o texto é cortado
+    # em BF_SIGN_MAX: o app.js encolhe a fonte para caber entre os fios, e
+    # o limite garante que mesmo o nome mais longo continue legível.
+    bf_sign = " ".join((config.get("bf_assinatura") or "").split())
+    if not bf_sign:
+        bf_sign = " ".join((config.get("store_name") or "").split())
+    bf_sign = bf_sign[:BF_SIGN_MAX].strip()
+
     return {
         "segments": segments,
         "subtitle": subtitle,
+        "bf_sign": bf_sign,
         "title_visible": config.get("hero_title_visible") != "0",
         "subtitle_visible": config.get("hero_subtitle_visible") != "0",
         # Qualquer valor que não seja "text" cai no passo a passo, o padrão.

@@ -1243,39 +1243,133 @@ header.site-header::after {
 }
 
 /* Passo a passo no lugar da frase de apoio (painel → Topo da loja → "Abaixo
-   do título": Passo a passo). Uma cápsula só, no mesmo formato da pill de
-   status lá em cima, para o hero ganhar uma linha e não um bloco. Ocupa ~40px,
-   menos que a frase que substitui, e o "Ver Catálogo" sobe na tela.
-   Ícones na cor da marca; o do WhatsApp em verde porque é ele que diz "pelo
-   WhatsApp" no passo do meio, que só tem o verbo "Envie". */
+   do título": Passo a passo). Três passos lado a lado, cada um com o ícone
+   num círculo e o texto em duas linhas embaixo.
+   O círculo copia o .btn-social (fundo translúcido + borda de 1px na cor do
+   ícone a ~28%), para o passo a passo e os botões redondos lerem como uma
+   família só. Carrinho e moto na cor da marca; o WhatsApp no verde da marca
+   dele, o mesmo do botão redondo. */
 .hero-steps {
+  --step-col: 92px;
+  --step-gap: 16px;
   list-style: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
+  display: grid;
+  grid-template-columns: repeat(3, var(--step-col));
+  gap: var(--step-gap);
+  justify-content: center;
   margin: 0 auto 28px;
-  padding: 7px 8px;
-  border-radius: var(--r-pill);
-  background: rgba(255,255,255,.045);
-  border: 1px solid rgba(255,255,255,.10);
 }
-.hero-steps li { display: inline-flex; align-items: center; gap: 2px; }
-.hero-steps-item {
-  display: inline-flex;
+.hero-steps li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  font-size: 13.5px;
-  font-weight: var(--fw-medium);
-  color: var(--text);
-  white-space: nowrap;
+  gap: 8px;
 }
-.hero-steps-item .ico { width: 16px; height: 16px; color: var(--primary-yellow); }
-.hero-steps-item.is-wa .ico { color: var(--ok); }
-.hero-steps-sep { width: 12px; height: 12px; color: var(--text-dim); opacity: .6; }
+.hero-steps-ico {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(var(--primary-rgb),.28);
+  color: var(--primary-yellow);
+}
+.hero-steps-ico.is-wa { color: var(--ok); border-color: rgba(37,211,102,.28); }
+.hero-steps-ico .ico { width: 18px; height: 18px; }
+/* A moto ocupa a largura toda do quadro de 24px; maior e mais fina, ela fica
+   com o mesmo peso visual do carrinho e do WhatsApp. */
+.hero-steps-ico .ico-moto { width: 20px; height: 20px; stroke-width: 1.75; }
+.hero-steps-txt {
+  font-size: 12.5px;
+  line-height: 1.3;
+  font-weight: var(--fw-medium);
+  color: rgba(255,255,255,.85);
+}
+.hero-steps-txt span { display: block; }
+/* Setinhas > > > no vão entre dois círculos. Moram no <li> do passo
+   seguinte: o meio do vão fica a meio --step-gap à esquerda dele, na altura
+   do centro do círculo (19px). Invisíveis em repouso. */
+.hero-steps-chevs {
+  position: absolute;
+  top: 19px;
+  left: calc(var(--step-gap) / -2);
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 1px;
+  color: var(--primary-yellow);
+  pointer-events: none;
+}
+.hero-steps-chevs .ico { width: 12px; height: 12px; stroke-width: 2.5; opacity: 0; }
+/* Anel que nasce no círculo quando o passo "acende" (mesmo respiro do ponto
+   de "Loja aberta agora"). */
+.hero-steps-ico::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  opacity: 0;
+  pointer-events: none;
+}
 @media (max-width: 360px) {
-  .hero-steps { padding: 6px 4px; gap: 0; }
-  .hero-steps-item { font-size: 12.5px; gap: 5px; padding: 4px 6px; }
+  .hero-steps { --step-col: 84px; --step-gap: 8px; }
+}
+
+/* ---- Animação: "acende em ordem" ----
+   ENTRADA (uma vez, quando o hero é liberado): o bloco sobe junto com o
+   resto do hero e os três passos começam apagados (35%), acendendo 1 → 2 → 3.
+   CICLO (a cada 5s, para sempre): cada ícone dá um toque de escala e solta o
+   anel, e as setinhas correm no vão até o passo seguinte. Toda a ação cabe
+   em ~1,5s; o resto dos 5s é descanso.
+   O ciclo é CSS puro: cada peça roda uma animação infinita de 5s e o atraso
+   só desloca a PRIMEIRA volta, então as peças continuam em fase entre si.
+   Só transform e opacity: roda na GPU, custo ~zero no celular. */
+.hero.reveal-visible .hero-steps li { animation: stepLit .5s var(--ease) both; }
+.hero.reveal-visible .hero-steps li:nth-child(1) { animation-delay: .75s; }
+.hero.reveal-visible .hero-steps li:nth-child(2) { animation-delay: 1.15s; }
+.hero.reveal-visible .hero-steps li:nth-child(3) { animation-delay: 1.55s; }
+
+.hero.reveal-visible .hero-steps-ico { animation: stepIcoTap 5s var(--ease) infinite; }
+.hero.reveal-visible .hero-steps-ico::after { animation: stepIcoRing 5s var(--ease) infinite; }
+.hero.reveal-visible .hero-steps li:nth-child(1) .hero-steps-ico,
+.hero.reveal-visible .hero-steps li:nth-child(1) .hero-steps-ico::after { animation-delay: .75s; }
+.hero.reveal-visible .hero-steps li:nth-child(2) .hero-steps-ico,
+.hero.reveal-visible .hero-steps li:nth-child(2) .hero-steps-ico::after { animation-delay: 1.15s; }
+.hero.reveal-visible .hero-steps li:nth-child(3) .hero-steps-ico,
+.hero.reveal-visible .hero-steps li:nth-child(3) .hero-steps-ico::after { animation-delay: 1.55s; }
+
+.hero.reveal-visible .hero-steps-chevs .ico { animation: stepChev 5s var(--ease) infinite; }
+.hero.reveal-visible .hero-steps li:nth-child(2) .hero-steps-chevs .ico:nth-child(1) { animation-delay: .82s; }
+.hero.reveal-visible .hero-steps li:nth-child(2) .hero-steps-chevs .ico:nth-child(2) { animation-delay: .92s; }
+.hero.reveal-visible .hero-steps li:nth-child(2) .hero-steps-chevs .ico:nth-child(3) { animation-delay: 1.02s; }
+.hero.reveal-visible .hero-steps li:nth-child(3) .hero-steps-chevs .ico:nth-child(1) { animation-delay: 1.22s; }
+.hero.reveal-visible .hero-steps li:nth-child(3) .hero-steps-chevs .ico:nth-child(2) { animation-delay: 1.32s; }
+.hero.reveal-visible .hero-steps li:nth-child(3) .hero-steps-chevs .ico:nth-child(3) { animation-delay: 1.42s; }
+
+@keyframes stepLit { from { opacity: .35; } to { opacity: 1; } }
+/* Percentuais sobre 5s: 4% = 200ms, 10% = 500ms, 18% = 900ms, 12% = 600ms. */
+@keyframes stepIcoTap {
+  0%        { transform: scale(1); }
+  4%        { transform: scale(1.12); }
+  10%, 100% { transform: scale(1); }
+}
+@keyframes stepIcoRing {
+  0%        { opacity: .6; transform: scale(1); }
+  18%, 100% { opacity: 0;  transform: scale(1.7); }
+}
+@keyframes stepChev {
+  0%        { opacity: 0; transform: translateX(-4px); }
+  4.2%      { opacity: 1; transform: none; }
+  12%, 100% { opacity: 0; transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero.reveal-visible .hero-steps li,
+  .hero.reveal-visible .hero-steps-ico,
+  .hero.reveal-visible .hero-steps-ico::after,
+  .hero.reveal-visible .hero-steps-chevs .ico { animation: none; }
 }
 
 /* Status da loja: a pill INTEIRA muda de estado, não só o ponto. "Dá para
@@ -1556,14 +1650,15 @@ header.site-header::after {
 
 /* Entrada escalonada: status -> título -> subtítulo -> CTA -> nota do Google.
    Uma sequência só, na ordem de leitura, em vez de efeitos espalhados. */
-.store-status, .hero h1, .hero-subhead, .hero-cta, .hero-rating {
+.store-status, .hero h1, .hero-subhead, .hero-steps, .hero-cta, .hero-rating {
   opacity: 0;
   transform: translateY(14px);
   transition: opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1);
 }
 .hero.reveal-visible .store-status { opacity: 1; transform: none; transition-delay: .10s; }
 .hero.reveal-visible h1            { opacity: 1; transform: none; transition-delay: .16s; }
-.hero.reveal-visible .hero-subhead { opacity: 1; transform: none; transition-delay: .23s; }
+.hero.reveal-visible .hero-subhead,
+.hero.reveal-visible .hero-steps   { opacity: 1; transform: none; transition-delay: .23s; }
 .hero.reveal-visible .hero-cta     { opacity: 1; transform: none; transition-delay: .29s; }
 .hero.reveal-visible .hero-rating  { opacity: 1; transform: none; transition-delay: .36s; }
 

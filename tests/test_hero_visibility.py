@@ -36,6 +36,24 @@ def test_zero_hides():
     assert hero["subtitle_visible"] is False
 
 
+def test_bf_sign_defaults_to_store_name():
+    assert parse_hero({"store_name": "Royal"})["bf_sign"] == "Royal"
+    assert parse_hero({"store_name": "Royal", "bf_assinatura": "  Pods   Ilha "})["bf_sign"] == "Pods Ilha"
+
+
+def test_bf_sign_is_capped():
+    sign = parse_hero({"bf_assinatura": "Nome comprido demais para caber"})["bf_sign"]
+    assert len(sign) <= 16
+    assert sign == sign.strip()
+
+
+def test_bf_sign_rendered_with_black_friday(client):
+    html = _render(client, {"bf_tema_ativo": "1", "bf_assinatura": "Pods Ilha"})
+    assert '<span class="sr-only">Pods Ilha</span>' in html
+    assert "<i style=\"--i:4.0\">P</i>" in html
+    assert "&nbsp;</i>" in html
+
+
 def _render(client, values):
     saved = _set_config({"hero_subtitle": "Frase de teste do hero", **values})
     try:

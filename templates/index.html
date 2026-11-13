@@ -201,13 +201,13 @@
     --flavor-more-raw: {{ config.theme_flavor_more_color or config.theme_accent_soft_color or '#a855f7' }};
   }</style>
   {% if bf_ativo %}
-  {# Fonte do letreiro: uma família só (Archivo), num corte só (largo, peso
-     900), que é o que o letreiro usa. O resto da página continua na Geist que
-     a loja já serve. display=swap: o texto aparece na hora com a fonte do
-     sistema e troca quando a Archivo chega. #}
+  {# Fonte do letreiro: uma família só (Archivo), no corte largo, em dois
+     pesos: 900 no "Black Friday" e 800 na assinatura embaixo dele. O resto da
+     página continua na Geist que a loja já serve. display=swap: o texto
+     aparece na hora com a fonte do sistema e troca quando a Archivo chega. #}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,800;125,900&display=swap">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tema-blackfriday.css') }}?v={{ asset_v }}">
   {% endif %}
 </head>
@@ -338,7 +338,15 @@
        título da página para o Google. Cada palavra tem o seu <span> porque são
        dois tons ("Black" branco, "Friday" na cor de marca) e entram em tempos
        diferentes. Estilo e animação em static/css/tema-blackfriday.css. #}
-    <p class="bf-letreiro"><span class="bf-l1">Black</span> <span class="bf-l2">Friday</span></p>
+    {# Assinatura (hero.bf_sign: campo do painel, ou o nome da loja): cada
+       caractere vira um <i> espaçado, entre dois fios que ocupam o resto da
+       largura do FRIDAY. --i é a distância até o meio da palavra, usada para
+       as letras entrarem do centro para as bordas. O leitor de tela lê a
+       versão inteira em .sr-only, não as letras soltas. O encaixe (encolher a
+       fonte quando o nome é longo) fica no app.js, fitBfSign(). #}
+    <p class="bf-letreiro"><span class="bf-l1">Black</span> <span class="bf-l2">Friday</span>
+      {%- if hero.bf_sign %}{% set n = hero.bf_sign | length %} <span class="bf-sign"><span class="sr-only">{{ hero.bf_sign }}</span><span class="bf-sign-txt" aria-hidden="true">{% for ch in hero.bf_sign %}<i style="--i:{{ (loop.index0 - (n - 1) / 2) | abs }}">{% if ch == ' ' %}&nbsp;{% else %}{{ ch }}{% endif %}</i>{% endfor %}</span></span>{% endif -%}
+    </p>
     {% endif %}
 
     {# A pill da cidade dentro do título é a peça que a loja já tinha de mais
@@ -355,14 +363,18 @@
     <h1{% if not hero.title_visible %} class="sr-only"{% endif %}>{% for seg in hero.segments %}{% if seg.accent %}<span class="cidade">{{ seg.text }}</span>{% else %}{{ seg.text }}{% endif %}{{ ' ' if not loop.last else '' }}{% endfor %}</h1>
 
     {# Abaixo do título: passo a passo (padrão) ou a frase de apoio antiga,
-       escolha no painel → Topo da loja. O <ol> é lido inteiro por leitor de
-       tela pelo aria-label, já que os itens visíveis mostram só o verbo. #}
+       escolha no painel → Topo da loja. Três ícones em círculo com o texto
+       em duas linhas embaixo; o texto visível já é a frase inteira, então o
+       leitor de tela lê os itens normalmente. As setinhas (.hero-steps-chevs)
+       ficam no <li> do passo seguinte, centradas no vão entre os círculos, e
+       só aparecem durante o ciclo de animação (style.css). #}
     {% if hero.subtitle_visible %}
     {% if hero.support == 'steps' %}
-    <ol class="hero-steps" aria-label="Como pedir: escolha no catálogo, envie no WhatsApp, receba em casa">
-      <li><span class="hero-steps-item"><svg class="ico" aria-hidden="true"><use href="#i-cart"></use></svg>Escolha</span></li>
-      <li><svg class="ico hero-steps-sep" aria-hidden="true"><use href="#i-chevron-right"></use></svg><span class="hero-steps-item is-wa"><svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg>Envie</span></li>
-      <li><svg class="ico hero-steps-sep" aria-hidden="true"><use href="#i-chevron-right"></use></svg><span class="hero-steps-item"><svg class="ico" aria-hidden="true"><use href="#i-scooter"></use></svg>Receba</span></li>
+    {% set chevs %}<span class="hero-steps-chevs" aria-hidden="true"><svg class="ico"><use href="#i-chevron-right"></use></svg><svg class="ico"><use href="#i-chevron-right"></use></svg><svg class="ico"><use href="#i-chevron-right"></use></svg></span>{% endset %}
+    <ol class="hero-steps">
+      <li><span class="hero-steps-ico"><svg class="ico" aria-hidden="true"><use href="#i-cart"></use></svg></span><span class="hero-steps-txt">Escolha <span>no catálogo</span></span></li>
+      <li>{{ chevs }}<span class="hero-steps-ico is-wa"><svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg></span><span class="hero-steps-txt">Envie no <span>WhatsApp</span></span></li>
+      <li>{{ chevs }}<span class="hero-steps-ico"><svg class="ico ico-moto" aria-hidden="true"><use href="#i-motorbike"></use></svg></span><span class="hero-steps-txt">Receba <span>em casa</span></span></li>
     </ol>
     {% else %}
     <p class="hero-subhead">{{ hero.subtitle }}</p>

@@ -2464,6 +2464,49 @@
   })();
 
   // ---------------------------------------------------------------
+  // ASSINATURA DO LETREIRO DE BLACK FRIDAY (encaixe)
+  // A assinatura (nome da loja ou texto do painel) fica entre dois fios
+  // dourados e a linha inteira mede a largura do FRIDAY. As letras nunca
+  // quebram (CSS); aqui garantimos que também nunca vazem: se o nome não
+  // cabe com os dois fios no tamanho mínimo, a fonte da assinatura diminui na
+  // proporção exata. Letras, espaços entre elas e o vão até os fios são em
+  // em, então escalam juntos; só a largura mínima dos fios é fixa em px.
+  // Sem Black Friday (ou sem assinatura) não há .bf-sign e nada roda.
+  // ---------------------------------------------------------------
+  (function initBfSignFit() {
+    const sign = document.querySelector(".bf-sign");
+    const txt = sign && sign.querySelector(".bf-sign-txt");
+    if (!txt) return;
+
+    const fit = () => {
+      sign.style.fontSize = "";
+      sign.style.removeProperty("--bf-sign-track");
+      const cs = getComputedStyle(sign);
+      const width = sign.clientWidth;
+      const gap = parseFloat(cs.columnGap) || 0;
+      const ruleMin = parseFloat(cs.getPropertyValue("--bf-sign-rule-min")) || 0;
+      const fits = () => txt.scrollWidth + 2 * (gap + ruleMin) <= width;
+      if (!width || fits()) return;
+      // 1º passo: aproxima as letras. 2º, se ainda não couber: fonte menor.
+      sign.style.setProperty("--bf-sign-track", ".22em");
+      if (fits()) return;
+      const need = txt.scrollWidth;
+      const scale = (width - 2 * ruleMin) / (need + 2 * gap);
+      // 0,98: um respiro para arredondamento de subpixel.
+      sign.style.fontSize = (parseFloat(cs.fontSize) * scale * 0.98).toFixed(2) + "px";
+    };
+
+    fit();
+    // A largura muda quando a Archivo chega (display=swap) e ao girar a tela.
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    let raf = 0;
+    window.addEventListener("resize", () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(fit);
+    });
+  })();
+
+  // ---------------------------------------------------------------
   // SCROLL REVEAL (fade + deslize sutil ao entrar na viewport)
   // ---------------------------------------------------------------
   (function initScrollReveal() {
