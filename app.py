@@ -404,9 +404,10 @@ api_coupons_required = _write_api_guard(lambda u: u["can_coupons"])
 # Nunca passa pra quem não é dono — usado em Identidade Visual, Frete e
 # gestão de funcionários, que não têm toggle: são sempre exclusivos do dono.
 api_owner_required = _write_api_guard(lambda u: False)
-# Leitura só do dono SEM gravar no audit_log: a aba Métricas consulta o
-# "online agora" a cada 30 s, e isso afogaria o log de ações de verdade.
-api_owner_read = _write_api_guard(lambda u: False, audit=False)
+# Aba Métricas: dono ou funcionário com can_metrics=1. Leitura SEM gravar no
+# audit_log: a aba consulta o "online agora" a cada 30 s, e isso afogaria o
+# log de ações de verdade.
+api_metrics_read = _write_api_guard(lambda u: u["can_metrics"], audit=False)
 
 
 # ---------------------------------------------------------------------------
@@ -618,6 +619,14 @@ def init_db():
     audit_cols = {row["name"] for row in db.execute("PRAGMA table_info(audit_log)").fetchall()}
     if "username" not in audit_cols:
         db.execute("ALTER TABLE audit_log ADD COLUMN username TEXT")
+        db.commit()
+
+    # Migração: users ganhou `can_metrics` (funcionário pode ver a aba
+    # Métricas). Nasce 0: nenhum funcionário existente passa a ver os números
+    # do negócio sem o dono ligar.
+    user_cols = {row["name"] for row in db.execute("PRAGMA table_info(users)").fetchall()}
+    if "can_metrics" not in user_cols:
+        db.execute("ALTER TABLE users ADD COLUMN can_metrics INTEGER NOT NULL DEFAULT 0")
         db.commit()
 
     # Migração: products ganhou a coluna color (cor do ponto do sabor no card)
@@ -2059,6 +2068,7 @@ def admin():
         is_owner=is_owner,
         can_catalog=is_owner or bool(user["can_catalog"]),
         can_coupons=is_owner or bool(user["can_coupons"]),
+        can_metrics=is_owner or bool(user["can_metrics"]),
         employees=employees,
     )
 
@@ -2081,10 +2091,12 @@ def api_create_user():
         return jsonify({"ok": False, "error": "esse nome de usuário já existe"}), 400
     can_catalog = 1 if data.get("can_catalog", True) else 0
     can_coupons = 1 if data.get("can_coupons", True) else 0
+    # Métricas são números do negócio: só liga se o dono marcar.
+    can_metrics = 1 if data.get("can_metrics", False) else 0
     cur = db.execute(
-        "INSERT INTO users (username, password_hash, role, can_catalog, can_coupons, is_active, created_at) "
-        "VALUES (?, ?, 'staff', ?, ?, 1, ?)",
-        (username, generate_password_hash(password), can_catalog, can_coupons, time.time()),
+        "INSERT INTO users (username, password_hash, role, can_catalog, can_coupons, can_metrics, is_active, created_at) "
+        "VALUES (?, ?, 'staff', ?, ?, ?, 1, ?)",
+        (username, generate_password_hash(password), can_catalog, can_coupons, can_metrics, time.time()),
     )
     db.commit()
     return jsonify({"ok": True, "id": cur.lastrowid, "username": username})
@@ -2106,6 +2118,8 @@ def api_update_user(uid):
         fields.append("can_catalog = ?"); vals.append(1 if data["can_catalog"] else 0)
     if "can_coupons" in data:
         fields.append("can_coupons = ?"); vals.append(1 if data["can_coupons"] else 0)
+    if "can_metrics" in data:
+        fields.append("can_metrics = ?"); vals.append(1 if data["can_metrics"] else 0)
     if "is_active" in data:
         fields.append("is_active = ?"); vals.append(1 if data["is_active"] else 0)
     if data.get("password"):
@@ -3767,7 +3781,7 @@ def _metrics_online_count(db):
 
 
 @app.route("/api/metrics", methods=["GET"])
-@api_owner_read
+@api_metrics_read
 def metrics_summary():
     """Números da aba Métricas para o período pedido, o período anterior de
     mesmo tamanho e a série do gráfico.
@@ -3862,7 +3876,7 @@ def metrics_summary():
 
 
 @app.route("/api/metrics/online", methods=["GET"])
-@api_owner_read
+@api_metrics_read
 def metrics_online():
     return jsonify({"ok": True, "online": _metrics_online_count(get_db())})
 

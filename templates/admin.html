@@ -618,7 +618,7 @@
       <button class="tab-btn" data-tab="social" type="button">📱 Redes Sociais</button>
       {% if is_owner %}<button class="tab-btn" data-tab="siteinfo" type="button">📢 Informações do site</button>{% endif %}
       {% if is_owner %}<button class="tab-btn" data-tab="employees" type="button">👥 Funcionários</button>{% endif %}
-      {% if is_owner %}<button class="tab-btn" data-tab="metrics" type="button"><svg class="ico" aria-hidden="true"><use href="#i-chart-bar"></use></svg>Métricas</button>{% endif %}
+      {% if can_metrics %}<button class="tab-btn" data-tab="metrics" type="button"><svg class="ico" aria-hidden="true"><use href="#i-chart-bar"></use></svg>Métricas</button>{% endif %}
     </div>
 
     <div class="admin-tab-panel active" data-tab-panel="catalog">
@@ -1801,6 +1801,7 @@
           <input type="text" id="newEmpPassword" placeholder="Senha (mín. 6 caracteres)">
           <label class="emp-perm"><input type="checkbox" id="newEmpCatalog" checked> Catálogo</label>
           <label class="emp-perm"><input type="checkbox" id="newEmpCoupons" checked> Cupons</label>
+          <label class="emp-perm"><input type="checkbox" id="newEmpMetrics"> Métricas</label>
           <button class="mini-btn primary" onclick="submitAddEmployee()">Criar funcionário</button>
           <button class="mini-btn" onclick="toggleAddEmployeeForm(false)">Cancelar</button>
         </div>
@@ -1816,6 +1817,10 @@
             <span class="stock-toggle emp-perm" onclick="toggleEmployeePerm({{ u.id }}, 'can_coupons', this)" title="Acesso a Cupons">
               <span class="switch {{ 'on' if u.can_coupons }}"></span>
               <span>Cupons</span>
+            </span>
+            <span class="stock-toggle emp-perm" onclick="toggleEmployeePerm({{ u.id }}, 'can_metrics', this)" title="Pode ver a aba Métricas (visitas, cliques no WhatsApp, online agora)">
+              <span class="switch {{ 'on' if u.can_metrics }}"></span>
+              <span>Métricas</span>
             </span>
             <span class="stock-toggle emp-perm" onclick="toggleEmployeeActive({{ u.id }}, this)" title="Ativar/Desativar login">
               <span class="switch {{ 'on' if u.is_active }}"></span>
@@ -1837,8 +1842,8 @@
     </div>
     {% endif %}
 
-    {% if is_owner %}
-    {# Aba Métricas: os números vêm de /api/metrics quando a aba é aberta; só o
+    {% if can_metrics %}
+    {# Aba Métricas (dono, ou funcionário com o poder "Métricas" ligado): os números vêm de /api/metrics quando a aba é aberta; só o
        "online agora" se atualiza sozinho (a cada 30 s, enquanto a aba está à vista). #}
     <div class="admin-tab-panel" data-tab-panel="metrics">
       <div class="mt-top">
@@ -3736,6 +3741,7 @@
         document.getElementById('newEmpPassword').value = '';
         document.getElementById('newEmpCatalog').checked = true;
         document.getElementById('newEmpCoupons').checked = true;
+        document.getElementById('newEmpMetrics').checked = false;
       }
     }
     document.getElementById('addEmployeeBtn')?.addEventListener('click', () => toggleAddEmployeeForm(true));
@@ -3745,9 +3751,10 @@
       const password = document.getElementById('newEmpPassword').value;
       const can_catalog = document.getElementById('newEmpCatalog').checked;
       const can_coupons = document.getElementById('newEmpCoupons').checked;
+      const can_metrics = document.getElementById('newEmpMetrics').checked;
       if (!username) { toast("Digite o usuário do funcionário"); return; }
       if (password.length < 6) { toast("A senha precisa ter pelo menos 6 caracteres"); return; }
-      const res = await api('/api/user', 'POST', { username, password, can_catalog, can_coupons });
+      const res = await api('/api/user', 'POST', { username, password, can_catalog, can_coupons, can_metrics });
       if (res.ok) { toast("Funcionário criado ✓"); location.reload(); }
       else toast(res.error || "Erro ao criar funcionário");
     }

@@ -33,14 +33,14 @@ def client(db_path):
         yield c
 
 
-def _login(client, db_path, role="owner"):
+def _login(client, db_path, role="owner", can_metrics=0, username="func"):
     db = sqlite3.connect(db_path)
     if role == "owner":
         uid = db.execute("SELECT id FROM users WHERE role = 'owner' LIMIT 1").fetchone()[0]
     else:
         uid = db.execute(
-            "INSERT INTO users (username, password_hash, role, created_at) VALUES ('func', 'x', 'staff', ?)",
-            (time.time(),),
+            "INSERT INTO users (username, password_hash, role, can_metrics, created_at) VALUES (?, 'x', 'staff', ?, ?)",
+            (username, can_metrics, time.time()),
         ).lastrowid
         db.commit()
     db.close()
@@ -202,11 +202,50 @@ def test_summary_rejects_unknown_period(client, db_path):
     assert client.get("/api/metrics?days=12").status_code == 400
 
 
-def test_metrics_are_owner_only(client, db_path):
+def test_staff_without_permission_cannot_read_metrics(client, db_path):
     assert client.get("/api/metrics").status_code == 401
     _login(client, db_path, role="staff")
     assert client.get("/api/metrics").status_code == 403
     assert client.get("/api/metrics/online").status_code == 403
+
+
+def test_staff_with_permission_can_read_metrics(client, db_path):
+    _login(client, db_path, role="staff", can_metrics=1)
+    assert client.get("/api/metrics").status_code == 200
+    assert client.get("/api/metrics/online").status_code == 200
+
+
+def test_owner_creates_and_toggles_metrics_permission(client, db_path):
+    _login(client, db_path)
+    padrao = client.post("/api/user", json={"username": "semmetricas", "password": "123456"}).get_json()
+    com = client.post("/api/user", json={"username": "commetricas", "password": "123456", "can_metrics": True}).get_json()
+    db = sqlite3.connect(db_path)
+    perm = lambda uid: db.execute("SELECT can_metrics FROM users WHERE id = ?", (uid,)).fetchone()[0]
+    assert perm(padrao["id"]) == 0  # desligado por padrão
+    assert perm(com["id"]) == 1
+    assert client.post(f"/api/user/{padrao['id']}", json={"can_metrics": True}).get_json()["ok"]
+    assert perm(padrao["id"]) == 1
+    db.close()
+
+
+def test_existing_db_gets_metrics_permission_off(tmp_path, monkeypatch):
+    """Banco antigo, sem a coluna: a migração cria com 0 para todo funcionário."""
+    path = str(tmp_path / "antigo.db")
+    old = sqlite3.connect(path)
+    old.execute(
+        "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, "
+        "password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'staff', can_catalog INTEGER NOT NULL DEFAULT 1, "
+        "can_coupons INTEGER NOT NULL DEFAULT 1, is_active INTEGER NOT NULL DEFAULT 1, created_at REAL NOT NULL)"
+    )
+    old.execute("INSERT INTO users (username, password_hash, created_at) VALUES ('antigo', 'x', 0)")
+    old.commit()
+    old.close()
+    monkeypatch.setattr(app_module, "DB_PATH", path)
+    with app_module.app.app_context():
+        app_module.init_db()
+    db = sqlite3.connect(path)
+    assert db.execute("SELECT can_metrics FROM users WHERE username = 'antigo'").fetchone()[0] == 0
+    db.close()
 
 
 def test_metrics_reads_do_not_fill_audit_log(client, db_path):
@@ -219,12 +258,15 @@ def test_metrics_reads_do_not_fill_audit_log(client, db_path):
     assert n == 0
 
 
-def test_admin_shows_metrics_tab_only_to_owner(client, db_path):
+def test_admin_shows_metrics_tab_to_owner_and_allowed_staff(client, db_path):
     _login(client, db_path)
     assert b'data-tab="metrics"' in client.get("/admin").data
-    client2 = app_module.app.test_client()
-    _login(client2, db_path, role="staff")
-    assert b'data-tab="metrics"' not in client2.get("/admin").data
+    sem = app_module.app.test_client()
+    _login(sem, db_path, role="staff")
+    assert b'data-tab="metrics"' not in sem.get("/admin").data
+    com = app_module.app.test_client()
+    _login(com, db_path, role="staff", can_metrics=1, username="func2")
+    assert b'data-tab="metrics"' in com.get("/admin").data
 
 
 def test_store_page_loads_metrics_script(client):
