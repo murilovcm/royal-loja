@@ -1,3 +1,4 @@
+import hashlib
 import hmac
 import json
 import os
@@ -8,7 +9,7 @@ import time
 import uuid
 import unicodedata
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from functools import wraps
 from urllib.parse import urljoin
 from xml.sax.saxutils import escape as xml_escape
@@ -355,7 +356,7 @@ def login_required(view):
     return wrapped
 
 
-def _write_api_guard(permission_check=None):
+def _write_api_guard(permission_check=None, audit=True):
     """Fábrica dos decorators usados por toda API de escrita do painel.
 
     Sempre exige estar logado (com a conta ainda ativa) e o token CSRF da
@@ -387,7 +388,8 @@ def _write_api_guard(permission_check=None):
             if request.method != "GET" and request.is_json:
                 detail = request.get_json(silent=True) or ""
             result = view(*args, **kwargs)
-            log_audit(f"{request.method} {request.path}", detail, username=user["username"])
+            if audit:
+                log_audit(f"{request.method} {request.path}", detail, username=user["username"])
             return result
         return wrapped
     return decorator
@@ -402,6 +404,9 @@ api_coupons_required = _write_api_guard(lambda u: u["can_coupons"])
 # Nunca passa pra quem não é dono — usado em Identidade Visual, Frete e
 # gestão de funcionários, que não têm toggle: são sempre exclusivos do dono.
 api_owner_required = _write_api_guard(lambda u: False)
+# Leitura só do dono SEM gravar no audit_log: a aba Métricas consulta o
+# "online agora" a cada 30 s, e isso afogaria o log de ações de verdade.
+api_owner_read = _write_api_guard(lambda u: False, audit=False)
 
 
 # ---------------------------------------------------------------------------
@@ -573,6 +578,35 @@ def init_db():
             can_coupons   INTEGER NOT NULL DEFAULT 1,     -- pode mexer em cupons de desconto
             is_active     INTEGER NOT NULL DEFAULT 1,
             created_at    REAL NOT NULL
+        );
+
+        -- Métricas de visita (aba Métricas, só o dono). Um resumo por dia,
+        -- guardado para sempre; nada pessoal fica nele.
+        CREATE TABLE IF NOT EXISTS metrics_daily (
+            day       TEXT PRIMARY KEY,           -- 'AAAA-MM-DD' no horário da loja
+            visitors  INTEGER NOT NULL DEFAULT 0, -- visitantes únicos no dia
+            pageviews INTEGER NOT NULL DEFAULT 0,
+            wa_clicks INTEGER NOT NULL DEFAULT 0, -- visitantes que enviaram o pedido no WhatsApp
+            mobile    INTEGER NOT NULL DEFAULT 0, -- visitantes únicos no celular
+            desktop   INTEGER NOT NULL DEFAULT 0  -- visitantes únicos no PC
+        );
+
+        -- Código anônimo de quem já foi contado HOJE (hash de IP + navegador +
+        -- data, sem o IP). Só serve para não contar a mesma pessoa duas vezes;
+        -- dias anteriores são apagados na primeira visita do dia seguinte.
+        CREATE TABLE IF NOT EXISTS metrics_seen (
+            day       TEXT NOT NULL,
+            vid       TEXT NOT NULL,
+            pageviews INTEGER NOT NULL DEFAULT 0,
+            wa        INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (day, vid)
+        );
+
+        -- Quem está com a loja aberta agora (último sinal). Linhas velhas são
+        -- apagadas a cada sinal; nunca passa de alguns minutos de dados.
+        CREATE TABLE IF NOT EXISTS metrics_online (
+            vid       TEXT PRIMARY KEY,
+            last_seen REAL NOT NULL
         );
         """
     )
@@ -3611,6 +3645,226 @@ def api_upload_image():
         db.execute("UPDATE vape_models SET image_url = ? WHERE id = ?", (image_url, model_id))
         db.commit()
     return jsonify({"ok": True, "image_url": image_url})
+
+
+# ---------------------------------------------------------------------------
+# Métricas de visita
+#
+# A loja manda três sinais (static/js/metrics.js): "hit" ao abrir a página,
+# "ping" a cada 30 s enquanto a aba está visível (alimenta o "online agora") e
+# "wa" quando o pedido é enviado para o WhatsApp. Nenhum cookie: o visitante é
+# um hash de IP + navegador + data, que muda todo dia e não guarda o IP.
+# Robôs e quem está logado no painel não contam.
+# ---------------------------------------------------------------------------
+METRICS_ONLINE_WINDOW = 120      # segundos sem sinal até sair do "online agora"
+METRICS_PAGEVIEW_CAP = 200       # teto de páginas por visitante por dia (anti-F5 infinito)
+METRICS_PERIODS = (1, 7, 30, 365)
+METRICS_MAX_RANGE = 3 * 366      # "Selecionar o período": até ~3 anos
+METRICS_DAILY_BARS_MAX = 92      # acima disso o gráfico agrupa por semana
+
+_BOT_UA = re.compile(
+    r"bot|crawl|spider|slurp|facebookexternalhit|facebookcatalog|whatsapp|telegram|"
+    r"preview|headless|lighthouse|pingdom|uptime|monitor|curl|wget|python|httpclient|"
+    r"okhttp|java/|go-http|axios|node-fetch|scrapy",
+    re.I,
+)
+_MOBILE_UA = re.compile(r"mobi|android|iphone|ipad|ipod|windows phone", re.I)
+
+
+def _metrics_today():
+    return pricing.agora_utc().astimezone(pricing.FUSO_LOJA).date()
+
+
+def _metrics_visitor():
+    """(dia, código anônimo, é_celular) de quem fez a request, ou None quando
+    ela não deve contar: sem navegador, robô ou alguém logado no painel."""
+    ua = request.headers.get("User-Agent", "")
+    if not ua or _BOT_UA.search(ua) or _current_user():
+        return None
+    day = _metrics_today().isoformat()
+    raw = f"{app.secret_key}|{day}|{_client_ip()}|{ua}".encode()
+    return day, hashlib.sha256(raw).hexdigest()[:32], bool(_MOBILE_UA.search(ua))
+
+
+def _metrics_touch_online(db, vid):
+    now = time.time()
+    db.execute(
+        "INSERT INTO metrics_online (vid, last_seen) VALUES (?, ?) "
+        "ON CONFLICT(vid) DO UPDATE SET last_seen = excluded.last_seen",
+        (vid, now),
+    )
+    db.execute("DELETE FROM metrics_online WHERE last_seen < ?", (now - 5 * METRICS_ONLINE_WINDOW,))
+
+
+def _metrics_register(db, visitor, pageview):
+    """Conta o visitante no dia (só na primeira vez) e, se `pageview`, mais uma
+    página vista. Devolve a linha de metrics_seen dele."""
+    day, vid, mobile = visitor
+    # Os códigos de ontem para trás já não servem para nada: some com eles.
+    db.execute("DELETE FROM metrics_seen WHERE day < ?", (day,))
+    new = db.execute(
+        "INSERT OR IGNORE INTO metrics_seen (day, vid) VALUES (?, ?)", (day, vid)
+    ).rowcount == 1
+    seen = db.execute(
+        "SELECT pageviews, wa FROM metrics_seen WHERE day = ? AND vid = ?", (day, vid)
+    ).fetchone()
+    pv = 1 if pageview and seen["pageviews"] < METRICS_PAGEVIEW_CAP else 0
+    if pv:
+        db.execute(
+            "UPDATE metrics_seen SET pageviews = pageviews + 1 WHERE day = ? AND vid = ?", (day, vid)
+        )
+    db.execute("INSERT INTO metrics_daily (day) VALUES (?) ON CONFLICT(day) DO NOTHING", (day,))
+    db.execute(
+        "UPDATE metrics_daily SET visitors = visitors + ?, pageviews = pageviews + ?, "
+        "mobile = mobile + ?, desktop = desktop + ? WHERE day = ?",
+        (int(new), pv, int(new and mobile), int(new and not mobile), day),
+    )
+    return seen
+
+
+@app.route("/api/m/hit", methods=["POST"])
+def metrics_hit():
+    visitor = _metrics_visitor()
+    if visitor:
+        db = get_db()
+        _metrics_register(db, visitor, pageview=True)
+        _metrics_touch_online(db, visitor[1])
+        db.commit()
+    return "", 204
+
+
+@app.route("/api/m/ping", methods=["POST"])
+def metrics_ping():
+    visitor = _metrics_visitor()
+    if visitor:
+        db = get_db()
+        _metrics_touch_online(db, visitor[1])
+        db.commit()
+    return "", 204
+
+
+@app.route("/api/m/wa", methods=["POST"])
+def metrics_wa():
+    """Pedido enviado para o WhatsApp. Conta uma vez por visitante por dia, para
+    a conversão (cliques ÷ visitantes) nunca passar de 100%."""
+    visitor = _metrics_visitor()
+    if visitor:
+        db = get_db()
+        seen = _metrics_register(db, visitor, pageview=False)
+        if not seen["wa"]:
+            day, vid, _ = visitor
+            db.execute("UPDATE metrics_seen SET wa = 1 WHERE day = ? AND vid = ?", (day, vid))
+            db.execute("UPDATE metrics_daily SET wa_clicks = wa_clicks + 1 WHERE day = ?", (day,))
+        db.commit()
+    return "", 204
+
+
+def _metrics_online_count(db):
+    return db.execute(
+        "SELECT COUNT(*) FROM metrics_online WHERE last_seen >= ?",
+        (time.time() - METRICS_ONLINE_WINDOW,),
+    ).fetchone()[0]
+
+
+@app.route("/api/metrics", methods=["GET"])
+@api_owner_read
+def metrics_summary():
+    """Números da aba Métricas para o período pedido, o período anterior de
+    mesmo tamanho e a série do gráfico.
+
+    Período: ?days=1|7|30|365 (terminando hoje) ou ?from=AAAA-MM-DD&to=AAAA-MM-DD
+    (o "Selecionar o período" do painel, datas inclusivas, até hoje)."""
+    today = _metrics_today()
+    if request.args.get("from") or request.args.get("to"):
+        try:
+            start = date.fromisoformat(request.args.get("from", ""))
+            end = date.fromisoformat(request.args.get("to", ""))
+        except ValueError:
+            return jsonify({"ok": False, "error": "data inválida"}), 400
+        if start > end:
+            return jsonify({"ok": False, "error": "a data inicial é depois da final"}), 400
+        if end > today:
+            return jsonify({"ok": False, "error": "a data final não pode passar de hoje"}), 400
+        days = (end - start).days + 1
+        if days > METRICS_MAX_RANGE:
+            return jsonify({"ok": False, "error": "escolha um período de até 3 anos"}), 400
+        custom = True
+    else:
+        try:
+            days = int(request.args.get("days", 30))
+        except ValueError:
+            days = 0
+        if days not in METRICS_PERIODS:
+            return jsonify({"ok": False, "error": "período inválido"}), 400
+        end, start = today, today - timedelta(days=days - 1)
+        custom = False
+
+    db = get_db()
+    prev_start = start - timedelta(days=days)
+    # Um dia só desenha a semana que termina nele, então precisa dela também.
+    first = min(prev_start, end - timedelta(days=6))
+    rows = {
+        r["day"]: dict(r)
+        for r in db.execute(
+            "SELECT * FROM metrics_daily WHERE day BETWEEN ? AND ?",
+            (first.isoformat(), end.isoformat()),
+        )
+    }
+    keys = ("visitors", "pageviews", "wa_clicks", "mobile", "desktop")
+
+    def total(a, b):
+        out = dict.fromkeys(keys, 0)
+        d = a
+        while d <= b:
+            r = rows.get(d.isoformat())
+            if r:
+                for k in keys:
+                    out[k] += r[k]
+            d += timedelta(days=1)
+        return out
+
+    def visitors_on(d):
+        r = rows.get(d.isoformat())
+        return r["visitors"] if r else 0
+
+    if days > METRICS_DAILY_BARS_MAX:
+        # Período longo vai por semana (365 barrinhas não se leem): blocos de
+        # 7 dias terminando em `end`; o primeiro absorve a sobra (até 13 dias).
+        weeks = days // 7
+        series = []
+        for i in range(weeks):
+            we = end - timedelta(days=7 * (weeks - 1 - i))
+            ws = start if i == 0 else we - timedelta(days=6)
+            series.append({"day": ws.isoformat(), "visitors": total(ws, we)["visitors"]})
+        kind = "week"
+    else:
+        n = 7 if days == 1 else days
+        series = [
+            {"day": (end - timedelta(days=n - 1 - i)).isoformat(),
+             "visitors": visitors_on(end - timedelta(days=n - 1 - i))}
+            for i in range(n)
+        ]
+        kind = "day"
+
+    return jsonify({
+        "ok": True,
+        "days": days,
+        "custom": custom,
+        "from": start.isoformat(),
+        "to": end.isoformat(),
+        "today": today.isoformat(),
+        "current": total(start, end),
+        "previous": total(prev_start, start - timedelta(days=1)),
+        "series": series,
+        "series_kind": kind,
+        "online": _metrics_online_count(db),
+    })
+
+
+@app.route("/api/metrics/online", methods=["GET"])
+@api_owner_read
+def metrics_online():
+    return jsonify({"ok": True, "online": _metrics_online_count(get_db())})
 
 
 # Garante que o banco existe quando rodando via Gunicorn (produção)

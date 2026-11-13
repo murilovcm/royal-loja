@@ -3961,8 +3961,7 @@ body.editor-mode .model-card { cursor: default; }
 /* "2 dias" é mais curto que a contagem: sem a largura mínima dos dígitos, o
    texto fica centrado na pílula em vez de sobrar espaço à direita. */
 [data-promo-heat="dias"] .promo-cd b,
-[data-promo-heat="dias"] .promo-next-cd b,
-[data-promo-heat="dias"] .modal-promo-txt b { min-width: 0; }
+[data-promo-heat="dias"] .promo-next-cd b { min-width: 0; }
 [data-promo-heat="urgente"] .promo-cd {
   background: var(--promo-urgent); border-color: transparent; color: var(--promo-urgent-ink);
 }
@@ -4037,8 +4036,6 @@ body.editor-mode .model-card { cursor: default; }
   margin: -8px 0 20px; font-size: .82rem; color: var(--text-dim);
 }
 .modal-promo[hidden] { display: none; }
-.modal-promo-txt b { color: var(--text); font-weight: 700; display: inline-block; min-width: 8ch; }
-.modal-promo[data-promo-heat="urgente"] .modal-promo-txt b { color: var(--promo-urgent); }
 
 /* ---- Oferta relâmpago ----
    Mesmo layout da oferta normal; muda só a palavra ("Relâmpago"), o ícone
@@ -4055,10 +4052,6 @@ body.editor-mode .model-card { cursor: default; }
   color: var(--promo-urgent); font-weight: 700;
 }
 .promo-next-eyebrow .ico { width: 13px; height: 13px; }
-.modal-promo-bolt { display: inline-flex; vertical-align: -2px; margin-right: 4px; color: var(--promo-urgent); }
-.modal-promo-bolt[hidden] { display: none; }
-.modal-promo-bolt .ico { width: 14px; height: 14px; }
-.modal-promo.is-relampago #modalPromoLbl { color: var(--promo-urgent); font-weight: 700; }
 .modal-was {
   display: block; font-size: .82rem; color: var(--text-dim);
   font-variant-numeric: tabular-nums; line-height: 1.2;

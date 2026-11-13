@@ -531,9 +531,71 @@
     .rv-foot .pp-switch { margin:0 auto 0 0; font-weight:600; font-size:.82rem; }
     .rv-foot .mini-btn { padding:7px 12px; font-size:.78rem; }
     .rv-count { font-size:.7rem; color:var(--text-dim); text-align:right; }
+
+    /* --- Aba Métricas (só o dono) --- */
+    .tab-btn .ico { width:16px; height:16px; vertical-align:-3px; margin-right:4px; }
+    .mt-top { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px; align-items:stretch; margin-bottom:18px; }
+    .mt-online { display:flex; align-items:center; gap:16px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px 20px; }
+    .mt-pulse { width:12px; height:12px; border-radius:50%; background:var(--green); position:relative; flex-shrink:0; }
+    .mt-pulse::after { content:""; position:absolute; inset:0; border-radius:50%; background:var(--green); animation:mtPing 1.8s ease-out infinite; }
+    @keyframes mtPing { from { transform:scale(1); opacity:.7; } to { transform:scale(2.8); opacity:0; } }
+    @media (prefers-reduced-motion: reduce) { .mt-pulse::after { animation:none; } }
+    .mt-online-num { font-size:2.1rem; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; transition:color .3s; }
+    .mt-online-num.bump { color:var(--green); }
+    .mt-online-label { font-weight:700; }
+    .mt-online-sub { font-size:.78rem; color:var(--text-dim); }
+    .mt-period { display:flex; gap:4px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:5px; align-self:center; }
+    .mt-period button { background:none; border:1px solid transparent; color:var(--text-dim); font-weight:700; font-size:.85rem; padding:9px 14px; border-radius:10px; }
+    .mt-period button[aria-pressed="true"] { background:var(--surface-2); border-color:var(--border); color:var(--primary-yellow); }
+    .mt-period button:focus-visible { outline:2px solid var(--purple-soft); outline-offset:2px; }
+    .mt-period { flex-wrap:wrap; }
+    .mt-range { display:flex; align-items:end; gap:10px 12px; flex-wrap:wrap; margin:-6px 0 18px; padding:14px 16px; background:var(--surface); border:1px solid var(--border); border-radius:14px; }
+    .mt-range input { padding:8px 10px; border-radius:8px; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:inherit; font-size:.88rem; color-scheme:dark; }
+    .mt-range input:focus { outline:2px solid var(--purple-soft); outline-offset:1px; }
+    .mt-range .mini-btn { padding:9px 18px; }
+    .mt-range[hidden] { display:none; }
+    .mt-range-info { font-size:.8rem; color:var(--text-dim); align-self:end; padding-bottom:10px; font-variant-numeric:tabular-nums; }
+    .mt-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+    .mt-kpi { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px 18px; display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .mt-kpi-label { font-size:.74rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--text-dim); display:flex; align-items:center; gap:7px; }
+    .mt-kpi-label .ico { width:15px; height:15px; vertical-align:0; }
+    .mt-kpi-val { font-size:1.75rem; font-weight:700; font-variant-numeric:tabular-nums; line-height:1.1; }
+    .mt-kpi.main .mt-kpi-val { color:var(--primary-yellow); }
+    .mt-kpi-delta { font-size:.76rem; color:var(--text-dim); font-variant-numeric:tabular-nums; min-height:1.1em; }
+    .mt-kpi-delta .up { color:var(--green); font-weight:700; }
+    .mt-kpi-delta .down { color:#ff8a8a; font-weight:700; }
+    .mt-grid { display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:12px; }
+    .mt-grid .sections-block { margin-bottom:0; }
+    .mt-chart-wrap { margin-top:14px; position:relative; }
+    .mt-chart-wrap svg { display:block; width:100%; height:220px; overflow:visible; }
+    .mt-tip { position:absolute; pointer-events:none; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:7px 10px; font-size:.78rem; white-space:nowrap; transform:translate(-50%,-110%); font-variant-numeric:tabular-nums; }
+    .mt-tip b { color:var(--primary-yellow); }
+    .mt-dev-bar { display:flex; height:14px; border-radius:999px; overflow:hidden; margin:18px 0 16px; background:var(--bg-2); }
+    .mt-dev-bar span { display:block; height:100%; width:0; transition:width .4s; }
+    .mt-dev-bar .mob { background:var(--primary-yellow); }
+    .mt-dev-bar .pc { background:var(--purple-soft); }
+    .mt-dev-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--border); }
+    .mt-dev-row.first { border-top:none; }
+    .mt-dev-dot { width:10px; height:10px; border-radius:3px; flex-shrink:0; }
+    .mt-dev-name { flex:1; font-weight:600; display:flex; align-items:center; gap:8px; }
+    .mt-dev-pct { font-weight:700; font-variant-numeric:tabular-nums; }
+    .mt-dev-n { font-size:.78rem; color:var(--text-dim); font-variant-numeric:tabular-nums; min-width:48px; text-align:right; }
+    .mt-privacy { margin-top:14px; font-size:.76rem; color:var(--text-dim); display:flex; gap:8px; align-items:flex-start; }
+    .mt-privacy .ico { width:15px; height:15px; margin-top:1px; vertical-align:0; }
+    .mt-empty { color:var(--text-dim); font-size:.85rem; padding:30px 0; text-align:center; }
+    @media (max-width:820px) {
+      .mt-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .mt-grid, .mt-top { grid-template-columns:minmax(0,1fr); }
+      .mt-period { justify-self:start; }
+    }
+    @media (max-width:420px) {
+      .mt-kpi-val { font-size:1.4rem; }
+      .mt-period button { padding:8px 10px; }
+    }
   </style>
 </head>
 <body>
+  {% include "_icons.html" %}
   <div class="admin-wrap">
     <div class="admin-top">
       <div>
@@ -556,6 +618,7 @@
       <button class="tab-btn" data-tab="social" type="button">📱 Redes Sociais</button>
       {% if is_owner %}<button class="tab-btn" data-tab="siteinfo" type="button">📢 Informações do site</button>{% endif %}
       {% if is_owner %}<button class="tab-btn" data-tab="employees" type="button">👥 Funcionários</button>{% endif %}
+      {% if is_owner %}<button class="tab-btn" data-tab="metrics" type="button"><svg class="ico" aria-hidden="true"><use href="#i-chart-bar"></use></svg>Métricas</button>{% endif %}
     </div>
 
     <div class="admin-tab-panel active" data-tab-panel="catalog">
@@ -1773,6 +1836,85 @@
       </div>
     </div>
     {% endif %}
+
+    {% if is_owner %}
+    {# Aba Métricas: os números vêm de /api/metrics quando a aba é aberta; só o
+       "online agora" se atualiza sozinho (a cada 30 s, enquanto a aba está à vista). #}
+    <div class="admin-tab-panel" data-tab-panel="metrics">
+      <div class="mt-top">
+        <div class="mt-online" aria-live="polite">
+          <span class="mt-pulse" aria-hidden="true"></span>
+          <span class="mt-online-num" id="mtOnline">–</span>
+          <div>
+            <div class="mt-online-label" id="mtOnlineLabel">pessoas online agora</div>
+            <div class="mt-online-sub">com a loja aberta nos últimos 2 min · atualiza a cada 30 s</div>
+          </div>
+        </div>
+        <div class="mt-period" role="group" aria-label="Período">
+          <button type="button" data-days="1" aria-pressed="false">Hoje</button>
+          <button type="button" data-days="7" aria-pressed="false">7 dias</button>
+          <button type="button" data-days="30" aria-pressed="true">30 dias</button>
+          <button type="button" data-days="365" aria-pressed="false">12 meses</button>
+          <button type="button" data-days="custom" aria-pressed="false" aria-controls="mtRange" aria-expanded="false">Selecionar o período</button>
+        </div>
+      </div>
+
+      <form class="mt-range" id="mtRange" hidden>
+        <label class="m-promo-f"><span class="sections-sub">De</span><input type="date" id="mtFrom" required></label>
+        <label class="m-promo-f"><span class="sections-sub">Até</span><input type="date" id="mtTo" required></label>
+        <button type="submit" class="mini-btn primary">Ver</button>
+        <span class="mt-range-info" id="mtRangeInfo"></span>
+      </form>
+
+      <div class="mt-kpis">
+        <div class="mt-kpi main">
+          <div class="mt-kpi-label"><svg class="ico" aria-hidden="true"><use href="#i-users"></use></svg>Visitantes únicos</div>
+          <div class="mt-kpi-val" id="mtVis">–</div>
+          <div class="mt-kpi-delta" id="mtVisD"></div>
+        </div>
+        <div class="mt-kpi">
+          <div class="mt-kpi-label"><svg class="ico" aria-hidden="true"><use href="#i-eye"></use></svg>Páginas vistas</div>
+          <div class="mt-kpi-val" id="mtPag">–</div>
+          <div class="mt-kpi-delta" id="mtPagD"></div>
+        </div>
+        <div class="mt-kpi">
+          <div class="mt-kpi-label"><svg class="ico" aria-hidden="true"><use href="#i-whatsapp"></use></svg>Cliques no WhatsApp</div>
+          <div class="mt-kpi-val" id="mtWa">–</div>
+          <div class="mt-kpi-delta" id="mtWaD"></div>
+        </div>
+        <div class="mt-kpi">
+          <div class="mt-kpi-label"><svg class="ico" aria-hidden="true"><use href="#i-percent"></use></svg>Conversão</div>
+          <div class="mt-kpi-val" id="mtConv">–</div>
+          <div class="mt-kpi-delta">cliques ÷ visitantes</div>
+        </div>
+      </div>
+
+      <div class="mt-grid">
+        <div class="sections-block">
+          <div class="sections-head">Visitantes <span class="sections-sub" id="mtChartSub"></span></div>
+          <div class="mt-chart-wrap">
+            <svg id="mtChart" role="img" aria-label="Gráfico de visitantes únicos"></svg>
+            <div class="mt-tip" id="mtTip" hidden></div>
+          </div>
+        </div>
+        <div class="sections-block">
+          <div class="sections-head">Celular x PC</div>
+          <div class="mt-dev-bar" aria-hidden="true"><span class="mob" id="mtBarMob"></span><span class="pc" id="mtBarPc"></span></div>
+          <div class="mt-dev-row first">
+            <span class="mt-dev-dot" style="background:var(--primary-yellow)"></span>
+            <span class="mt-dev-name"><svg class="ico" aria-hidden="true"><use href="#i-device-mobile"></use></svg>Celular</span>
+            <span class="mt-dev-pct" id="mtPMob">–</span><span class="mt-dev-n" id="mtNMob"></span>
+          </div>
+          <div class="mt-dev-row">
+            <span class="mt-dev-dot" style="background:var(--purple-soft)"></span>
+            <span class="mt-dev-name"><svg class="ico" aria-hidden="true"><use href="#i-device-desktop"></use></svg>PC</span>
+            <span class="mt-dev-pct" id="mtPPc">–</span><span class="mt-dev-n" id="mtNPc"></span>
+          </div>
+          <div class="mt-privacy"><svg class="ico" aria-hidden="true"><use href="#i-shield"></use></svg>Sem cookies e sem guardar IP. Robôs e quem está logado no painel não contam.</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <div class="toast" id="toast"></div>
@@ -1800,8 +1942,169 @@
         btn.classList.add('active');
         document.querySelector('.admin-tab-panel[data-tab-panel="'+btn.dataset.tab+'"]').classList.add('active');
         if (btn.dataset.tab === 'order' && ordemDesatualizada) location.reload();
+        if (window.Metricas) window.Metricas.onTab(btn.dataset.tab === 'metrics');
       });
     });
+
+    // ---------------------------------------------------------------
+    // ABA MÉTRICAS (só existe para o dono)
+    // ---------------------------------------------------------------
+    window.Metricas = document.querySelector('[data-tab-panel="metrics"]') && (function () {
+      const $ = (id) => document.getElementById(id);
+      const fmt = (n) => Number(n).toLocaleString('pt-BR');
+      const MES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+      const parseDay = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+      const dlabel = (s) => { const d = parseDay(s); return d.getDate() + ' ' + MES[d.getMonth()]; };
+      const getJSON = async (url) => {
+        const r = await fetch(url, { headers: { 'X-Admin-Token': CSRF_TOKEN } });
+        return r.json();
+      };
+      let query = 'days=30', visible = false, timer = null, last = null;
+      const fullDate = (s) => { const d = parseDay(s); return d.getDate() + ' ' + MES[d.getMonth()] + ' ' + d.getFullYear(); };
+
+      function delta(el, cur, prev, label) {
+        if (!prev) { el.textContent = ''; return; }
+        const p = Math.round((cur - prev) / prev * 100);
+        el.innerHTML = '<span class="' + (p >= 0 ? 'up' : 'down') + '">' + (p >= 0 ? '+' : '') + p + '%</span> ' + label;
+      }
+
+      function setOnline(n) {
+        const el = $('mtOnline');
+        if (el.textContent !== String(n) && el.textContent !== '–') {
+          el.classList.add('bump'); setTimeout(() => el.classList.remove('bump'), 600);
+        }
+        el.textContent = n;
+        $('mtOnlineLabel').textContent = n === 1 ? 'pessoa online agora' : 'pessoas online agora';
+      }
+
+      function niceMax(m) {
+        if (m <= 4) return 4;
+        const p = Math.pow(10, Math.floor(Math.log10(m)));
+        for (const s of [1, 2, 2.5, 5, 10]) if (s * p >= m) return s * p;
+        return 10 * p;
+      }
+
+      function drawChart(data) {
+        const svg = $('mtChart');
+        const pts = data.series.map((s) => ({
+          v: s.visitors,
+          label: data.series_kind === 'week' ? 'semana de ' + dlabel(s.day) : dlabel(s.day),
+          short: s.day === data.today ? 'hoje' : dlabel(s.day),
+        }));
+        const W = svg.clientWidth || 600, H = 220, padL = 40, padR = 8, padT = 10, padB = 26;
+        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+        const max = niceMax(Math.max(1, ...pts.map((p) => p.v)));
+        const iw = W - padL - padR, ih = H - padT - padB;
+        const bw = iw / pts.length, gap = Math.min(6, bw * 0.25);
+        let s = '';
+        for (let i = 0; i <= 4; i++) {
+          const y = padT + ih - ih * i / 4;
+          s += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y + '" y2="' + y + '" style="stroke:var(--border)" stroke-width="1"/>';
+          s += '<text x="' + (padL - 8) + '" y="' + (y + 4) + '" text-anchor="end" font-size="11" style="fill:var(--text-dim)">' + fmt(Math.round(max * i / 4)) + '</text>';
+        }
+        const step = Math.max(1, Math.ceil(pts.length / 6));
+        pts.forEach((p, i) => {
+          const h = ih * p.v / max, x = padL + i * bw + gap / 2, y = padT + ih - h;
+          const lastBar = i === pts.length - 1;
+          s += '<rect data-i="' + i + '" x="' + x + '" y="' + y + '" width="' + Math.max(1, bw - gap) + '" height="' + Math.max(0, h) + '" rx="3" style="fill:'
+            + (lastBar ? 'var(--primary-yellow)' : 'rgba(var(--primary-rgb), .38)') + '"/>';
+          // Rótulos espaçados; o da última barra sempre aparece, alinhado à direita.
+          if (lastBar || (i % step === 0 && (pts.length - 1 - i) >= step * 0.6)) {
+            const anchor = lastBar ? 'end' : (i === 0 ? 'start' : 'middle');
+            const tx = lastBar ? W - padR : (i === 0 ? padL : padL + i * bw + bw / 2);
+            s += '<text x="' + tx + '" y="' + (H - 6) + '" text-anchor="' + anchor + '" font-size="11" style="fill:var(--text-dim)">' + p.short + '</text>';
+          }
+        });
+        svg.innerHTML = s;
+        svg.onmousemove = (e) => {
+          const r = e.target.closest('rect'), tip = $('mtTip');
+          if (!r) { tip.hidden = true; return; }
+          const p = pts[+r.dataset.i];
+          tip.innerHTML = p.label + ': <b>' + fmt(p.v) + '</b> ' + (p.v === 1 ? 'visitante' : 'visitantes');
+          const box = svg.getBoundingClientRect(), rb = r.getBoundingClientRect();
+          tip.style.left = (rb.left - box.left + rb.width / 2) + 'px';
+          tip.style.top = (rb.top - box.top) + 'px';
+          tip.hidden = false;
+        };
+        svg.onmouseleave = () => { $('mtTip').hidden = true; };
+      }
+
+      function render(data) {
+        last = data;
+        const c = data.current, p = data.previous;
+        const label = data.days === 1 ? (data.custom ? 'vs. dia anterior' : 'vs. ontem')
+          : 'vs. ' + (data.days === 365 && !data.custom ? '12 meses' : data.days + ' dias') + ' antes';
+        $('mtVis').textContent = fmt(c.visitors);
+        $('mtPag').textContent = fmt(c.pageviews);
+        $('mtWa').textContent = fmt(c.wa_clicks);
+        $('mtConv').textContent = c.visitors ? (c.wa_clicks / c.visitors * 100).toFixed(1).replace('.', ',') + '%' : '–';
+        delta($('mtVisD'), c.visitors, p.visitors, label);
+        delta($('mtPagD'), c.pageviews, p.pageviews, label);
+        delta($('mtWaD'), c.wa_clicks, p.wa_clicks, label);
+        const devs = c.mobile + c.desktop;
+        const pm = devs ? Math.round(c.mobile / devs * 100) : 0;
+        $('mtBarMob').style.width = (devs ? pm : 0) + '%';
+        $('mtBarPc').style.width = (devs ? 100 - pm : 0) + '%';
+        $('mtPMob').textContent = devs ? pm + '%' : '–';
+        $('mtPPc').textContent = devs ? (100 - pm) + '%' : '–';
+        $('mtNMob').textContent = fmt(c.mobile);
+        $('mtNPc').textContent = fmt(c.desktop);
+        const range = data.custom ? (data.days === 1 ? fullDate(data.to) : fullDate(data.from) + ' a ' + fullDate(data.to)) + ' · ' : '';
+        $('mtChartSub').textContent = range + (data.days === 1
+          ? (data.custom ? '7 dias até o escolhido, ele em destaque' : 'últimos 7 dias, hoje em destaque')
+          : data.series_kind === 'week' ? 'por semana' : 'por dia');
+        $('mtRangeInfo').textContent = data.custom ? data.days + (data.days === 1 ? ' dia' : ' dias') : '';
+        drawChart(data);
+        setOnline(data.online);
+      }
+
+      async function load() {
+        try {
+          const data = await getJSON('/api/metrics?' + query);
+          if (data.ok) render(data); else toast(data.error || 'Não foi possível carregar as métricas');
+        } catch (_) { toast('Sem conexão: não foi possível carregar as métricas'); }
+      }
+
+      async function pollOnline() {
+        if (!visible || document.visibilityState !== 'visible') return;
+        try { const d = await getJSON('/api/metrics/online'); if (d.ok) setOnline(d.online); } catch (_) {}
+      }
+
+      const customBtn = document.querySelector('.mt-period [data-days="custom"]');
+      document.querySelectorAll('.mt-period button').forEach((b) => b.addEventListener('click', () => {
+        document.querySelectorAll('.mt-period button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        const custom = b === customBtn;
+        $('mtRange').hidden = !custom;
+        customBtn.setAttribute('aria-expanded', String(custom));
+        if (custom) {
+          // Abre já preenchido com o período que está na tela; "Ver" aplica.
+          if (last) { $('mtFrom').value = last.from; $('mtTo').value = last.to; }
+          $('mtFrom').max = $('mtTo').max = last ? last.today : '';
+          $('mtFrom').focus();
+          return;
+        }
+        query = 'days=' + b.dataset.days;
+        load();
+      }));
+      $('mtRange').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const from = $('mtFrom').value, to = $('mtTo').value;
+        if (!from || !to) { toast('Escolha as duas datas'); return; }
+        if (from > to) { toast('A data inicial é depois da final'); return; }
+        query = 'from=' + from + '&to=' + to;
+        load();
+      });
+      window.addEventListener('resize', () => { if (visible && last) drawChart(last); });
+      document.addEventListener('visibilitychange', pollOnline);
+
+      return {
+        onTab(on) {
+          visible = on;
+          clearInterval(timer); timer = null;
+          if (on) { load(); timer = setInterval(pollOnline, 30000); }
+        },
+      };
+    })();
 
     function toggleAddBrandForm(show) {
       const el = document.getElementById('addBrandForm');

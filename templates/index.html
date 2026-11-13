@@ -796,14 +796,12 @@
         <span class="brand-lbl" id="modalBrand"></span>
         <h2 id="modalName"></h2>
         <span class="puffs" id="modalPuffs"></span>
-        {# Promoção do modelo aberto: selo com o desconto e o relógio. Fica
-           `hidden` e só é revelado pelo app.js quando o modelo está em oferta;
-           ao zerar, o app.js esconde de novo (data-promo-expire="none"). #}
+        {# Promoção do modelo aberto: só o selo com o desconto (o preço riscado
+           fica no rodapé do modal). Fica `hidden` e só é revelado pelo app.js
+           quando o modelo está em oferta; ao zerar, o app.js esconde de novo
+           (data-promo-expire="none"). #}
         <div class="modal-promo" id="modalPromo" data-promo-expire="none" hidden>
           <span class="promo-off" id="modalPromoOff"></span>
-          {# Com relâmpago o app.js troca o rótulo para "Relâmpago" e mostra o
-             raio (#modalPromoBolt). #}
-          <span class="modal-promo-txt"><span class="modal-promo-bolt" id="modalPromoBolt" hidden><svg class="ico" aria-hidden="true"><use href="#i-bolt"></use></svg></span><span id="modalPromoLbl">oferta · acaba em</span> <b data-cd></b></span>
         </div>
         <div class="modal-label">Escolha o sabor</div>
         <div class="flavor-grid" id="modalFlavors"></div>
@@ -1126,5 +1124,7 @@
      que o app.js usa para saber o preço que vale agora. #}
   <script src="{{ url_for('static', filename='js/countdown.js') }}?v={{ asset_v }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}?v={{ asset_v }}"></script>
+  {# Contador de visitas da aba Métricas. Fora do modo editor (que é do painel). #}
+  {% if not editor %}<script src="{{ url_for('static', filename='js/metrics.js') }}?v={{ asset_v }}"></script>{% endif %}
 </body>
 </html>

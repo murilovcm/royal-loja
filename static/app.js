@@ -1219,7 +1219,7 @@
     document.body.style.overflow = "hidden";
   }
 
-  // Selo e relógio da promoção do modelo aberto. O bloco nasce `hidden` no
+  // Selo da promoção do modelo aberto. O bloco nasce `hidden` no
   // template; só aparece com promoção ativa e volta a sumir quando ela zera
   // (ver o listener de "promo:expired").
   function paintModalPromo() {
@@ -1230,11 +1230,6 @@
     if (!on) { box.removeAttribute("data-promo-fim"); return; }
     box.setAttribute("data-promo-fim", m.promo_fim);
     byId("modalPromoOff").textContent = "-" + descontoCurto(m.promo_desconto);
-    // Relâmpago: raio + "Relâmpago" no lugar de "acaba em".
-    const rel = !!m.promo_relampago;
-    box.classList.toggle("is-relampago", rel);
-    byId("modalPromoBolt").hidden = !rel;
-    byId("modalPromoLbl").textContent = rel ? "Relâmpago · em cada sabor · acaba em" : "em cada sabor · acaba em";
     PROMO.refresh();
   }
 
@@ -2436,6 +2431,8 @@
     msg += `\nOlá! Gostaria de finalizar este pedido. 🚀`;
 
     const url = `https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(msg)}`;
+    // Conta o envio na aba Métricas (static/js/metrics.js).
+    if (window.royalMetrics) window.royalMetrics.wa();
     window.open(url, "_blank");
     closeCheckout();
     toast("Pedido enviado ✓");
