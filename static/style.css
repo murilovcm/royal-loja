@@ -2246,6 +2246,26 @@ header.site-header::after {
   background: linear-gradient(to top, var(--surf-1), transparent);
   pointer-events: none;
 }
+/* "mais sabores ⌄": bolinha discreta no canto direito, logo acima do "Total",
+   fora da frente dos sabores. Só enquanto ainda há sabores escondidos abaixo
+   (app.js liga .is-on). A seta desce devagar. */
+.flavor-more {
+  position: absolute; right: 0; top: -40px; z-index: 1;
+  width: 26px; height: 26px; padding: 0; border-radius: 50%;
+  display: grid; place-items: center;
+  background: color-mix(in oklab, var(--surf-2), transparent 25%);
+  border: 1px solid var(--line); color: var(--text-dim);
+  opacity: 0; visibility: hidden; transform: translateY(6px);
+  transition: opacity .25s ease-out, transform .25s ease-out, visibility 0s linear .25s;
+}
+.flavor-more.is-on {
+  opacity: 1; visibility: visible; transform: none;
+  transition: opacity .25s ease-out, transform .25s ease-out, visibility 0s;
+}
+.flavor-more .ico { width: 14px; height: 14px; animation: moreNudge 1.6s ease-in-out infinite; }
+.flavor-more:hover { color: var(--text); }
+@keyframes moreNudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(2px); } }
+@media (prefers-reduced-motion: reduce) { .flavor-more .ico { animation: none; } }
 .qty-row { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; margin-bottom: 18px; }
 .qty-ctrl { display: flex; align-items: center; gap: 4px; background: var(--surf-2); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 4px; }
 .qty-ctrl button {

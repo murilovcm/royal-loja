@@ -1133,6 +1133,28 @@
   const overlay = byId("modalOverlay");
   let modalState = { model: null, flavor: null, qty: 1 };
 
+  // "mais sabores ⌄": com muitos sabores a lista passa por trás do rodapé fixo
+  // e tem gente que não percebe que dá para rolar. A pílula aparece só enquanto
+  // ainda há conteúdo abaixo e some quando o cliente chega perto do fim.
+  const modalBody = overlay.querySelector(".modal-body");
+  const flavorMore = byId("flavorMore");
+  function syncFlavorMore() {
+    if (!modalBody || !flavorMore) return;
+    // Mede o que importa: o último sabor ainda está escondido atrás do rodapé?
+    const ultimo = byId("modalFlavors").lastElementChild;
+    const foot = modalBody.querySelector(".modal-foot");
+    const escondido = !!ultimo && !!foot &&
+      ultimo.getBoundingClientRect().bottom > foot.getBoundingClientRect().top + 4;
+    flavorMore.classList.toggle("is-on", overlay.classList.contains("open") && escondido);
+  }
+  if (modalBody && flavorMore) {
+    modalBody.addEventListener("scroll", syncFlavorMore, { passive: true });
+    window.addEventListener("resize", syncFlavorMore);
+    flavorMore.addEventListener("click", () => {
+      modalBody.scrollBy({ top: Math.round(modalBody.clientHeight * 0.6), behavior: "smooth" });
+    });
+  }
+
   function imgHTML(model, phSize) {
     // alt descritivo: marca + modelo, igual ao card. Antes era só o modelo.
     if (model.image_url) {
@@ -1245,10 +1267,13 @@
     updateModalTotal();
     overlay.classList.add("open");
     document.body.style.overflow = "hidden";
+    if (modalBody) modalBody.scrollTop = 0;
+    requestAnimationFrame(syncFlavorMore);
   }
 
   function closeModal() {
     overlay.classList.remove("open");
+    if (flavorMore) flavorMore.classList.remove("is-on");
     document.body.style.overflow = "";
     // O cliente saiu do produto — seja para ver outro, seja depois de adicionar
     // ao carrinho (que também passa por aqui). Voltou a navegar, então a faixa
@@ -1292,6 +1317,7 @@
     // Trocou para um sabor de outra versão: foto, puffs, título e aviso acompanham.
     applyFlavorContext(modalState.model, flavor);
     updateModalTotal();
+    syncFlavorMore(); // o aviso de versão pode mudar a altura da lista
   });
 
   byId("qtyMinus").addEventListener("click", () => {

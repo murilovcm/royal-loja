@@ -814,6 +814,11 @@
            um sabor de versão pode ter aviso próprio. Preenchido em app.js. #}
         <p class="flavor-disclaimer" id="modalFlavorNote" hidden></p>
         <div class="modal-foot">
+          {# Aviso de que a lista continua abaixo (só aparece quando há sabores
+             escondidos atrás do rodapé). Toque rola a lista. Controlado em app.js. #}
+          <button type="button" class="flavor-more" id="flavorMore" tabindex="-1" aria-label="Ver mais sabores">
+            <svg class="ico" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+          </button>
           <div class="qty-row">
             <div class="qty-ctrl">
               <button id="qtyMinus">−</button>
