@@ -596,7 +596,11 @@
     // cópia, para o cliente não ficar com um total velho.
     function copiado(k) {
       var c = p.copiados[k];
-      return c && (k === "padrao" || k === "agr" || c.chave === chave) ? c : null;
+      if (!c) return null;
+      if (k === "padrao" || k === "agr") return c;
+      // Mesmo pedido E mesmo total: se o preço mudou no admin depois da
+      // cópia, o cliente ficou com um total velho e o passo pede de novo.
+      return c.chave === chave && (c.total == null || (d && d.total === c.total)) ? c : null;
     }
     var prox = ps.findIndex(function (x) { return !copiado(x.k) && !x.bloq; });
     var motos = motoboys();
@@ -624,7 +628,7 @@
     if (!x || x.bloq || !x.txt) return;
     var chave = chaveDe(P());
     copiar(x.txt, x.t, function () {
-      P().copiados[k] = { ts: Date.now(), chave: chave };
+      P().copiados[k] = { ts: Date.now(), chave: chave, total: contaFechada() ? cot.dados.total : null };
       salvar();
       desenharMensagens();
     });
@@ -761,12 +765,20 @@
     });
   }
 
-  function carregar() {
+  // `auto`: busca automática (a cada 2 min / ao voltar ao painel). Não gira o
+  // botão nem mostra erro: se falhar, tenta de novo na próxima vez.
+  var carregando = null;
+  var ultimaCarga = 0;
+  function carregar(auto) {
+    if (carregando) return carregando;
     var btn = $("btnAtualizar");
-    btn.classList.add("girando");
-    btn.disabled = true;
-    return Promise.all([api("/api/atendimento/catalogo"), api("/api/atendimento/config")])
+    if (auto !== true) {
+      btn.classList.add("girando");
+      btn.disabled = true;
+    }
+    carregando = Promise.all([api("/api/atendimento/catalogo"), api("/api/atendimento/config")])
       .then(function (res) {
+        ultimaCarga = Date.now();
         MODELOS = res[0].modelos;
         CONFIG = res[1];
         SABOR = {};
@@ -786,15 +798,31 @@
         if (!MODELOS.length) {
           lista.innerHTML = '<div class="pn-empty">Não consegui carregar o catálogo (' + esc(e.message) + ').<br>' +
             '<button type="button" class="btn" data-recarregar>' + icon("refresh") + "Tentar de novo</button></div>";
-        } else {
+        } else if (auto !== true) {
           aviso("Não consegui atualizar o catálogo: " + e.message, true);
         }
       })
       .then(function () {
+        carregando = null;
         btn.classList.remove("girando");
         btn.disabled = false;
       });
+    return carregando;
   }
+
+  // O painel acompanha o admin sozinho: preço, promoção e estoque novos chegam
+  // em no máximo 2 minutos, e na hora em que a atendente volta para o painel
+  // (vindo do WhatsApp) se a última busca tiver mais de 1 minuto.
+  var AUTO_INTERVALO = 2 * 60 * 1000;
+  var AUTO_AO_VOLTAR = 60 * 1000;
+  setInterval(function () {
+    if (!document.hidden && Date.now() - ultimaCarga >= AUTO_INTERVALO - 1000) carregar(true);
+  }, 15 * 1000);
+  function aoVoltar() {
+    if (!document.hidden && ultimaCarga && Date.now() - ultimaCarga >= AUTO_AO_VOLTAR) carregar(true);
+  }
+  window.addEventListener("focus", aoVoltar);
+  document.addEventListener("visibilitychange", aoVoltar);
 
   // ---------------------------------------------------------------- eventos
   // Catálogo
@@ -837,7 +865,7 @@
 
   $("btnCatalogo").addEventListener("click", function () { copiar(textoCatalogo(), "Catálogo"); });
   $("btnPadrao").addEventListener("click", function () { copiar(CONFIG.textos.padrao, "Mensagem padrão"); });
-  $("btnAtualizar").addEventListener("click", carregar);
+  $("btnAtualizar").addEventListener("click", function () { carregar(); });
   $("barraPedido").addEventListener("click", function () { abrirAba("ped"); });
 
   painel.querySelector(".pn-tabs").addEventListener("click", function (e) {
