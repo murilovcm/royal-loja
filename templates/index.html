@@ -775,7 +775,19 @@
       <div class="modal-body">
         <span class="brand-lbl" id="modalBrand"></span>
         <h2 id="modalName"></h2>
-        <span class="puffs" id="modalPuffs"></span>
+        {# Chip de puffs + aviso do sabor na mesma linha da ficha do produto. O
+           aviso fica AQUI em cima (e não embaixo dos sabores) para ser lido antes
+           da escolha: embaixo ele caía atrás do rodapé fixo no celular. #}
+        <div class="modal-tags">
+          <span class="puffs" id="modalPuffs"></span>
+          {# Aviso do SABOR em si, independente da versão. Quando todos os sabores
+             do produto têm o mesmo aviso, já aparece ao abrir; senão, ao tocar no
+             sabor que tem. Preenchido em app.js. #}
+          <div class="modal-note" id="modalFlavorNote" role="note" hidden>
+            <span class="mn-ic" aria-hidden="true"><svg class="ico"><use href="#i-info"></use></svg></span>
+            <p><b>Atenção</b><span id="modalFlavorNoteTxt"></span></p>
+          </div>
+        </div>
         {# Sem selo de desconto aqui: na escolha do sabor a oferta aparece só
            como preço riscado no rodapé do modal (.modal-was). #}
         <div class="modal-label">Escolha o sabor</div>
@@ -783,10 +795,6 @@
         {# Só aparece quando o sabor escolhido é de outra versão do aparelho
            (Slim, geração anterior). Preenchido em app.js. #}
         <p class="flavor-disclaimer" id="modalDisclaimer" hidden></p>
-        {# Aviso do SABOR em si, independente da versão. Elemento separado (e não
-           mais texto dentro do de cima) porque os dois podem aparecer juntos:
-           um sabor de versão pode ter aviso próprio. Preenchido em app.js. #}
-        <p class="flavor-disclaimer" id="modalFlavorNote" hidden></p>
         <div class="modal-foot">
           {# Aviso de que a lista continua abaixo (só aparece quando há sabores
              escondidos atrás do rodapé). Toque rola a lista. Controlado em app.js. #}

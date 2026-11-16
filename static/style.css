@@ -2226,6 +2226,30 @@ header.site-header::after {
    sozinho — sem ele, um irmão escondido ainda casaria o seletor. */
 .flavor-disclaimer:not([hidden]) + .flavor-disclaimer { margin-top: 8px; }
 .flavor-disclaimer .fd-ic { color: var(--brand); font-weight: var(--fw-bold); flex-shrink: 0; }
+/* Linha da ficha: chip de puffs + aviso do sabor. A margem que era do chip
+   passa para a linha, para não dobrar quando o aviso aparece. */
+.modal-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 22px; }
+.modal-body .modal-tags .puffs { margin-bottom: 0; }
+/* Aviso do sabor ("Atenção"): cartão de largura total com fundo amarelo bem
+   fraco. Chama o olho sem competir com o sabor selecionado nem com o botão. */
+.modal-note {
+  flex: 1 1 100%;
+  display: flex; gap: 11px; align-items: flex-start;
+  background: rgba(var(--primary-rgb), .07);
+  border: 1px solid rgba(var(--primary-rgb), .26);
+  border-radius: var(--r-sm);
+  padding: 11px 13px;
+}
+/* Mesmo motivo do .flavor-disclaimer[hidden]: o display:flex venceria o hidden. */
+.modal-note[hidden] { display: none; }
+.modal-note .mn-ic {
+  width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(var(--primary-rgb), .14); color: var(--brand);
+}
+.modal-note .mn-ic .ico { width: 16px; height: 16px; }
+.modal-note p { margin: 0; font-size: .78rem; line-height: var(--lh-base); color: var(--text-dim); }
+.modal-note b { display: block; color: var(--text); font-weight: var(--fw-medium); font-size: .8rem; margin-bottom: 1px; }
 .flavor-disclaimer b { color: var(--text); font-weight: var(--fw-medium); }
 .modal-foot {
   margin-top: auto;
@@ -3699,6 +3723,7 @@ body.editor-mode .model-card { cursor: default; }
   .modal-foot { padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
   .modal-body h2 { font-size: 1.5rem; }
   .modal-body .puffs { margin-bottom: 18px; }
+  .modal-tags { margin-bottom: 18px; } /* a linha herdou a margem do chip */
   .flavor-grid { gap: 8px; margin-bottom: 20px; }
   .flavor-pill { padding: 11px 15px; font-size: .85rem; } /* alvo de toque maior */
   .flavor-disclaimer { margin: -12px 0 18px; }

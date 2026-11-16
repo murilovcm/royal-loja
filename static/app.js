@@ -1208,15 +1208,20 @@
       disc.append(iconeAviso(), txt);
     }
 
+    // Aviso do sabor, no cartão "Atenção" ao lado do chip de puffs. Sem sabor
+    // escolhido, vale o aviso que TODOS os sabores em estoque compartilham (ex.:
+    // refil que precisa da bateria nova): assim o cliente lê antes de escolher.
     const fnote = byId("modalFlavorNote");
-    const note = flavor ? (flavor.note || "").trim() : "";
-    fnote.textContent = "";
+    const note = flavor ? (flavor.note || "").trim() : avisoComum(model);
     fnote.hidden = !note;
-    if (note) {
-      const txt = document.createElement("span");
-      txt.textContent = fecharFrase(note);
-      fnote.append(iconeAviso(), txt);
-    }
+    byId("modalFlavorNoteTxt").textContent = note ? fecharFrase(note) : "";
+  }
+
+  // Aviso igual em todos os sabores em estoque do modelo, ou "" se algum não
+  // tiver ou se forem diferentes.
+  function avisoComum(model) {
+    const notas = model.flavors.filter((f) => f.is_in_stock).map((f) => (f.note || "").trim());
+    return notas.length && notas[0] && notas.every((n) => n === notas[0]) ? notas[0] : "";
   }
 
   function iconeAviso() {
