@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Painel de Atendimento",
-  "description": "Catálogo, pedido e mensagens da loja ao lado do WhatsApp Web. Copiar e colar: nunca lê nem envia mensagens.",
-  "version": "1.0.0",
+  "description": "Catálogo, pedido e mensagens da loja ao lado do WhatsApp Web. Lê só o nome da conversa aberta; nunca lê mensagens nem envia nada.",
+  "version": "1.1.0",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyDuk2byyXE5S9BCjPNBDH4Y50RuWZd2vXUBDiBsjMTbGFuPlLv4C4URdvv2DOh4yW4Oki0lYjgeOqLhpYY4zZNY5rkU60e/KoEqx/YXemJZeqx7cKXbby4UgoXZMh/L8yEoiyWvqKdZ6cxb2GQNjQzq05p9tlYj6rjlLxpBnh/oLc5acpp0jduylJaO7UzZlemN/BrwW6FDVWD+PosgPhpzT2w4pkUlWvIS4v5N40y+cCS5IaRg2dt23kccak2ndBQAEmj4xkepRMyAJpDmmjby/wBWE8GsCHZsh/04PpK3SjRcCrvPTAy4vnm8hoOwdU4QRzSLVo12EXYdwG7UPZQIDAQAB",
   "minimum_chrome_version": "116",
   "permissions": [
@@ -20,6 +20,17 @@
   "side_panel": {
     "default_path": "painel.html"
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
+        "whatsapp.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
   "action": {
     "default_title": "Abrir o painel de atendimento",
     "default_icon": {

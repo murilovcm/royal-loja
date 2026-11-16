@@ -182,7 +182,7 @@
       </div>
     </div>
 
-    {# Pedidos guardados (até 5), por cima do painel. #}
+    {# Pedidos guardados (até 20), por cima do painel. #}
     <div class="es-fundo" id="espera" hidden>
       <div class="es" role="dialog" aria-modal="true" aria-labelledby="esperaTitulo">
         <div class="es-h"><span id="esperaTitulo">Em espera</span><small id="esperaConta"></small></div>
@@ -197,7 +197,9 @@
   <script>
     window.ATD = {
       csrf: "{{ csrf_token }}",
-      login: "{{ url_for('admin_login', next='/atendimento') }}"
+      login: "{{ url_for('admin_login', next='/atendimento') }}",
+      // Só a nossa extensão pode avisar "a conversa do WhatsApp mudou".
+      extensao: "{{ extensao_origem }}"
     };
   </script>
   <script src="{{ url_for('static', filename='js/atendimento-imagem.js') }}?v={{ asset_v }}"></script>

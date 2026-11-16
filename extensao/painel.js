@@ -127,6 +127,35 @@
     }).finally(function () { $("btnTrocar").disabled = false; });
   });
 
+  // ---------------------------------------------------------------- conversa do WhatsApp
+  // O whatsapp.js avisa o nome da conversa aberta; a casca repassa ao painel
+  // da loja (só para a origem dela). O painel abre o pedido daquela conversa.
+  var minhaJanela = null;
+  chrome.windows.getCurrent(function (w) { minhaJanela = w ? w.id : null; });
+
+  function repassar(nome) {
+    var q = $("quadro");
+    if (!atual || !nome || !q.contentWindow) return;
+    q.contentWindow.postMessage({ fonte: "atd-extensao", tipo: "conversa", nome: nome }, atual.url);
+  }
+  chrome.runtime.onMessage.addListener(function (msg, quem) {
+    if (!msg || msg.tipo !== "atd-conversa") return;
+    // WhatsApp aberto em outra janela do Chrome: não é deste painel.
+    if (quem.tab && minhaJanela !== null && quem.tab.windowId !== minhaJanela) return;
+    repassar(msg.nome);
+  });
+  // O painel acabou de carregar (abriu agora, ou depois do login): pergunta
+  // qual conversa está aberta no momento.
+  $("quadro").addEventListener("load", function () {
+    chrome.tabs.query({ active: true, currentWindow: true }, function (abas) {
+      (abas || []).forEach(function (aba) {
+        chrome.tabs.sendMessage(aba.id, { tipo: "atd-qual-conversa" }).then(function (r) {
+          if (r && r.nome) repassar(r.nome);
+        }).catch(function () { /* a aba não é o WhatsApp */ });
+      });
+    });
+  });
+
   // ---------------------------------------------------------------- início
   chrome.storage.local.get("loja", function (d) {
     var l = lojaPorId(d && d.loja);

@@ -21,6 +21,20 @@ O ID da extensão é sempre `iffmpahjhfdbbmfipmpepnjpmenldkfk` (vem da `key` do
 ID mudar, o painel aparece em branco. Para trocar o ID, mude também a variável
 `ATD_EXTENSAO_ID` no servidor.
 
+## Um pedido por conversa
+
+O `whatsapp.js` lê **só o nome no topo da conversa aberta** no WhatsApp Web
+(nunca as mensagens; não clica, não digita, não envia). Ao trocar de conversa,
+o painel guarda o pedido que estava aberto e abre o daquela conversa, com o
+nome do cliente já preenchido. Voltar para uma conversa reabre o pedido dela.
+Se o WhatsApp mudar a tela e o nome não for achado, o painel só deixa de
+preencher sozinho.
+
+## Atualizar a extensão
+
+Quando algum arquivo **desta pasta** mudar: em `chrome://extensions`, clique na
+seta de recarregar da extensão e depois recarregue a aba do WhatsApp Web (F5).
+
 ## Trocar a loja de um perfil
 
 Botão de troca na faixa colorida → escolha a loja → **senha do dono**. A senha
@@ -36,3 +50,4 @@ ao login).
 - `painel.html`, `painel.css`, `painel.js` — a faixa da loja, a escolha no
   primeiro uso e a troca com senha.
 - `background.js` — o clique no ícone abre o painel lateral.
+- `whatsapp.js` — lê o nome da conversa aberta e avisa o painel.

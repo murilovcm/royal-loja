@@ -6,8 +6,10 @@
    que o cliente escolheu coloca ele no pedido aberto.
 
    Pedido (Etapa 3): um pedido ATIVO por vez, com o nome do cliente no topo.
-   "Guardar" põe o pedido na lista "Em espera" (até 5) e abre outro; tocar
-   num guardado reabre. Tudo fica salvo neste navegador (localStorage), então
+   "Guardar" põe o pedido na lista "Em espera" (até 20) e abre outro; tocar
+   num guardado reabre. Dentro da extensão do Chrome, cada conversa do
+   WhatsApp tem o próprio pedido: trocar de conversa guarda e reabre sozinho
+   (ver trocarConversa). Tudo fica salvo neste navegador (localStorage), então
    atualizar a página não perde nada.
 
    A CONTA É DO SERVIDOR: o painel manda só ids, quantidades, local e forma
@@ -35,7 +37,7 @@
   var st = { q: "", marca: "", aberto: null, aba: "cat" };
   var atualizadoEm = null;
 
-  var LIMITE_ESPERA = 5;
+  var LIMITE_ESPERA = 20;   // com um pedido por conversa, a espera enche mais rápido
   var QTD_MAX = 50;
   var CHAVE_LOCAL = "atd_pedidos_v1";
   var PAGAMENTOS = { pix: "Pix", dinheiro: "Dinheiro", debito: "Débito", credito: "Crédito" };
@@ -328,6 +330,57 @@
     trocouPedido();
     abrirAba("ped");
   }
+  // ---------------------------------------------------------------- um pedido por conversa
+  // A extensão avisa quando a atendente abre outra conversa no WhatsApp Web
+  // (só o nome do contato). O pedido de cada conversa fica guardado sozinho:
+  // abrir a conversa do João mostra um pedido limpo com "João" no topo, e
+  // voltar para a Maria reabre o dela do jeito que estava.
+  function trocarConversa(nome) {
+    var p = P();
+    if (p.conversa === nome) return;
+    // Pedido sem conversa (montado antes de a extensão avisar) e sem outro
+    // cliente digitado: passa a ser desta conversa.
+    if (!p.conversa && (!p.cliente.trim() || p.cliente.trim() === nome)) {
+      p.conversa = nome;
+      if (!p.cliente.trim()) p.cliente = nome;
+      salvar();
+      preencherCampos();
+      desenharPedido();
+      return;
+    }
+    var msg;
+    if (p.itens.length) {
+      if (!p.cliente.trim()) p.cliente = p.conversa || "Sem nome";
+      p.ultimoTotal = contaFechada() ? cot.dados.total : null;
+      ped.espera.unshift({ ts: Date.now(), p: p });
+      // Espera cheia: sai o pedido guardado há mais tempo.
+      if (ped.espera.length > LIMITE_ESPERA) {
+        var velho = ped.espera.pop();
+        msg = "A espera estava cheia: saiu o pedido de " + velho.p.cliente + ".";
+      }
+    }
+    var i = ped.espera.findIndex(function (e) { return e.p.conversa === nome; });
+    if (i >= 0) {
+      ped.ativo = ped.espera.splice(i, 1)[0].p;
+      aviso(msg || "Pedido de " + ped.ativo.cliente + " reaberto.", !!msg);
+    } else {
+      ped.ativo = pedidoVazio();
+      ped.ativo.cliente = nome;
+      ped.ativo.conversa = nome;
+      if (msg) aviso(msg, true);
+    }
+    desarmarNovo();
+    trocouPedido();
+  }
+  window.addEventListener("message", function (e) {
+    // Só a nossa extensão, e só o quadro que contém o painel.
+    if (!CFG.extensao || e.origin !== CFG.extensao || e.source !== window.parent) return;
+    var d = e.data;
+    if (!d || d.fonte !== "atd-extensao" || d.tipo !== "conversa") return;
+    var nome = String(d.nome || "").trim().slice(0, 60);
+    if (nome) trocarConversa(nome);
+  });
+
   function apagarGuardado(i) {
     var e = ped.espera.splice(i, 1)[0];
     salvar();
@@ -346,7 +399,10 @@
       return;
     }
     desarmarNovo();
+    // Na mesma conversa do WhatsApp, o pedido novo continua sendo daquele cliente.
+    var conversa = P().conversa;
     ped.ativo = pedidoVazio();
+    if (conversa) { ped.ativo.conversa = conversa; ped.ativo.cliente = conversa; }
     aviso("Pedido novo aberto.");
     trocouPedido();
     $("cliente").focus();

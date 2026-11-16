@@ -695,6 +695,18 @@ def test_manifest_da_extensao_bate_com_o_servidor():
     assert sorted(u + "/*" for u in urls) == sorted(man["host_permissions"])
     assert len(urls) == 3
     assert set(man["permissions"]) == {"sidePanel", "storage"}
+    # No WhatsApp, só o script que lê o nome da conversa aberta.
+    assert man["content_scripts"] == [{"matches": ["https://web.whatsapp.com/*"], "js": ["whatsapp.js"], "run_at": "document_idle"}]
+    wa = (pasta / "whatsapp.js").read_text(encoding="utf-8")
+    assert ".click(" not in wa and "dispatchEvent" not in wa and "innerHTML" not in wa
+
+
+def test_painel_so_aceita_aviso_da_extensao(client, staff):
+    _logar(client, staff["atd_teste_sim"])
+    html = client.get("/atendimento").get_data(as_text=True)
+    assert f'extensao: "chrome-extension://{app_module.ATD_EXTENSAO_ID}"' in html
+    js = (Path(app_module.__file__).parent / "static" / "js" / "atendimento.js").read_text(encoding="utf-8")
+    assert "e.origin !== CFG.extensao" in js and "e.source !== window.parent" in js
 
 
 def test_confere_dono_para_trocar_a_loja(dono_com_senha, client, restaura_config):

@@ -4021,6 +4021,7 @@ def atendimento_page():
         usuario=user["username"],
         is_owner=is_owner,
         csrf_token=session["csrf_token"],
+        extensao_origem="chrome-extension://" + ATD_EXTENSAO_ID,
     )
 
 
