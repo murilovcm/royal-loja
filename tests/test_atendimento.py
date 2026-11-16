@@ -730,3 +730,36 @@ def test_pagina_carrega_a_imagem_dos_sabores(client, staff):
     _logar(client, staff["atd_teste_sim"])
     html = client.get("/atendimento").get_data(as_text=True)
     assert "js/atendimento-imagem.js" in html and 'id="imgFundo"' in html
+
+
+# ---------------------------------------------------------------------------
+# Local da retirada (botão "Retirada" do Catálogo e último passo da retirada)
+# ---------------------------------------------------------------------------
+# Link e referência REAIS enviados pelo Murilo em 16/11/2026.
+MAPA_RETIRADA = "https://maps.google.com/maps?q=-2.5010952949523926%2C-44.24929428100586&z=17&hl=pt-BR"
+LOCAL_RETIRADA = "Prédio Cinza Athenas Office - ao lado do Nunes Auto Estética"
+
+
+def test_local_da_retirada_grava_e_chega_no_painel(owner_client, restaura_config):
+    r = owner_client.post("/api/atendimento/config", json={"valores": {
+        "atd_retirada_local": LOCAL_RETIRADA, "atd_retirada_mapa": MAPA_RETIRADA}})
+    assert r.get_json()["ok"]
+    cfg = owner_client.get("/api/atendimento/config").get_json()
+    assert cfg["loja"]["retirada_local"] == LOCAL_RETIRADA
+    assert cfg["loja"]["retirada_mapa"] == MAPA_RETIRADA
+    assert "{local}" in cfg["textos"]["retirada"] and "{mapa}" in cfg["textos"]["retirada"]
+
+
+@pytest.mark.parametrize("mapa", ["Rua das Flores 123", "maps.google.com/x", "javascript:alert(1)"])
+def test_mapa_da_retirada_so_aceita_link(owner_client, restaura_config, mapa):
+    r = owner_client.post("/api/atendimento/config", json={"valores": {"atd_retirada_mapa": mapa}})
+    assert r.status_code == 400
+    assert "https://" in r.get_json()["error"]
+
+
+def test_copiar_configuracao_nao_leva_local_da_retirada(owner_client, restaura_config):
+    owner_client.post("/api/atendimento/config", json={"valores": {"atd_retirada_local": LOCAL_RETIRADA}})
+    codigo = owner_client.get("/api/atendimento/exportar").get_json()["codigo"]
+    dados = json.loads(base64.b64decode(codigo[len("ATD1:"):]))
+    assert not any(k.startswith("atd_retirada") for k in dados["config"])
+    assert "atd_tpl_retirada" in dados["config"]  # o TEXTO vai; o local não

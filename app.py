@@ -4308,6 +4308,9 @@ def _atd_validar_valores(valores):
         valor = valor.strip()
         if len(valor) > limite:
             return None, f"{chave} passou de {limite} caracteres"
+        # O mapa vai como link na mensagem: só endereço web, nada de texto solto.
+        if chave == "atd_retirada_mapa" and valor and not re.match(r"https?://\S+$", valor):
+            return None, "O link do mapa precisa começar com https:// (copie do Google Maps)."
         novos[chave] = valor
     return novos, None
 
@@ -4383,7 +4386,8 @@ def atendimento_historico():
 # ---------------------------------------------------------------------------
 # Copiar a configuração de uma loja para outra. Cada loja tem o próprio banco,
 # então o dono gera um código numa e cola na outra. Vão juntos: prazo,
-# horário, textos e motoboys. NUNCA vão Pix, nome nem site (são da loja).
+# horário, textos e motoboys. NUNCA vão Pix, nome, site nem local da
+# retirada (são da loja).
 # ---------------------------------------------------------------------------
 _ATD_COPIAVEIS = ("atd_prazo", "atd_horario", *atendimento.TEXTOS_PADRAO)
 _ATD_PREFIXO_CODIGO = "ATD1:"

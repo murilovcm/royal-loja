@@ -64,12 +64,17 @@
       {# Atalho para o pedido aberto: aparece quando ele tem itens. #}
       <button type="button" class="cb-bar" id="barraPedido" hidden></button>
 
+      {# Três atalhos de cópia. Rótulos curtos para caber em 320 px; o nome
+         completo fica no title. "Retirada" copia o local (cadastrado em Ajustes). #}
       <footer class="pn-foot">
-        <button type="button" class="btn" id="btnCatalogo" disabled>
-          <svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg>Catálogo completo
+        <button type="button" class="btn" id="btnCatalogo" title="Copiar o catálogo completo" disabled>
+          <svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg>Catálogo
         </button>
-        <button type="button" class="btn" id="btnPadrao" disabled>
-          <svg class="ico" aria-hidden="true"><use href="#i-message"></use></svg>Mensagem padrão
+        <button type="button" class="btn" id="btnPadrao" title="Copiar a mensagem padrão" disabled>
+          <svg class="ico" aria-hidden="true"><use href="#i-message"></use></svg>Padrão
+        </button>
+        <button type="button" class="btn" id="btnRetirada" title="Copiar o local da retirada" disabled>
+          <svg class="ico" aria-hidden="true"><use href="#i-map-pin"></use></svg>Retirada
         </button>
       </footer>
     </section>

@@ -567,8 +567,17 @@
         bloq: bloqueio
       });
     }
+    // Retirada: o último passo é o local de buscar, no lugar do agradecimento
+    // de entrega (que fala em motoboy e prazo de entrega).
+    if (p.retirada) {
+      lista.push({
+        k: "ret", t: "Local da retirada", d: p.pag === "pix" ? "Quando chegar o comprovante" : "Depois de confirmar",
+        txt: textoRetirada(), bloq: semLocal()
+      });
+      return lista;
+    }
     var motos = motoboys();
-    var moto = p.retirada ? null : motos.find(function (m) { return m.id === p.moto; });
+    var moto = motos.find(function (m) { return m.id === p.moto; });
     lista.push({
       k: "agr", t: "Agradecimento", d: p.pag === "pix" ? "Quando chegar o comprovante" : "Com o motoboy que vai levar",
       moto: true,
@@ -579,6 +588,17 @@
       bloq: motos.length && !moto && !p.retirada ? "Escolha o motoboy" : ""
     });
     return lista;
+  }
+
+  // Local da retirada (Ajustes > Local da retirada, um por loja).
+  function textoRetirada() {
+    return preencher(CONFIG.textos.retirada, {
+      loja: CONFIG.loja.nome, local: CONFIG.loja.retirada_local,
+      mapa: CONFIG.loja.retirada_mapa, horario: CONFIG.loja.horario
+    });
+  }
+  function semLocal() {
+    return CONFIG.loja.retirada_local ? "" : "Local da retirada não cadastrado. O dono cadastra em Ajustes.";
   }
 
   var previewAberto = {};
@@ -597,7 +617,7 @@
     function copiado(k) {
       var c = p.copiados[k];
       if (!c) return null;
-      if (k === "padrao" || k === "agr") return c;
+      if (k === "padrao" || k === "agr" || k === "ret") return c;
       // Mesmo pedido E mesmo total: se o preço mudou no admin depois da
       // cópia, o cliente ficou com um total velho e o passo pede de novo.
       return c.chave === chave && (c.total == null || (d && d.total === c.total)) ? c : null;
@@ -788,6 +808,7 @@
         if (st.marca && marcas().indexOf(st.marca) < 0) st.marca = "";
         $("btnCatalogo").disabled = false;
         $("btnPadrao").disabled = false;
+        $("btnRetirada").disabled = false;
         desenharMarcas();
         desenharLista();
         // Preço ou estoque podem ter mudado: refaz a conta do pedido aberto.
@@ -865,6 +886,12 @@
 
   $("btnCatalogo").addEventListener("click", function () { copiar(textoCatalogo(), "Catálogo"); });
   $("btnPadrao").addEventListener("click", function () { copiar(CONFIG.textos.padrao, "Mensagem padrão"); });
+  // Fica ligado mesmo sem local cadastrado: o clique explica o que falta, em
+  // vez de um botão apagado que ninguém entende por quê.
+  $("btnRetirada").addEventListener("click", function () {
+    if (semLocal()) { aviso(semLocal(), true); return; }
+    copiar(textoRetirada(), "Local da retirada");
+  });
   $("btnAtualizar").addEventListener("click", function () { carregar(); });
   $("barraPedido").addEventListener("click", function () { abrirAba("ped"); });
 

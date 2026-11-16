@@ -10,7 +10,7 @@
      senha antes de gravar (o painel pode ter ficado aberto na conta dele).
    - Motoboys: cada ação grava na hora.
    - Copiar para outra loja: cada loja tem o próprio banco; o código leva
-     prazo, horário, textos e motoboys, nunca Pix, nome ou site.
+     prazo, horário, textos e motoboys, nunca Pix, nome, site ou local da retirada.
    Toda mudança vai para o histórico com o valor anterior. Depois de salvar,
    o painel recarrega a config: as atendentes já usam o novo na próxima
    atualização do painel delas.
@@ -31,17 +31,20 @@
     ["resumo", "Resumo", ["itens", "zona", "frete", "acrescimo", "total"]],
     ["pix", "Pix", ["loja", "pix_tipo", "pix_chave", "pix_titular", "total"]],
     ["confirmacao", "Confirmação", ["total", "pagamento"]],
-    ["agradecimento", "Agradecimento", ["prazo", "motoboy", "motoboy_tel"]]
+    ["agradecimento", "Agradecimento", ["prazo", "motoboy", "motoboy_tel"]],
+    ["retirada", "Retirada", ["loja", "local", "mapa", "horario"]]
   ];
   var CAMPOS = {
     loja: ["atd_nome", "atd_site", "atd_grupo_vip", "atd_prazo", "atd_horario"],
     pix: ["atd_pix_tipo", "atd_pix_chave", "atd_pix_titular"],
+    retirada: ["atd_retirada_local", "atd_retirada_mapa"],
     textos: TEXTOS.map(function (t) { return "atd_tpl_" + t[0]; })
   };
   var ROTULO = {
     atd_nome: "Nome nas mensagens", atd_site: "Site", atd_grupo_vip: "Grupo VIP",
     atd_prazo: "Prazo de entrega", atd_horario: "Horário",
-    atd_pix_tipo: "Tipo da chave Pix", atd_pix_chave: "Chave Pix", atd_pix_titular: "Titular do Pix"
+    atd_pix_tipo: "Tipo da chave Pix", atd_pix_chave: "Chave Pix", atd_pix_titular: "Titular do Pix",
+    atd_retirada_local: "Local da retirada", atd_retirada_mapa: "Mapa da retirada"
   };
   TEXTOS.forEach(function (t) { ROTULO["atd_tpl_" + t[0]] = "Texto: " + t[1]; });
   var TIPOS_PIX = ["Celular", "CPF", "CNPJ", "E-mail", "Aleatória"];
@@ -78,6 +81,9 @@
     { k: "pix", t: "Pix", ic: "shield", g: "Loja",
       res: function () { return st.salvo.atd_pix_chave ? (st.salvo.atd_pix_tipo || "Chave") + " · " + st.salvo.atd_pix_chave : null; },
       falta: "Não cadastrado: o passo do Pix fica travado" },
+    { k: "retirada", t: "Local da retirada", ic: "map-pin", g: "Loja",
+      res: function () { return st.salvo.atd_retirada_local || null; },
+      falta: "Não cadastrado: o botão Retirada avisa que falta" },
     { k: "motoboys", t: "Motoboys", ic: "motorbike", g: "Atendimento",
       res: function () {
         var a = cfg().motoboys.filter(function (m) { return m.ativo; });
@@ -88,7 +94,7 @@
       res: function () {
         var pad = cfg().ajustes.textos_padrao;
         var n = TEXTOS.filter(function (t) { return st.salvo["atd_tpl_" + t[0]] !== pad[t[0]]; }).length;
-        return n ? n + " de 7 personalizados" : "7 textos, todos no original";
+        return n ? n + " de " + TEXTOS.length + " personalizados" : TEXTOS.length + " textos, todos no original";
       } },
     { k: "copiar", t: "Copiar para outra loja", ic: "refresh", g: "Ferramentas", res: function () { return "Motoboys e textos, sem o Pix"; } },
     { k: "diag", t: "Testar frete e catálogo", ic: "truck", g: "Ferramentas", res: function () { return "Cole um local e veja a zona"; } },
@@ -145,7 +151,8 @@
       // Pedido de exemplo do planejamento (S200 + Zona 1 + crédito). Só para a prévia.
       itens: "• 1x Sex Addict S200 – Icy Mint – R$ 119,99", zona: "Zona 1", frete: "R$ 8,00", acrescimo: "R$ 6,40", total: "R$ 134,39",
       pagamento: "Crédito", pix_tipo: v.atd_pix_tipo, pix_chave: v.atd_pix_chave, pix_titular: v.atd_pix_titular,
-      motoboy: moto ? moto.nome : "", motoboy_tel: moto ? moto.telefone : ""
+      motoboy: moto ? moto.nome : "", motoboy_tel: moto ? moto.telefone : "",
+      local: v.atd_retirada_local || "Prédio da loja – ponto de referência", mapa: v.atd_retirada_mapa
     };
   }
   function previaPix() {
@@ -161,6 +168,18 @@
       campo("atd_pix_titular", "Nome do titular", "Como aparece no banco") +
       '<div class="aj-h">' + icon("message") + "Como a mensagem sai (exemplo de R$ 127,99)</div>" +
       '<div class="aj-prev"><div class="wa-bubble" id="ajPrevPix">' + previaPix() + "</div></div></div>";
+  }
+
+  // Local da retirada: o que o cliente reconhece + o link do Google Maps, com a
+  // prévia da mensagem do botão "Retirada" (texto editável em Textos).
+  function previaRetirada() { return A.waHtml(A.preencher(st.rasc.atd_tpl_retirada, exemplo())); }
+  function telaRetirada() {
+    return '<div class="aj-sec">' +
+      campo("atd_retirada_local", "Onde fica (como o cliente reconhece)", "Prédio cinza – ao lado da farmácia") +
+      campo("atd_retirada_mapa", "Link do Google Maps", "https://maps.google.com/…", "url") +
+      '<div class="aj-dica">No WhatsApp Web, abra a localização da loja, copie o link do Google Maps e cole aqui. Cada loja tem o seu: este local não vai no "Copiar para outra loja".</div></div>' +
+      '<div class="aj-sec"><div class="aj-h">' + icon("message") + "Como o cliente recebe</div>" +
+      '<div class="aj-prev"><div class="wa-bubble" id="ajPrevRet">' + previaRetirada() + "</div></div></div>";
   }
 
   function telaMotoboys() {
@@ -205,7 +224,7 @@
 
   function telaCopiar() {
     return '<div class="aj-sec"><div class="aj-dica">Cada loja tem o próprio banco. Para repetir aqui o que você fez em outra loja: lá, toque em <b>Copiar configuração</b>; aqui, cole o código. ' +
-      "Vão juntos motoboys, textos, prazo e horário. <b>Pix, nome e site nunca vão no código.</b></div>" +
+      "Vão juntos motoboys, textos, prazo e horário. <b>Pix, nome, site e local da retirada nunca vão no código.</b></div>" +
       '<button type="button" class="btn" data-exportar>' + icon("message") + "Copiar configuração desta loja</button>" +
       '<label class="aj-f"><span>Colar código de outra loja</span><textarea class="aj-in" id="ajCodigo" rows="3" placeholder="ATD1:…"></textarea></label>' +
       '<div id="ajImport" aria-live="polite"></div></div>';
@@ -243,7 +262,7 @@
     }).join("") + "</div>";
   }
 
-  var TELAS = { loja: telaLoja, pix: telaPix, motoboys: telaMotoboys, textos: telaTextos, copiar: telaCopiar, diag: telaDiag, hist: telaHist };
+  var TELAS = { loja: telaLoja, pix: telaPix, retirada: telaRetirada, motoboys: telaMotoboys, textos: telaTextos, copiar: telaCopiar, diag: telaDiag, hist: telaHist };
 
   function desenharTela() {
     var s = secao(st.tela);
@@ -412,6 +431,7 @@
       // Só a prévia e o botão mudam enquanto digita (o cursor não pula).
       if ($("ajPrevPix")) $("ajPrevPix").innerHTML = previaPix();
       if ($("ajPrevTexto")) $("ajPrevTexto").innerHTML = previaTexto();
+      if ($("ajPrevRet")) $("ajPrevRet").innerHTML = previaRetirada();
       atualizarRodape();
       return;
     }

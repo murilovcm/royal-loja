@@ -95,6 +95,18 @@ TEXTOS_PADRAO = {
         "\n"
         "📞 Motoboy: {motoboy} – {motoboy_tel}"
     ),
+    # Onde buscar o pedido. Sai pelo botão "Retirada" do Catálogo (cliente
+    # perguntou "onde fica?") e como último passo de um pedido de retirada, no
+    # lugar do agradecimento de entrega. Sem link do mapa, a linha dele some.
+    "atd_tpl_retirada": (
+        "📍 *Local da retirada – {loja}*\n"
+        "{local}\n"
+        "\n"
+        "🗺️ Mapa: {mapa}\n"
+        "🕒 Horário: {horario}\n"
+        "\n"
+        "Me avisa quando estiver a caminho que já deixo tudo separado! 😃"
+    ),
 }
 
 # Dados da loja usados nas mensagens. Pix começa VAZIO de propósito: cada loja
@@ -108,6 +120,10 @@ CONFIG_PADRAO = {
     "atd_pix_titular": "",
     "atd_prazo": "até 60 minutos",
     "atd_horario": "10h às 23h",
+    # Local da retirada: cada loja tem o seu, então começa vazio e não vai no
+    # "Copiar para outra loja". O mapa é um link do Google Maps.
+    "atd_retirada_local": "",
+    "atd_retirada_mapa": "",
     **TEXTOS_PADRAO,
 }
 
