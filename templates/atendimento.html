@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Atendimento — {{ config.atd_nome or config.store_name or 'Loja' }}</title>
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="{{ url_for('static', filename='fonts/geist-latin.woff2') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ asset_v }}">
+  {% include "_tema.html" %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/atendimento.css') }}?v={{ asset_v }}">
+</head>
+<body class="atd">
+  {% include "_icons.html" %}
+
+  {% if sem_acesso %}
+  <main class="pn pn-bloqueado">
+    <svg class="ico" aria-hidden="true"><use href="#i-shield"></use></svg>
+    <h1>Sem acesso ao atendimento</h1>
+    <p>A conta <b>{{ usuario }}</b> ainda não pode usar o painel de atendimento. Peça ao dono da loja para ligar essa permissão.</p>
+    <a class="btn" href="{{ url_for('admin_logout') }}">Entrar com outra conta</a>
+  </main>
+  {% else %}
+  {# Painel lateral (abas Catálogo, Pedido, Mensagens e, para o dono, Ajustes). Altura travada na janela: só a
+     lista do meio rola; cabeçalho, abas, busca e rodapé ficam sempre à vista.
+     Tudo que muda é desenhado por static/js/atendimento.js. #}
+  <main class="pn" id="painel">
+    <header class="pn-head">
+      <div class="pn-brand">
+        <svg class="ico" aria-hidden="true"><use href="#i-message"></use></svg>
+        <span>Atendimento · <span id="lojaNome">{{ config.atd_nome or config.store_name }}</span></span>
+      </div>
+      <div class="pn-head-right">
+        <button type="button" class="pn-icon-btn" id="btnAtualizar" title="Atualizar catálogo" aria-label="Atualizar catálogo">
+          <svg class="ico" aria-hidden="true"><use href="#i-refresh"></use></svg>
+        </button>
+        <span class="pn-user">{{ usuario }}</span>
+      </div>
+    </header>
+
+    <nav class="pn-tabs" role="tablist" aria-label="Seções do painel">
+      <button type="button" role="tab" id="tabCat" data-aba="cat" aria-controls="abaCat" aria-selected="true"><svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg>Catálogo</button>
+      <button type="button" role="tab" id="tabPed" data-aba="ped" aria-controls="abaPed" aria-selected="false"><svg class="ico" aria-hidden="true"><use href="#i-cart"></use></svg>Pedido<b class="tab-n" id="tabPedN" hidden></b></button>
+      <button type="button" role="tab" id="tabMsg" data-aba="msg" aria-controls="abaMsg" aria-selected="false"><svg class="ico" aria-hidden="true"><use href="#i-message"></use></svg>Mensagens</button>
+      {% if is_owner %}
+      <button type="button" role="tab" id="tabAj" data-aba="aj" aria-controls="abaAj" aria-selected="false"><svg class="ico" aria-hidden="true"><use href="#i-shield"></use></svg>Ajustes</button>
+      {% endif %}
+    </nav>
+
+    {# ---------------- Catálogo ---------------- #}
+    <section class="pn-aba" id="abaCat" role="tabpanel" aria-labelledby="tabCat">
+      <div class="pn-tools">
+        <label class="pn-search">
+          <svg class="ico" aria-hidden="true"><use href="#i-search"></use></svg>
+          <input type="search" id="busca" placeholder="Modelo, marca ou sabor" aria-label="Buscar no catálogo" autocomplete="off">
+        </label>
+        <div class="pn-chips" id="marcas" role="group" aria-label="Filtrar por marca"></div>
+      </div>
+
+      <div class="pn-scroll" id="lista" aria-live="polite">
+        <div class="pn-empty">Carregando o catálogo…</div>
+      </div>
+
+      {# Atalho para o pedido aberto: aparece quando ele tem itens. #}
+      <button type="button" class="cb-bar" id="barraPedido" hidden></button>
+
+      <footer class="pn-foot">
+        <button type="button" class="btn" id="btnCatalogo" disabled>
+          <svg class="ico" aria-hidden="true"><use href="#i-grid"></use></svg>Catálogo completo
+        </button>
+        <button type="button" class="btn" id="btnPadrao" disabled>
+          <svg class="ico" aria-hidden="true"><use href="#i-message"></use></svg>Mensagem padrão
+        </button>
+      </footer>
+    </section>
+
+    {# ---------------- Pedido ----------------
+       Um pedido ativo por vez. A conta vem pronta de /api/atendimento/cotacao:
+       aqui ninguém digita preço, frete nem total. #}
+    <section class="pn-aba" id="abaPed" role="tabpanel" aria-labelledby="tabPed" hidden>
+      <div class="pd-cli">
+        <input class="pd-nome" id="cliente" placeholder="Nome do cliente" aria-label="Nome do cliente" maxlength="40" autocomplete="off">
+        <button type="button" class="pd-ib" id="btnEspera" title="Pedidos em espera" aria-label="Pedidos em espera">
+          <svg class="ico" aria-hidden="true"><use href="#i-clock"></use></svg><b id="esperaN" hidden></b>
+        </button>
+        <button type="button" class="pd-ib" id="btnNovo" title="Começar outro pedido">
+          <svg class="ico" aria-hidden="true"><use href="#i-bag-plus"></use></svg><span>Novo</span>
+        </button>
+      </div>
+
+      <div class="pn-scroll">
+        <section class="pd-sec">
+          <h3><svg class="ico" aria-hidden="true"><use href="#i-cart"></use></svg>Itens</h3>
+          <div id="pedItens"></div>
+        </section>
+        <section class="pd-sec">
+          <h3><svg class="ico" aria-hidden="true"><use href="#i-truck"></use></svg>Entrega</h3>
+          <div class="pd-seg" id="segEntrega" role="group" aria-label="Entrega ou retirada">
+            <button type="button" data-ret="0" aria-pressed="true"><svg class="ico" aria-hidden="true"><use href="#i-motorbike"></use></svg>Entrega</button>
+            <button type="button" data-ret="1" aria-pressed="false"><svg class="ico" aria-hidden="true"><use href="#i-home"></use></svg>Retirada</button>
+          </div>
+          <div id="blocoLocal">
+            <textarea class="pd-loc" id="local" rows="2" placeholder="Cole aqui a localização que o cliente mandou" aria-label="Localização do cliente"></textarea>
+          </div>
+          <div class="pd-hint" id="dicaRetirada" hidden>Cliente busca na loja. Sem frete.</div>
+          <div class="pd-zona" id="zona" aria-live="polite"></div>
+        </section>
+        <section class="pd-sec">
+          <h3><svg class="ico" aria-hidden="true"><use href="#i-card"></use></svg>Pagamento</h3>
+          <div class="pd-seg" id="segPag" role="group" aria-label="Forma de pagamento">
+            <button type="button" data-pag="pix" aria-pressed="true">Pix</button>
+            <button type="button" data-pag="dinheiro" aria-pressed="false">Dinheiro</button>
+            <button type="button" data-pag="debito" aria-pressed="false">Débito</button>
+            <button type="button" data-pag="credito" aria-pressed="false">Crédito <small>+5%</small></button>
+          </div>
+        </section>
+      </div>
+
+      <footer class="pd-foot">
+        <div id="conta" aria-live="polite"></div>
+        <div class="pd-acts">
+          <button type="button" class="btn" id="btnGuardar">
+            <svg class="ico" aria-hidden="true"><use href="#i-clock"></use></svg>Guardar
+          </button>
+          <button type="button" class="btn btn-pri" id="btnResumo" disabled>
+            <svg class="ico" aria-hidden="true"><use href="#i-message"></use></svg>Copiar resumo
+          </button>
+        </div>
+      </footer>
+    </section>
+
+    {# ---------------- Mensagens: os textos na ordem do atendimento ---------------- #}
+    <section class="pn-aba" id="abaMsg" role="tabpanel" aria-labelledby="tabMsg" hidden>
+      <div class="ms-head"><b id="msgCliente"></b><span id="msgSub"></span></div>
+      <div class="pn-scroll"><div class="ms-list" id="msgLista"></div></div>
+    </section>
+
+    {% if is_owner %}
+    {# ---------------- Ajustes (só o dono) ----------------
+       Menu com um resumo por linha; tocar abre a tela daquele ajuste, com o
+       "Salvar" fixo embaixo. Desenhado por static/js/atendimento-ajustes.js. #}
+    <section class="pn-aba" id="abaAj" role="tabpanel" aria-labelledby="tabAj" hidden>
+      <div class="pn-scroll" id="ajMenu"></div>
+      <div class="aj-tela" id="ajTela" hidden>
+        <div class="tl-top">
+          <button type="button" class="tl-back" id="ajVoltar" aria-label="Voltar aos ajustes">
+            <svg class="ico" aria-hidden="true"><use href="#i-chevron-left"></use></svg>
+          </button>
+          <b id="ajTitulo"></b>
+        </div>
+        <div class="pn-scroll" id="ajCorpo"></div>
+        <footer class="pn-foot" id="ajRodape" hidden>
+          <button type="button" class="btn btn-pri" id="ajSalvar" disabled></button>
+        </footer>
+      </div>
+    </section>
+
+    {# Troca do Pix: mostra "de -> para" e pede a senha do dono. #}
+    <div class="es-fundo" id="ajSenha" hidden>
+      <form class="es" role="dialog" aria-modal="true" aria-labelledby="ajSenhaTitulo" id="ajSenhaForm">
+        <div class="es-h"><span id="ajSenhaTitulo">Confirmar troca do Pix</span></div>
+        <div class="md-lista" id="ajSenhaLista"></div>
+        <label class="aj-f"><span>Sua senha de dono</span>
+          <input class="aj-in" type="password" id="ajSenhaCampo" autocomplete="current-password" required>
+        </label>
+        <div class="md-erro" id="ajSenhaErro" hidden></div>
+        <div class="aj-row2">
+          <button type="button" class="btn" id="ajSenhaCancelar">Cancelar</button>
+          <button type="submit" class="btn btn-pri" id="ajSenhaOk">Salvar Pix</button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+
+    {# Imagem dos sabores quando o navegador não deixa copiar direto. #}
+    <div class="es-fundo" id="imgFundo" hidden>
+      <div class="es" role="dialog" aria-modal="true" aria-labelledby="imgTitulo">
+        <div class="es-h"><span id="imgTitulo">Imagem dos sabores</span></div>
+        <div class="es-vazio">O navegador não deixou copiar sozinho. Clique na imagem com o botão direito e escolha <b>Copiar imagem</b>.</div>
+        <img id="imgPrevia" class="img-previa" alt="Imagem dos sabores para colar no WhatsApp">
+        <button type="button" class="btn" id="btnFecharImg">Fechar</button>
+      </div>
+    </div>
+
+    {# Pedidos guardados (até 5), por cima do painel. #}
+    <div class="es-fundo" id="espera" hidden>
+      <div class="es" role="dialog" aria-modal="true" aria-labelledby="esperaTitulo">
+        <div class="es-h"><span id="esperaTitulo">Em espera</span><small id="esperaConta"></small></div>
+        <div class="es-lista" id="esperaLista"></div>
+        <button type="button" class="btn" id="btnFecharEspera">Fechar</button>
+      </div>
+    </div>
+
+    <div class="pn-toast" id="toast" role="status" hidden></div>
+  </main>
+
+  <script>
+    window.ATD = {
+      csrf: "{{ csrf_token }}",
+      login: "{{ url_for('admin_login', next='/atendimento') }}"
+    };
+  </script>
+  <script src="{{ url_for('static', filename='js/atendimento-imagem.js') }}?v={{ asset_v }}"></script>
+  <script src="{{ url_for('static', filename='js/atendimento.js') }}?v={{ asset_v }}"></script>
+  {% if is_owner %}
+  <script src="{{ url_for('static', filename='js/atendimento-ajustes.js') }}?v={{ asset_v }}"></script>
+  {% endif %}
+  {% endif %}
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Painel de atendimento</title>
+  <link rel="stylesheet" href="painel.css">
+</head>
+<body>
+  <!-- Ícones (mesmos desenhos do sprite da loja). -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></symbol>
+  </svg>
+
+  <!-- Primeiro uso: este perfil do Chrome é de qual loja? -->
+  <main class="tela" id="telaEscolha" hidden>
+    <h1>De qual loja é este WhatsApp?</h1>
+    <p>Escolha uma vez. Depois, só o dono troca (com a senha dele).</p>
+    <div class="lojas" id="listaEscolha"></div>
+  </main>
+
+  <!-- Trocar a loja: pede a senha do dono, conferida no servidor. -->
+  <main class="tela" id="telaTroca" hidden>
+    <h1>Trocar a loja deste perfil</h1>
+    <p>Hoje: <b id="trocaAtual"></b>. Escolha a nova loja e digite a senha do dono.</p>
+    <div class="lojas" id="listaTroca"></div>
+    <form id="formTroca">
+      <input type="password" id="senha" placeholder="Senha do dono" autocomplete="current-password" aria-label="Senha do dono">
+      <div class="erro" id="erroTroca" role="alert" hidden></div>
+      <div class="acoes">
+        <button type="button" class="bt" id="btnCancelar">Cancelar</button>
+        <button type="submit" class="bt pri" id="btnTrocar">Trocar loja</button>
+      </div>
+    </form>
+  </main>
+
+  <!-- O painel da loja, com a faixa na cor dela em cima. -->
+  <div class="painel" id="telaPainel" hidden>
+    <header class="faixa" id="faixa">
+      <span id="faixaNome"></span>
+      <button type="button" class="troca" id="btnTroca" title="Trocar a loja deste perfil (pede a senha do dono)" aria-label="Trocar a loja deste perfil">
+        <svg aria-hidden="true"><use href="#i-refresh"></use></svg>
+      </button>
+    </header>
+    <iframe id="quadro" title="Painel de atendimento" allow="clipboard-read; clipboard-write"></iframe>
+  </div>
+
+  <script src="lojas.js"></script>
+  <script src="painel.js"></script>
+</body>
+</html>

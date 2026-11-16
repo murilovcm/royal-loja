@@ -1822,6 +1822,7 @@
           <label class="emp-perm"><input type="checkbox" id="newEmpCatalog" checked> Catálogo</label>
           <label class="emp-perm"><input type="checkbox" id="newEmpCoupons" checked> Cupons</label>
           <label class="emp-perm"><input type="checkbox" id="newEmpMetrics"> Métricas</label>
+          <label class="emp-perm" title="Painel de atendimento ao lado do WhatsApp (vê a chave Pix e o telefone dos motoboys)"><input type="checkbox" id="newEmpAtendimento"> Atendimento</label>
           <button class="mini-btn primary" onclick="submitAddEmployee()">Criar funcionário</button>
           <button class="mini-btn" onclick="toggleAddEmployeeForm(false)">Cancelar</button>
         </div>
@@ -1841,6 +1842,10 @@
             <span class="stock-toggle emp-perm" onclick="toggleEmployeePerm({{ u.id }}, 'can_metrics', this)" title="Pode ver a aba Métricas (visitas, cliques no WhatsApp, online agora)">
               <span class="switch {{ 'on' if u.can_metrics }}"></span>
               <span>Métricas</span>
+            </span>
+            <span class="stock-toggle emp-perm" onclick="toggleEmployeePerm({{ u.id }}, 'can_atendimento', this)" title="Pode usar o painel de atendimento ao lado do WhatsApp (vê a chave Pix e o telefone dos motoboys)">
+              <span class="switch {{ 'on' if u.can_atendimento }}"></span>
+              <span>Atendimento</span>
             </span>
             <span class="stock-toggle emp-perm" onclick="toggleEmployeeActive({{ u.id }}, this)" title="Ativar/Desativar login">
               <span class="switch {{ 'on' if u.is_active }}"></span>
@@ -3814,6 +3819,7 @@
         document.getElementById('newEmpCatalog').checked = true;
         document.getElementById('newEmpCoupons').checked = true;
         document.getElementById('newEmpMetrics').checked = false;
+        document.getElementById('newEmpAtendimento').checked = false;
       }
     }
     document.getElementById('addEmployeeBtn')?.addEventListener('click', () => toggleAddEmployeeForm(true));
@@ -3824,9 +3830,10 @@
       const can_catalog = document.getElementById('newEmpCatalog').checked;
       const can_coupons = document.getElementById('newEmpCoupons').checked;
       const can_metrics = document.getElementById('newEmpMetrics').checked;
+      const can_atendimento = document.getElementById('newEmpAtendimento').checked;
       if (!username) { toast("Digite o usuário do funcionário"); return; }
       if (password.length < 6) { toast("A senha precisa ter pelo menos 6 caracteres"); return; }
-      const res = await api('/api/user', 'POST', { username, password, can_catalog, can_coupons, can_metrics });
+      const res = await api('/api/user', 'POST', { username, password, can_catalog, can_coupons, can_metrics, can_atendimento });
       if (res.ok) { toast("Funcionário criado ✓"); location.reload(); }
       else toast(res.error || "Erro ao criar funcionário");
     }

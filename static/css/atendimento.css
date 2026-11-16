@@ -1,0 +1,317 @@
+/* ===================================================================
+   PAINEL DE ATENDIMENTO (templates/atendimento.html)
+   Abas Catálogo, Pedido, Mensagens e Ajustes (só o dono).
+
+   Feito para o painel lateral do Chrome, ao lado do WhatsApp Web:
+   320 a 420 px de largura, e a altura TRAVADA na janela. Cabeçalho, abas,
+   busca e rodapé ficam fixos; só a lista do meio rola. Num notebook de
+   768 px de altura nada pode ficar escondido.
+
+   Cores e fonte vêm do style.css + _tema.html (as mesmas da loja).
+   =================================================================== */
+html, body.atd { height: 100%; }
+body.atd { overflow: hidden; background: var(--bg-2); }
+/* A malha decorativa do fundo da loja não tem lugar numa ferramenta. */
+body.atd::before { display: none; }
+
+.pn {
+  --pn-ok: var(--ok, #34c759);
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-2);
+  font-size: 14px;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+/* ---------- cabeçalho ---------- */
+.pn-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.pn-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: .86rem; min-width: 0; }
+.pn-brand > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pn-brand .ico { width: 16px; height: 16px; color: var(--primary-yellow); flex-shrink: 0; }
+.pn-head-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.pn-user { font-size: .74rem; color: var(--text-dim); max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pn-icon-btn { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: none; border: 1px solid var(--border); color: var(--text-dim); cursor: pointer; }
+.pn-icon-btn:hover { color: var(--text); }
+.pn-icon-btn .ico { width: 15px; height: 15px; }
+.pn-icon-btn.girando .ico { animation: pnGira .8s linear infinite; }
+@keyframes pnGira { to { transform: rotate(360deg); } }
+
+/* ---------- abas ---------- */
+.pn-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.pn-tabs button { flex: 1; min-width: 0; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--text-dim); font: inherit; font-size: .78rem; font-weight: 600; padding: 9px 2px 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; }
+.pn-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--primary-yellow); }
+.pn-tabs .ico { width: 13px; height: 13px; flex-shrink: 0; }
+/* No painel mais estreito (320) o ícone sai para o nome da aba caber. */
+@media (max-width: 340px) { .pn-tabs .ico { display: none; } }
+
+/* ---------- busca + marcas ---------- */
+.pn-tools { padding: 10px 12px 8px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+.pn-search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0 10px; }
+.pn-search:focus-within { border-color: var(--primary-yellow); }
+.pn-search .ico { width: 16px; height: 16px; color: var(--text-dim); flex-shrink: 0; }
+.pn-search input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font: inherit; padding: 9px 0; }
+.pn-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.pn-chips::-webkit-scrollbar { display: none; }
+.pn-chips button { flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: .76rem; font-weight: 600; cursor: pointer; }
+.pn-chips button[aria-pressed="true"] { color: var(--text-on-primary); background: var(--primary-yellow); border-color: var(--primary-yellow); }
+
+/* ---------- lista (a única parte que rola) ---------- */
+.pn-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.pn-empty { padding: 30px 16px; text-align: center; color: var(--text-dim); font-size: .86rem; line-height: 1.5; }
+.pn-empty .btn { margin-top: 12px; flex: none; }
+.pn-stamp { padding: 10px 12px 14px; text-align: center; font-size: .7rem; color: var(--text-dim); }
+
+/* ---------- rodapé ---------- */
+.pn-foot { flex-shrink: 0; border-top: 1px solid var(--border); padding: 10px 12px; display: flex; gap: 8px; background: var(--bg-2); }
+
+/* ---------- botões ---------- */
+.pn .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 10px; font: inherit; font-weight: 700; font-size: .82rem; padding: 9px 10px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); flex: 1; min-width: 0; white-space: nowrap; text-decoration: none; }
+.pn .btn .ico { width: 15px; height: 15px; flex-shrink: 0; }
+.pn .btn-pri { background: var(--btn-grad); color: var(--text-on-primary); border-color: transparent; }
+.pn .btn:disabled { opacity: .4; cursor: not-allowed; }
+.pn button:focus-visible, .pn a:focus-visible { outline: 2px solid var(--primary-yellow); outline-offset: 2px; }
+
+.price s { color: var(--text-dim); font-weight: 500; font-size: .76rem; margin-right: 4px; }
+.price b { color: var(--price-color); font-weight: 750; font-variant-numeric: tabular-nums; }
+
+/* ---------- modelo (sanfona) ---------- */
+.a-item { border-bottom: 1px solid var(--border); }
+.a-row { width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 12px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.a-row:hover, .a-row[aria-expanded="true"] { background: var(--surface); }
+.a-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.a-name { font-weight: 700; }
+.a-sub, .a-count { font-size: .74rem; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.a-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; }
+.a-row > .ico { width: 16px; height: 16px; color: var(--text-dim); flex-shrink: 0; transition: transform .2s; }
+.a-row[aria-expanded="true"] > .ico { transform: rotate(180deg); }
+.a-item.sem-estoque .a-name { color: var(--text-dim); }
+.a-body { padding: 4px 12px 12px; background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+.flv { display: flex; flex-wrap: wrap; gap: 5px; }
+.flv span { font-size: .76rem; padding: 3px 8px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); }
+.flv span.off { color: var(--text-dim); text-decoration: line-through; opacity: .6; }
+.flv span.hit { border-color: var(--primary-yellow); }
+.flv-ver { color: var(--text-dim); font-size: .68rem; margin-left: 3px; }
+.a-actions { display: flex; gap: 8px; }
+
+/* ---------- aviso "copiado" ---------- */
+/* Em cima, sobre o cabeçalho: embaixo ele cobria o total do pedido. */
+.pn-toast { position: absolute; left: 12px; right: 12px; top: 6px; background: var(--text); color: var(--bg); border-radius: 10px; padding: 9px 12px; font-size: .8rem; font-weight: 600; display: flex; gap: 8px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 5; }
+/* O aviso só informa: não pode segurar o clique de quem está embaixo dele
+   (o botão de atualizar, as abas). E [hidden] precisa vencer o
+   display:flex acima, senão ele fica invisível mas ocupando o lugar. */
+.pn-toast { pointer-events: none; }
+.pn-toast[hidden] { display: none; }
+.pn-toast .ico { width: 16px; height: 16px; color: #16a34a; flex-shrink: 0; }
+.pn-toast.erro .ico { color: #dc2626; }
+
+/* ---------- abas (cada uma ocupa o meio do painel) ---------- */
+.pn-aba { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pn-aba[hidden] { display: none; }
+.tab-n { background: var(--primary-yellow); color: var(--text-on-primary); border-radius: 999px; font-size: .62rem; min-width: 15px; height: 15px; display: inline-grid; place-items: center; padding: 0 4px; }
+.tab-n[hidden] { display: none; }
+
+/* ---------- sabores tocáveis: o toque soma no pedido ---------- */
+.flv-dica { font-size: .72rem; color: var(--text-dim); }
+.flv button { font: inherit; font-size: .76rem; padding: 4px 9px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.flv button:hover { border-color: var(--primary-yellow); }
+.flv button.hit { border-color: var(--primary-yellow); }
+.flv button.no { border-color: var(--primary-yellow); background: color-mix(in srgb, var(--primary-yellow) 14%, var(--surface-2)); }
+.flv button i { font-style: normal; background: var(--primary-yellow); color: var(--text-on-primary); border-radius: 999px; font-size: .64rem; font-weight: 800; min-width: 15px; height: 15px; display: grid; place-items: center; padding: 0 3px; }
+.flv button:disabled { color: var(--text-dim); text-decoration: line-through; opacity: .55; cursor: not-allowed; }
+
+/* barra do pedido no fim do Catálogo */
+.cb-bar { flex-shrink: 0; display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; background: var(--surface-2); border: 0; border-top: 1px solid var(--border); color: var(--text); font: inherit; font-size: .8rem; font-weight: 600; text-align: left; cursor: pointer; }
+.cb-bar[hidden] { display: none; }
+.cb-bar .ico { width: 16px; height: 16px; color: var(--primary-yellow); flex-shrink: 0; }
+.cb-bar > span { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-bar b { font-variant-numeric: tabular-nums; }
+
+/* ---------- barra do cliente ---------- */
+.pd-cli { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.pd-nome { flex: 1; min-width: 0; background: none; border: 0; border-bottom: 1px dashed transparent; color: var(--text); font: inherit; font-size: 1.2rem; font-weight: 750; letter-spacing: -.01em; padding: 3px 0; outline: none; }
+.pd-nome::placeholder { color: var(--text-dim); font-weight: 600; }
+.pd-nome:focus { border-bottom-color: var(--primary-yellow); }
+.pd-ib { height: 32px; min-width: 32px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer; flex-shrink: 0; }
+.pd-ib:hover { color: var(--text); }
+.pd-ib .ico { width: 15px; height: 15px; }
+.pd-ib b { background: var(--primary-yellow); color: var(--text-on-primary); border-radius: 999px; font-size: .66rem; min-width: 16px; height: 16px; display: grid; place-items: center; padding: 0 4px; }
+.pd-ib b[hidden] { display: none; }
+.pd-ib.armado { color: #ff6b5b; border-color: #ff6b5b; }
+
+/* ---------- blocos do pedido ---------- */
+.pd-sec { padding: 10px 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.pd-sec h3 { font-size: .68rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); display: flex; align-items: center; gap: 6px; margin: 0; }
+.pd-sec h3 .ico { width: 13px; height: 13px; }
+.pd-hint { font-size: .8rem; color: var(--text-dim); line-height: 1.45; }
+.pd-hint[hidden], #blocoLocal[hidden] { display: none; }
+#pedItens { display: flex; flex-direction: column; gap: 8px; }
+.pd-it { display: flex; align-items: center; gap: 8px; }
+.pd-it-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pd-it-main b { font-size: .86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-it-main span { font-size: .72rem; color: var(--text-dim); }
+.pd-qty { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+.pd-qty button { width: 26px; height: 26px; background: var(--surface); border: 0; color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+.pd-qty span { min-width: 22px; text-align: center; font-size: .82rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pd-it-tot { font-size: .82rem; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 66px; text-align: right; }
+.pd-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.pd-seg button { background: none; border: 0; border-left: 1px solid var(--border); color: var(--text-dim); font: inherit; font-size: .78rem; font-weight: 650; padding: 8px 2px; cursor: pointer; white-space: nowrap; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.pd-seg button:first-child { border-left: 0; }
+.pd-seg button .ico { width: 14px; height: 14px; }
+.pd-seg button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); box-shadow: inset 0 -2px 0 var(--primary-yellow); }
+.pd-seg small { font-size: .66rem; color: var(--text-dim); font-weight: 600; }
+.pd-loc { display: block; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font: inherit; font-size: .8rem; padding: 8px 10px; outline: none; resize: none; }
+.pd-loc:focus { border-color: var(--primary-yellow); }
+.pd-zona { display: flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 650; line-height: 1.35; }
+.pd-zona:empty { display: none; }
+.pd-zona .ico { width: 15px; height: 15px; flex-shrink: 0; }
+.pd-zona.ok .ico { color: var(--pn-ok); }
+.pd-zona.erro { color: #ff6b5b; }
+.pd-zona span { color: var(--text-dim); font-weight: 500; }
+
+/* ---------- rodapé com a conta travada ---------- */
+.pd-foot { flex-shrink: 0; border-top: 1px solid var(--border); padding: 8px 12px 10px; display: flex; flex-direction: column; gap: 8px; background: var(--bg-2); }
+.pd-conta { display: flex; flex-direction: column; gap: 2px; font-size: .78rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.pd-conta > div { display: flex; justify-content: space-between; gap: 8px; }
+.pd-conta s { margin-right: 4px; }
+.pd-conta .gr { color: var(--pn-ok); font-weight: 650; }
+.pd-tot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 4px; }
+.pd-tot > span { display: inline-flex; align-items: center; gap: 5px; font-size: .74rem; color: var(--text-dim); }
+.pd-tot > span .ico { width: 13px; height: 13px; }
+.pd-tot b { font-size: 1.32rem; font-weight: 800; letter-spacing: -.01em; color: var(--price-color); font-variant-numeric: tabular-nums; }
+.pd-tot b.pend { font-size: .82rem; font-weight: 650; color: #ff6b5b; text-align: right; }
+.pd-tot b.calc { font-size: .82rem; font-weight: 650; color: var(--text-dim); }
+.pd-acts { display: flex; gap: 8px; }
+.pd-acts .btn-pri { flex: 1.6; }
+
+/* ---------- mensagens ---------- */
+.ms-head { padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ms-head b { font-size: 1.2rem; font-weight: 750; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ms-head span { font-size: .76rem; color: var(--text-dim); }
+.ms-list { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; }
+.ms { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 9px 10px; display: flex; flex-direction: column; gap: 8px; }
+.ms.prox { border-color: var(--primary-yellow); }
+.ms.off { opacity: .6; }
+.ms-top { display: flex; align-items: center; gap: 9px; }
+.ms-n { width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; font-size: .72rem; font-weight: 800; background: var(--surface-2); border: 1px solid var(--border); flex-shrink: 0; }
+.ms.prox .ms-n { background: var(--primary-yellow); color: var(--text-on-primary); border-color: transparent; }
+.ms-n .ico { width: 13px; height: 13px; color: var(--pn-ok); }
+.ms-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ms-t b { font-size: .86rem; }
+.ms-t span { font-size: .72rem; color: var(--text-dim); }
+.ms .btn { flex: none; padding: 7px 10px; font-size: .78rem; }
+.ms-prev { display: block; width: 100%; background: #0b141a; border-radius: 10px; padding: 7px; cursor: pointer; border: 0; text-align: left; font: inherit; color: inherit; }
+.ms-prev .wa-bubble { max-height: 4.3em; overflow: hidden; }
+.ms-prev[aria-expanded="true"] .wa-bubble { max-height: none; }
+/* Bolha no verde do WhatsApp: é como a mensagem chega no cliente. */
+.wa-bubble { background: #005c4b; color: #e9edef; border-radius: 10px 10px 2px 10px; padding: 7px 9px; font-size: .76rem; line-height: 1.42; white-space: pre-wrap; word-break: break-word; }
+.ms-moto { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: .74rem; color: var(--text-dim); }
+.ms-moto button { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: .76rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.ms-moto button .ico { width: 13px; height: 13px; }
+.ms-moto button[aria-pressed="true"] { background: var(--primary-yellow); color: var(--text-on-primary); border-color: transparent; }
+.ms-aviso { font-size: .74rem; color: #ff6b5b; }
+
+/* ---------- pedidos em espera ---------- */
+.es-fundo { position: absolute; inset: 0; background: rgba(0,0,0,.55); z-index: 6; display: flex; align-items: flex-end; }
+.es-fundo[hidden] { display: none; }
+.es { width: 100%; max-height: 85%; overflow-y: auto; background: var(--bg-2); border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; padding: 12px; display: flex; flex-direction: column; gap: 8px; animation: esIn .22s cubic-bezier(.16,1,.3,1); }
+@keyframes esIn { from { transform: translateY(24px); opacity: 0; } }
+.es-h { display: flex; align-items: center; justify-content: space-between; font-weight: 750; }
+.es-h small { font-size: .74rem; color: var(--text-dim); font-weight: 600; }
+.es-lista { display: flex; flex-direction: column; gap: 8px; }
+.es-row { display: flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.es-abrir { flex: 1; min-width: 0; background: none; border: 0; color: var(--text); font: inherit; text-align: left; padding: 9px 10px; cursor: pointer; display: flex; flex-direction: column; }
+.es-abrir b { font-size: .98rem; }
+.es-abrir span { font-size: .74rem; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.es-row .pd-ib { margin-right: 6px; }
+.es-vazio { font-size: .82rem; color: var(--text-dim); padding: 8px 0; line-height: 1.45; }
+
+/* ---------- aba Ajustes (só o dono) ---------- */
+.aj-tela { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.aj-tela[hidden], #ajMenu[hidden], #ajRodape[hidden] { display: none; }
+.mn { display: flex; flex-direction: column; }
+.mn-grp { font-size: .66rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); padding: 12px 12px 4px; }
+.mn-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; background: none; border: 0; border-bottom: 1px solid var(--border); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.mn-row:hover { background: var(--surface); }
+.mn-ic { width: 30px; height: 30px; border-radius: 8px; background: var(--surface-2); display: grid; place-items: center; flex-shrink: 0; }
+.mn-ic .ico { width: 15px; height: 15px; color: var(--primary-yellow); }
+.mn-t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mn-t b { font-size: .88rem; }
+.mn-t span { font-size: .74rem; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mn-t span.falta { color: #ff6b5b; }
+.mn-row > .ico { width: 15px; height: 15px; color: var(--text-dim); flex-shrink: 0; }
+.tl-top { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.tl-top b { font-size: .96rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-back { width: 30px; height: 30px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--text); display: grid; place-items: center; cursor: pointer; flex-shrink: 0; }
+.tl-back .ico { width: 15px; height: 15px; }
+
+.aj-sec { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.aj-sec + .aj-sec { border-top: 1px solid var(--border); }
+.aj-h { font-size: .68rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+.aj-h .ico { width: 13px; height: 13px; }
+.aj-f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.aj-f > span { font-size: .74rem; color: var(--text-dim); font-weight: 600; }
+.aj-in { width: 100%; min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; color: var(--text); font: inherit; font-size: .84rem; padding: 8px 10px; outline: none; }
+.aj-in:focus { border-color: var(--primary-yellow); }
+textarea.aj-in { resize: vertical; line-height: 1.45; font-size: .8rem; }
+.aj-tpl { min-height: 150px; }
+.aj-dica { font-size: .74rem; color: var(--text-dim); line-height: 1.45; }
+.aj-dica b { color: var(--text); }
+.aj-ro { display: flex; flex-direction: column; border: 1px dashed var(--border); border-radius: 10px; }
+.aj-ro > div { display: flex; justify-content: space-between; gap: 10px; padding: 7px 10px; font-size: .8rem; }
+.aj-ro > div + div { border-top: 1px dashed var(--border); }
+.aj-ro span { color: var(--text-dim); flex-shrink: 0; }
+.aj-ro b { font-weight: 650; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.aj-link { color: var(--primary-yellow); font-size: .78rem; font-weight: 650; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; align-self: flex-start; }
+.aj-link .ico { width: 13px; height: 13px; }
+.aj-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.aj-chips button { background: var(--surface); border: 1px solid var(--border); color: var(--text-dim); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: .74rem; font-weight: 650; cursor: pointer; }
+.aj-chips button[aria-pressed="true"] { background: var(--primary-yellow); border-color: transparent; color: var(--text-on-primary); }
+.aj-vars { display: flex; flex-wrap: wrap; gap: 4px; }
+.aj-vars button { background: var(--surface-2); border: 1px dashed var(--border); color: var(--text); border-radius: 6px; padding: 2px 6px; font-size: .72rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; cursor: pointer; }
+.aj-vars button:hover { border-color: var(--primary-yellow); }
+.aj-prev { background: #0b141a; border-radius: 10px; padding: 8px; }
+.aj-lock { display: flex; gap: 8px; align-items: flex-start; font-size: .76rem; line-height: 1.45; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; }
+.aj-lock b { color: var(--text); }
+.aj-lock .ico { width: 15px; height: 15px; color: var(--primary-yellow); flex-shrink: 0; margin-top: 1px; }
+.aj-row2 { display: flex; gap: 8px; }
+.aj-row2 > * { flex: 1; min-width: 0; }
+.mb { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.mb.off { opacity: .6; }
+.mb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mb-main b { font-size: .88rem; }
+.mb-main em { font-style: normal; font-weight: 500; font-size: .74rem; color: var(--text-dim); }
+.mb-main span { font-size: .74rem; color: var(--text-dim); }
+.mb-edit { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.mini { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: .72rem; font-weight: 650; cursor: pointer; flex-shrink: 0; }
+.mini:hover { border-color: var(--primary-yellow); }
+.hs { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .78rem; overflow-wrap: anywhere; }
+.hs:last-child { border-bottom: 0; }
+.hs-top { display: flex; justify-content: space-between; color: var(--text-dim); font-size: .72rem; }
+.hs b { font-weight: 650; }
+.hs s { color: var(--text-dim); }
+.md-lista { display: flex; flex-direction: column; gap: 6px; }
+.md-de { display: flex; flex-direction: column; gap: 3px; font-size: .8rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; overflow-wrap: anywhere; }
+.md-de span { color: var(--text-dim); font-size: .72rem; }
+.md-de s { color: var(--text-dim); }
+.md-erro { color: #ff6b5b; font-size: .78rem; }
+.md-erro[hidden] { display: none; }
+
+/* imagem dos sabores (plano B, quando o navegador não copia sozinho) */
+.img-previa { width: 100%; height: auto; border-radius: 8px; }
+
+/* ---------- conta sem permissão ---------- */
+.pn-bloqueado { align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 24px; }
+.pn-bloqueado > .ico { width: 34px; height: 34px; color: var(--text-dim); }
+.pn-bloqueado h1 { font-size: 1.1rem; }
+.pn-bloqueado p { color: var(--text-dim); max-width: 32ch; line-height: 1.5; }
+.pn-bloqueado .btn { flex: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .es { animation: none; }
+  .a-row > .ico { transition: none; }
+  .pn-icon-btn.girando .ico { animation: none; }
+}

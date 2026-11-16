@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import base64
 import json
 import os
 import re
@@ -26,6 +27,7 @@ from PIL import Image, ImageOps, ImageChops
 
 from shipping import calculate_shipping, SPECIAL_ZONES, CONCENTRIC_ZONES
 import pricing
+import atendimento
 
 # ---------------------------------------------------------------------------
 # Configuração
@@ -201,6 +203,10 @@ _VERSIONED_ASSETS = (
     ("static", "app.js"),
     ("static", "js", "countdown.js"),
     ("static", "css", "tema-blackfriday.css"),
+    ("static", "css", "atendimento.css"),
+    ("static", "js", "atendimento.js"),
+    ("static", "js", "atendimento-ajustes.js"),
+    ("static", "js", "atendimento-imagem.js"),
 )
 ASSET_VERSION = str(int(max(
     os.path.getmtime(os.path.join(BASE_DIR, *parts))
@@ -254,6 +260,12 @@ def inject_site_urls():
     return {"site_url": root, "abs_url": abs_url}
 
 
+# ID da extensão do Chrome do painel de atendimento (pasta extensao/). Ele é
+# fixo porque o manifest.json tem a chave pública ("key"): o mesmo em todo PC.
+ATD_EXTENSAO_ID = os.environ.get("ATD_EXTENSAO_ID", "iffmpahjhfdbbmfipmpepnjpmenldkfk")
+_ATD_PAGINAS_DA_EXTENSAO = ("/atendimento", "/admin/login")
+
+
 @app.after_request
 def set_security_headers(response):
     """Headers de defesa-em-profundidade contra clickjacking, MIME-sniffing e
@@ -263,7 +275,16 @@ def set_security_headers(response):
     cobre o principal risco (ex.: um SVG malicioso plantado via upload não
     consegue puxar recursos externos nem ser enquadrado)."""
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
+    # O painel de atendimento (e o login dele) abre dentro do painel lateral
+    # da NOSSA extensão do Chrome, que mostra a página num <iframe>. Só essas
+    # duas páginas, e só para o ID fixo da extensão; o resto da loja continua
+    # sem poder ser enquadrado por ninguém.
+    enquadra = request.path in _ATD_PAGINAS_DA_EXTENSAO
+    if enquadra:
+        ancestrais = "'self' chrome-extension://" + ATD_EXTENSAO_ID
+    else:
+        response.headers["X-Frame-Options"] = "DENY"
+        ancestrais = "'none'"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
@@ -275,14 +296,14 @@ def set_security_headers(response):
         "font-src 'self' https://fonts.gstatic.com; "
         "object-src 'none'; "
         "base-uri 'self'; "
-        "frame-ancestors 'none'; "
+        f"frame-ancestors {ancestrais}; "
         "form-action 'self'"
     )
     # Painel e API nunca devem aparecer em busca. O robots.txt pede para não
     # rastrear, mas robots.txt só barra o RASTREIO: uma URL descoberta por link
     # externo ainda pode ser indexada só pelo endereço. O X-Robots-Tag é o que
     # de fato tira da indexação.
-    if request.path.startswith("/admin") or request.path.startswith("/api/"):
+    if request.path.startswith(("/admin", "/api/", "/atendimento")):
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
     return response
 
@@ -356,6 +377,9 @@ def login_required(view):
     return wrapped
 
 
+_CAMPOS_SECRETOS = ("password", "senha")
+
+
 def _write_api_guard(permission_check=None, audit=True):
     """Fábrica dos decorators usados por toda API de escrita do painel.
 
@@ -387,6 +411,10 @@ def _write_api_guard(permission_check=None, audit=True):
             detail = ""
             if request.method != "GET" and request.is_json:
                 detail = request.get_json(silent=True) or ""
+                # Senha nunca vai para o audit_log (troca de senha de
+                # funcionário, senha que confirma a troca do Pix).
+                if isinstance(detail, dict):
+                    detail = {k: ("***" if k in _CAMPOS_SECRETOS else v) for k, v in detail.items()}
             result = view(*args, **kwargs)
             if audit:
                 log_audit(f"{request.method} {request.path}", detail, username=user["username"])
@@ -408,6 +436,10 @@ api_owner_required = _write_api_guard(lambda u: False)
 # audit_log: a aba consulta o "online agora" a cada 30 s, e isso afogaria o
 # log de ações de verdade.
 api_metrics_read = _write_api_guard(lambda u: u["can_metrics"], audit=False)
+# Painel de atendimento: dono ou funcionário com can_atendimento=1. Só
+# leitura/cotação (nada grava), então fica fora do audit_log — a atendente
+# cota dezenas de vezes por pedido. Gravar config é api_owner_required.
+api_atendimento_required = _write_api_guard(lambda u: u["can_atendimento"], audit=False)
 
 
 # ---------------------------------------------------------------------------
@@ -615,6 +647,28 @@ def init_db():
             vid       TEXT PRIMARY KEY,
             last_seen REAL NOT NULL
         );
+
+        -- Painel de atendimento: motoboys da mensagem de agradecimento.
+        -- Desativar em vez de apagar, para o histórico continuar legível.
+        CREATE TABLE IF NOT EXISTS motoboys (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome       TEXT NOT NULL,
+            telefone   TEXT NOT NULL DEFAULT '',
+            ativo      INTEGER NOT NULL DEFAULT 1,
+            created_at REAL NOT NULL
+        );
+
+        -- Histórico das configurações do atendimento (Pix, textos, motoboys):
+        -- quem mudou, quando e o valor ANTERIOR. O audit_log não guarda o
+        -- valor anterior, e trocar a chave Pix é a fraude mais grave possível.
+        CREATE TABLE IF NOT EXISTS atendimento_config_log (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts             REAL NOT NULL,
+            username       TEXT,
+            chave          TEXT NOT NULL,
+            valor_anterior TEXT,
+            valor_novo     TEXT
+        );
         """
     )
     db.commit()
@@ -633,6 +687,11 @@ def init_db():
     user_cols = {row["name"] for row in db.execute("PRAGMA table_info(users)").fetchall()}
     if "can_metrics" not in user_cols:
         db.execute("ALTER TABLE users ADD COLUMN can_metrics INTEGER NOT NULL DEFAULT 0")
+        db.commit()
+    # Migração: users ganhou `can_atendimento` (funcionário pode usar o painel
+    # de atendimento). Nasce 0: o dono liga para cada atendente.
+    if "can_atendimento" not in user_cols:
+        db.execute("ALTER TABLE users ADD COLUMN can_atendimento INTEGER NOT NULL DEFAULT 0")
         db.commit()
 
     # Migração: o funil de vendas chegou depois das métricas de visita. As
@@ -923,6 +982,9 @@ def init_db():
         "offers_title": "Ofertas com hora marcada",
         "offers_icon": "clock",
     }
+    # Painel de atendimento: dados da loja e textos das mensagens. Ver
+    # atendimento.CONFIG_PADRAO (Pix nasce vazio; só o dono preenche).
+    defaults.update(atendimento.CONFIG_PADRAO)
     for k, v in defaults.items():
         db.execute(
             "INSERT OR IGNORE INTO site_config (key, value) VALUES (?, ?)", (k, v)
@@ -2111,10 +2173,12 @@ def api_create_user():
     can_coupons = 1 if data.get("can_coupons", True) else 0
     # Métricas são números do negócio: só liga se o dono marcar.
     can_metrics = 1 if data.get("can_metrics", False) else 0
+    # Painel de atendimento (mostra a chave Pix): só liga se o dono marcar.
+    can_atendimento = 1 if data.get("can_atendimento", False) else 0
     cur = db.execute(
-        "INSERT INTO users (username, password_hash, role, can_catalog, can_coupons, can_metrics, is_active, created_at) "
-        "VALUES (?, ?, 'staff', ?, ?, ?, 1, ?)",
-        (username, generate_password_hash(password), can_catalog, can_coupons, can_metrics, time.time()),
+        "INSERT INTO users (username, password_hash, role, can_catalog, can_coupons, can_metrics, can_atendimento, is_active, created_at) "
+        "VALUES (?, ?, 'staff', ?, ?, ?, ?, 1, ?)",
+        (username, generate_password_hash(password), can_catalog, can_coupons, can_metrics, can_atendimento, time.time()),
     )
     db.commit()
     return jsonify({"ok": True, "id": cur.lastrowid, "username": username})
@@ -2138,6 +2202,8 @@ def api_update_user(uid):
         fields.append("can_coupons = ?"); vals.append(1 if data["can_coupons"] else 0)
     if "can_metrics" in data:
         fields.append("can_metrics = ?"); vals.append(1 if data["can_metrics"] else 0)
+    if "can_atendimento" in data:
+        fields.append("can_atendimento = ?"); vals.append(1 if data["can_atendimento"] else 0)
     if "is_active" in data:
         fields.append("is_active = ?"); vals.append(1 if data["is_active"] else 0)
     if data.get("password"):
@@ -2316,6 +2382,10 @@ def api_update_config():
     value = data.get("value")
     if not key:
         return jsonify({"ok": False, "error": "missing key"}), 400
+    # Configurações do atendimento (Pix incluído) só pela rota própria, que
+    # grava o valor anterior no histórico. Por aqui ficariam sem rastro.
+    if str(key).startswith("atd_"):
+        return jsonify({"ok": False, "error": "use /api/atendimento/config para esta chave"}), 400
     db = get_db()
     db.execute(
         "INSERT INTO site_config (key, value) VALUES (?, ?) "
@@ -3928,6 +3998,553 @@ def metrics_summary():
 @api_metrics_read
 def metrics_online():
     return jsonify({"ok": True, "online": _metrics_online_count(get_db())})
+
+
+# ---------------------------------------------------------------------------
+# Painel de atendimento (pedido manual pelo WhatsApp)
+# ---------------------------------------------------------------------------
+# Um painel por loja: cada serviço lê o PRÓPRIO banco, então o Pix que sai
+# daqui é sempre o desta loja — a atendente nunca escolhe nem digita a chave.
+# Regras puras (localização, conta) ficam em atendimento.py.
+@app.route("/atendimento")
+@login_required
+def atendimento_page():
+    """Página do painel (é ela que a extensão do Chrome abre ao lado do
+    WhatsApp Web). Os dados vêm das rotas /api/atendimento/*; aqui só a casca."""
+    user = _current_user()
+    is_owner = user["role"] == "owner"
+    if not is_owner and not user["can_atendimento"]:
+        return render_template("atendimento.html", sem_acesso=True, usuario=user["username"]), 403
+    return render_template(
+        "atendimento.html",
+        sem_acesso=False,
+        usuario=user["username"],
+        is_owner=is_owner,
+        csrf_token=session["csrf_token"],
+    )
+
+
+def _atd_valor(v):
+    """Decimal -> float para o JSON (None continua None)."""
+    return None if v is None else float(v)
+
+
+def _atd_regras_frete(config):
+    return {
+        "enabled": config.get("free_ship_enabled") == "1",
+        "min": config.get("free_ship_min") or 0,
+        "max_zone": config.get("free_ship_max_zone") or 0,
+    }
+
+
+def _atd_frete_de(texto):
+    """(frete_info, erro) a partir do texto colado. frete_info é o dict do
+    calculate_shipping, com lat/lng de onde ele foi lido."""
+    coords = atendimento.ler_localizacao(texto)
+    if not coords:
+        return None, (
+            "Não consegui ler a localização. Cole o link do Google Maps que o "
+            "cliente mandou (ou a coordenada no formato -2.53, -44.30)."
+        )
+    special, concentric = get_shipping_zones()
+    info = calculate_shipping(coords[0], coords[1], special_zones=special, concentric_zones=concentric)
+    info["lat"], info["lng"] = coords
+    return info, None
+
+
+@app.route("/api/atendimento/catalogo", methods=["GET"])
+@api_atendimento_required
+def atendimento_catalogo():
+    """Catálogo para a atendente: a MESMA montagem do site (build_catalog),
+    então preço, promoção e versões seguem a regra única. Cada sabor vem com
+    `em_estoque` — a mensagem copiada usa só os em estoque; o painel pode
+    mostrar os esgotados riscados."""
+    modelos = []
+    for m in build_catalog():
+        sabores = [
+            {
+                "id": f["id"],
+                "nome": f["name"],
+                "versao": f["version_label"],
+                "preco": f["price"],
+                "preco_original": f["price_original"],
+                "em_estoque": bool(f["is_in_stock"]),
+                "cor": f.get("color") or "",       # bolinha na imagem dos sabores
+            }
+            for f in m["flavors"]
+        ]
+        modelos.append({
+            "id": m["id"],
+            "marca": m["brand_name"],
+            "modelo": m["name"],
+            "puffs": m["puff_count"],
+            "busca": m["version_search"],
+            "preco": m["min_price"],
+            "preco_original": m["min_price_original"],
+            "promo_fim": m["promo_fim"],
+            "foto": m["image_url"] or "",          # foto do cadastro (imagem dos sabores)
+            "em_estoque": sum(1 for s in sabores if s["em_estoque"]),
+            "sabores": sabores,
+        })
+    return jsonify({"ok": True, "modelos": modelos})
+
+
+@app.route("/api/atendimento/frete", methods=["POST"])
+@api_atendimento_required
+def atendimento_frete():
+    """Diagnóstico: localização colada -> zona e valor do frete."""
+    d = request.get_json(silent=True) or {}
+    info, erro = _atd_frete_de(str(d.get("texto") or "")[:2000])
+    if erro:
+        return jsonify({"ok": False, "error": erro}), 400
+    return jsonify({
+        "ok": True,
+        "lat": info["lat"],
+        "lng": info["lng"],
+        "dentro_da_area": info["ok"],
+        "zona": info["zone_label"],
+        "preco": info["price"],
+        "especial": info["special"],
+        "mensagem": info["message"],
+    })
+
+
+@app.route("/api/atendimento/cotacao", methods=["POST"])
+@api_atendimento_required
+def atendimento_cotacao():
+    """Conta do pedido manual, inteira no servidor.
+
+    Recebe só ids e quantidades (nunca preço nem total):
+      {itens:[{flavor_id, qty}], retirada, localizacao, pagamento}
+    """
+    d = request.get_json(silent=True) or {}
+
+    pagamento = str(d.get("pagamento") or "pix").strip().lower()
+    if pagamento not in atendimento.PAGAMENTOS:
+        return jsonify({"ok": False, "error": "Forma de pagamento inválida"}), 400
+
+    # Soma quantidades do mesmo sabor; qty entre 1 e 50.
+    qtds = {}
+    brutos = d.get("itens") if isinstance(d.get("itens"), list) else []
+    for it in brutos[:100]:
+        try:
+            fid = int(it.get("flavor_id"))
+            qty = int(it.get("qty", 1))
+        except (TypeError, ValueError, AttributeError):
+            return jsonify({"ok": False, "error": "Item inválido no pedido"}), 400
+        if not 1 <= qty <= 50:
+            return jsonify({"ok": False, "error": "Quantidade precisa ser de 1 a 50"}), 400
+        qtds[fid] = qtds.get(fid, 0) + qty
+    if not qtds:
+        return jsonify({"ok": False, "error": "Adicione pelo menos um sabor"}), 400
+
+    oficiais = precos_dos_sabores(list(qtds))
+    nomes = {
+        r["id"]: r for r in get_db().execute(
+            """
+            SELECT p.id, p.name AS sabor, m.name AS modelo, b.name AS marca
+            FROM products p
+            JOIN vape_models m ON m.id = p.model_id
+            JOIN brands b ON b.id = m.brand_id
+            WHERE p.id IN (%s)
+            """ % ",".join("?" * len(qtds)),
+            list(qtds),
+        ).fetchall()
+    }
+    itens = []
+    for fid, qty in qtds.items():
+        if fid not in oficiais or fid not in nomes:
+            return jsonify({"ok": False, "error": "Sabor não encontrado — atualize o catálogo"}), 400
+        n = nomes[fid]
+        if not oficiais[fid]["is_in_stock"]:
+            return jsonify({
+                "ok": False,
+                "error": f"{n['modelo']} {n['sabor']} está esgotado",
+            }), 400
+        preco = atendimento.dinheiro(oficiais[fid]["final"])
+        itens.append({
+            "flavor_id": fid,
+            "marca": n["marca"],
+            "modelo": n["modelo"],
+            "sabor": n["sabor"],
+            "qty": qty,
+            "preco": preco,
+            "preco_original": atendimento.dinheiro(oficiais[fid]["original"]),
+        })
+
+    retirada = bool(d.get("retirada"))
+    localizacao = str(d.get("localizacao") or "").strip()[:2000]
+    frete_info = None
+    if not retirada and localizacao:
+        frete_info, erro = _atd_frete_de(localizacao)
+        if erro:
+            return jsonify({"ok": False, "error": erro}), 400
+
+    conta = atendimento.calcular_total(
+        itens, pagamento, frete_info=frete_info, retirada=retirada,
+        regras=_atd_regras_frete(get_config()),
+    )
+    return jsonify({
+        "ok": True,
+        "status": conta["status"],
+        "itens": [
+            {**it, "preco": float(it["preco"]), "preco_original": float(it["preco_original"]),
+             "total": float(it["preco"] * it["qty"])}
+            for it in itens
+        ],
+        "subtotal": _atd_valor(conta["subtotal"]),
+        "retirada": retirada,
+        "zona": conta["zona"],
+        "frete_cheio": _atd_valor(conta["frete_cheio"]),
+        "frete": _atd_valor(conta["frete"]),
+        "frete_gratis": conta["frete_gratis"],
+        "pagamento": atendimento.PAGAMENTOS[pagamento],
+        "acrescimo": _atd_valor(conta["acrescimo"]),
+        "credito_pct": float(atendimento.CREDITO_PCT),
+        "total": _atd_valor(conta["total"]),
+        "mensagem": (frete_info or {}).get("message"),
+    })
+
+
+def _atd_motoboys(so_ativos=True):
+    sql = "SELECT id, nome, telefone, ativo FROM motoboys"
+    if so_ativos:
+        sql += " WHERE ativo = 1"
+    rows = get_db().execute(sql + " ORDER BY nome COLLATE NOCASE, id").fetchall()
+    return [{**dict(r), "ativo": bool(r["ativo"])} for r in rows]
+
+
+@app.route("/api/atendimento/config", methods=["GET"])
+@api_atendimento_required
+def atendimento_config():
+    """Dados da loja, textos e motoboys. Só com login: tem a chave Pix e o
+    telefone dos motoboys, que nunca podem sair em rota pública."""
+    config = get_config()
+    user = _current_user()
+    is_owner = user["role"] == "owner"
+    loja = {k: config.get(k, "") for k in atendimento.CONFIG_PADRAO if not k.startswith("atd_tpl_")}
+    loja["atd_nome"] = loja["atd_nome"] or config.get("store_name", "")
+    regras = _atd_regras_frete(config)
+    # Para a aba Ajustes (só o dono): os valores como estão gravados (o nome
+    # vazio continua vazio, para não gravar o store_name por cima sem querer)
+    # e os textos originais, para o "voltar ao texto original".
+    ajustes = None
+    if is_owner:
+        ajustes = {
+            "valores": {k: config.get(k, "") for k in atendimento.CONFIG_PADRAO},
+            "nome_da_loja": config.get("store_name", ""),
+            "textos_padrao": {k[len("atd_tpl_"):]: v for k, v in atendimento.TEXTOS_PADRAO.items()},
+        }
+    return jsonify({
+        "ok": True,
+        "ajustes": ajustes,
+        "loja": {
+            **{k[len("atd_"):]: v for k, v in loja.items()},
+            "whatsapp": config.get("whatsapp_phone", ""),
+            "instagram": config.get("instagram_url", ""),
+            # O MESMO logo do cabeçalho do site desta loja (cada serviço tem o
+            # seu): a imagem dos sabores da Vapor sai com o logo da Vapor.
+            "logo": (config.get("logo_main_url") or "").strip() or url_for("static", filename="logo.png"),
+        },
+        "textos": {k[len("atd_tpl_"):]: config.get(k, "") for k in atendimento.TEXTOS_PADRAO},
+        "motoboys": _atd_motoboys(so_ativos=not is_owner),
+        "regras": {
+            "frete_gratis_ativo": regras["enabled"],
+            "frete_gratis_min": float(regras["min"] or 0),
+            "frete_gratis_max_zona": float(regras["max_zone"] or 0),
+            "credito_pct": float(atendimento.CREDITO_PCT),
+        },
+        "pode_editar": is_owner,
+    })
+
+
+def _atd_log(chave, anterior, novo):
+    get_db().execute(
+        "INSERT INTO atendimento_config_log (ts, username, chave, valor_anterior, valor_novo) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (time.time(), _current_user()["username"], chave, anterior, novo),
+    )
+
+
+@app.route("/api/atendimento/config", methods=["POST"])
+@api_owner_required
+def atendimento_config_salvar():
+    """Só o dono. {valores: {atd_chave: texto}}. Cada mudança vai para o
+    histórico com o valor anterior."""
+    d = request.get_json(silent=True) or {}
+    valores = d.get("valores")
+    if not isinstance(valores, dict) or not valores:
+        return jsonify({"ok": False, "error": "nada para salvar"}), 400
+    novos, erro = _atd_validar_valores(valores)
+    if erro:
+        return jsonify({"ok": False, "error": erro}), 400
+
+    # Trocar o Pix pede a senha do dono de novo, mesmo logado: o painel pode
+    # ter ficado aberto na conta dele no computador da loja.
+    config = get_config()
+    if any(k in _ATD_PIX and v != (config.get(k) or "") for k, v in novos.items()):
+        resposta = _atd_confere_senha(d.get("senha"))
+        if resposta is not None:
+            return resposta
+
+    alterados = _atd_gravar_config(novos, config)
+    get_db().commit()
+    return jsonify({"ok": True, "alterados": alterados})
+
+
+_ATD_PIX = ("atd_pix_chave", "atd_pix_tipo", "atd_pix_titular")
+
+
+def _atd_validar_valores(valores):
+    """(novos, erro): só chaves atd_* conhecidas, texto, dentro do limite."""
+    novos = {}
+    for chave, valor in valores.items():
+        if chave not in atendimento.CONFIG_PADRAO:
+            return None, f"campo desconhecido: {chave}"
+        if not isinstance(valor, str):
+            return None, f"{chave} precisa ser texto"
+        limite = atendimento.LIMITE_TEXTO if chave.startswith("atd_tpl_") else atendimento.LIMITE_CAMPO
+        valor = valor.strip()
+        if len(valor) > limite:
+            return None, f"{chave} passou de {limite} caracteres"
+        novos[chave] = valor
+    return novos, None
+
+
+def _atd_gravar_config(novos, config):
+    """Grava só o que mudou, cada mudança no histórico. Não faz commit."""
+    db = get_db()
+    alterados = []
+    for chave, valor in novos.items():
+        anterior = config.get(chave)
+        if anterior == valor:
+            continue
+        db.execute(
+            "INSERT INTO site_config (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (chave, valor),
+        )
+        _atd_log(chave, anterior, valor)
+        alterados.append(chave)
+    return alterados
+
+
+def _atd_confere_senha(senha):
+    """None se a senha do usuário logado confere; senão a resposta de erro.
+    Usa o mesmo bloqueio por tentativas do login (5 erros = 5 min)."""
+    ip = _client_ip()
+    restante = _login_lockout_remaining(ip)
+    if restante > 0:
+        return jsonify({"ok": False, "error": f"Muitas tentativas erradas. Tente de novo em {max(1, restante // 60 + 1)} min."}), 429
+    user = _current_user()
+    if not senha or not isinstance(senha, str) or not check_password_hash(user["password_hash"], senha):
+        _register_failed_login(ip)
+        log_audit("atendimento_pix_senha_errada", username=user["username"])
+        return jsonify({"ok": False, "error": "Senha incorreta. O Pix não foi alterado.", "senha": True}), 403
+    return None
+
+
+@app.route("/api/atendimento/confere-dono", methods=["POST"])
+def atendimento_confere_dono():
+    """A extensão do Chrome pede a senha do dono para trocar a loja de um
+    perfil (para a atendente não trocar por engano e mandar o Pix da loja
+    errada). Não exige login: a atendente pode estar deslogada. Por isso usa
+    o MESMO bloqueio por tentativas do /admin/login (5 erros = 5 min) e só
+    responde certo/errado, sem criar sessão nem revelar nada."""
+    ip = _client_ip()
+    restante = _login_lockout_remaining(ip)
+    if restante > 0:
+        return jsonify({"ok": False, "error": f"Muitas tentativas erradas. Tente de novo em {max(1, restante // 60 + 1)} min."}), 429
+    senha = (request.get_json(silent=True) or {}).get("senha")
+    donos = get_db().execute("SELECT password_hash FROM users WHERE role = 'owner' AND is_active = 1").fetchall()
+    ok = isinstance(senha, str) and bool(senha) and any(check_password_hash(d["password_hash"], senha) for d in donos)
+    if not donos:
+        check_password_hash(_DUMMY_PASSWORD_HASH, str(senha or ""))
+    if not ok:
+        _register_failed_login(ip)
+        log_audit("extensao_troca_loja_senha_errada")
+        return jsonify({"ok": False, "error": "Senha incorreta. A loja não foi trocada."}), 403
+    log_audit("extensao_troca_loja")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/atendimento/historico", methods=["GET"])
+@api_owner_required
+def atendimento_historico():
+    """As últimas mudanças de config e de motoboys, com o valor anterior."""
+    rows = get_db().execute(
+        "SELECT ts, username, chave, valor_anterior, valor_novo FROM atendimento_config_log "
+        "ORDER BY id DESC LIMIT 60"
+    ).fetchall()
+    return jsonify({"ok": True, "itens": [dict(r) for r in rows]})
+
+
+# ---------------------------------------------------------------------------
+# Copiar a configuração de uma loja para outra. Cada loja tem o próprio banco,
+# então o dono gera um código numa e cola na outra. Vão juntos: prazo,
+# horário, textos e motoboys. NUNCA vão Pix, nome nem site (são da loja).
+# ---------------------------------------------------------------------------
+_ATD_COPIAVEIS = ("atd_prazo", "atd_horario", *atendimento.TEXTOS_PADRAO)
+_ATD_PREFIXO_CODIGO = "ATD1:"
+
+
+@app.route("/api/atendimento/exportar", methods=["GET"])
+@api_owner_required
+def atendimento_exportar():
+    config = get_config()
+    dados = {
+        "config": {k: config.get(k, "") for k in _ATD_COPIAVEIS},
+        "motoboys": [
+            {"nome": m["nome"], "telefone": m["telefone"], "ativo": m["ativo"]}
+            for m in _atd_motoboys(so_ativos=False)
+        ],
+    }
+    codigo = base64.b64encode(json.dumps(dados, ensure_ascii=False).encode("utf-8")).decode("ascii")
+    return jsonify({"ok": True, "codigo": _ATD_PREFIXO_CODIGO + codigo})
+
+
+def _atd_ler_codigo(codigo):
+    """(dados, erro) de um código ATD1:… — valida tudo antes de gravar."""
+    codigo = str(codigo or "").strip()
+    if not codigo.startswith(_ATD_PREFIXO_CODIGO) or len(codigo) > 200_000:
+        return None, "Isso não é um código de configuração. Ele começa com ATD1:"
+    try:
+        dados = json.loads(base64.b64decode(codigo[len(_ATD_PREFIXO_CODIGO):], validate=True).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return None, "O código está incompleto. Copie de novo na outra loja."
+    if not isinstance(dados, dict) or not isinstance(dados.get("config"), dict) or not isinstance(dados.get("motoboys"), list):
+        return None, "O código está incompleto. Copie de novo na outra loja."
+    config = {k: v for k, v in dados["config"].items() if k in _ATD_COPIAVEIS}
+    novos, erro = _atd_validar_valores(config)
+    if erro:
+        return None, erro
+    motoboys = []
+    for m in dados["motoboys"][:50]:
+        if not isinstance(m, dict):
+            return None, "Motoboy inválido no código"
+        campos, erro = _atd_motoboy_campos(m)
+        if erro:
+            return None, erro
+        campos["ativo"] = 1 if m.get("ativo", True) else 0
+        motoboys.append(campos)
+    return {"config": novos, "motoboys": motoboys}, None
+
+
+@app.route("/api/atendimento/importar", methods=["POST"])
+@api_owner_required
+def atendimento_importar():
+    """{codigo, aplicar}. Sem `aplicar`, só diz o que vai mudar (prévia).
+    Motoboys são casados pelo nome: o que já existe tem telefone/ativo
+    atualizados; o que não existe é criado; nenhum é apagado."""
+    d = request.get_json(silent=True) or {}
+    dados, erro = _atd_ler_codigo(d.get("codigo"))
+    if erro:
+        return jsonify({"ok": False, "error": erro}), 400
+
+    config = get_config()
+    mudam = [k for k, v in dados["config"].items() if (config.get(k) or "") != v]
+    existentes = {m["nome"].strip().lower(): m for m in _atd_motoboys(so_ativos=False)}
+    novos_m, mudam_m = [], []
+    for m in dados["motoboys"]:
+        atual = existentes.get(m["nome"].strip().lower())
+        if not atual:
+            novos_m.append(m)
+        elif atual["telefone"] != m["telefone"] or int(atual["ativo"]) != m["ativo"]:
+            mudam_m.append((atual["id"], m))
+    resumo = {
+        "config": mudam,
+        "motoboys_novos": [m["nome"] for m in novos_m],
+        "motoboys_atualizados": [m["nome"] for _, m in mudam_m],
+    }
+    if not d.get("aplicar"):
+        return jsonify({"ok": True, "previa": True, **resumo})
+
+    db = get_db()
+    _atd_gravar_config({k: dados["config"][k] for k in mudam}, config)
+    for m in novos_m:
+        mid = db.execute(
+            "INSERT INTO motoboys (nome, telefone, ativo, created_at) VALUES (?, ?, ?, ?)",
+            (m["nome"], m["telefone"], m["ativo"], time.time()),
+        ).lastrowid
+        _atd_log(f"motoboy:{mid}", None, json.dumps(m, ensure_ascii=False))
+    for mid, m in mudam_m:
+        atual = db.execute("SELECT nome, telefone, ativo FROM motoboys WHERE id = ?", (mid,)).fetchone()
+        db.execute("UPDATE motoboys SET telefone = ?, ativo = ? WHERE id = ?", (m["telefone"], m["ativo"], mid))
+        _atd_log(f"motoboy:{mid}", json.dumps(dict(atual), ensure_ascii=False),
+                 json.dumps({**dict(atual), "telefone": m["telefone"], "ativo": m["ativo"]}, ensure_ascii=False))
+    db.commit()
+    return jsonify({"ok": True, "previa": False, **resumo})
+
+
+def _atd_motoboy_campos(d, parcial=False):
+    """(campos, erro) validados de um motoboy."""
+    campos = {}
+    if "nome" in d or not parcial:
+        nome = str(d.get("nome") or "").strip()
+        if not nome:
+            return None, "digite o nome do motoboy"
+        campos["nome"] = nome[:60]
+    if "telefone" in d or not parcial:
+        tel = str(d.get("telefone") or "").strip()
+        if not tel:
+            return None, "digite o telefone do motoboy"
+        campos["telefone"] = tel[:30]
+    if parcial and "ativo" in d:
+        campos["ativo"] = 1 if d.get("ativo") else 0
+    return campos, None
+
+
+@app.route("/api/atendimento/motoboy", methods=["POST"])
+@api_owner_required
+def atendimento_motoboy_criar():
+    d = request.get_json(silent=True) or {}
+    campos, erro = _atd_motoboy_campos(d)
+    if erro:
+        return jsonify({"ok": False, "error": erro}), 400
+    db = get_db()
+    mid = db.execute(
+        "INSERT INTO motoboys (nome, telefone, ativo, created_at) VALUES (?, ?, 1, ?)",
+        (campos["nome"], campos["telefone"], time.time()),
+    ).lastrowid
+    _atd_log(f"motoboy:{mid}", None, json.dumps({**campos, "ativo": 1}, ensure_ascii=False))
+    db.commit()
+    return jsonify({"ok": True, "id": mid})
+
+
+def _atd_motoboy_atualizar(mid, campos):
+    db = get_db()
+    atual = db.execute("SELECT nome, telefone, ativo FROM motoboys WHERE id = ?", (mid,)).fetchone()
+    if not atual:
+        return jsonify({"ok": False, "error": "motoboy não encontrado"}), 404
+    if not campos:
+        return jsonify({"ok": False, "error": "nada para atualizar"}), 400
+    db.execute(
+        "UPDATE motoboys SET %s WHERE id = ?" % ", ".join(f"{k} = ?" for k in campos),
+        [*campos.values(), mid],
+    )
+    _atd_log(
+        f"motoboy:{mid}",
+        json.dumps(dict(atual), ensure_ascii=False),
+        json.dumps({**dict(atual), **campos}, ensure_ascii=False),
+    )
+    db.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/atendimento/motoboy/<int:mid>", methods=["POST"])
+@api_owner_required
+def atendimento_motoboy_editar(mid):
+    campos, erro = _atd_motoboy_campos(request.get_json(silent=True) or {}, parcial=True)
+    if erro:
+        return jsonify({"ok": False, "error": erro}), 400
+    return _atd_motoboy_atualizar(mid, campos)
+
+
+@app.route("/api/atendimento/motoboy/<int:mid>", methods=["DELETE"])
+@api_owner_required
+def atendimento_motoboy_desativar(mid):
+    """Desativa (não apaga): o histórico continua apontando para alguém."""
+    return _atd_motoboy_atualizar(mid, {"ativo": 0})
 
 
 # Garante que o banco existe quando rodando via Gunicorn (produção)
