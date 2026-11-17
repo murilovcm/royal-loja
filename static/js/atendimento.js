@@ -590,15 +590,11 @@
     return lista;
   }
 
-  // Local da retirada (Ajustes > Local da retirada, um por loja).
-  function textoRetirada() {
-    return preencher(CONFIG.textos.retirada, {
-      loja: CONFIG.loja.nome, local: CONFIG.loja.retirada_local,
-      mapa: CONFIG.loja.retirada_mapa, horario: CONFIG.loja.horario
-    });
-  }
+  // Local da retirada: texto livre do dono (Ajustes > Local da retirada, um
+  // por loja). Vai exatamente como ele escreveu, sem variáveis.
+  function textoRetirada() { return CONFIG.loja.retirada_msg || ""; }
   function semLocal() {
-    return CONFIG.loja.retirada_local ? "" : "Local da retirada não cadastrado. O dono cadastra em Ajustes.";
+    return textoRetirada().trim() ? "" : "Local da retirada não cadastrado. O dono cadastra em Ajustes.";
   }
 
   var previewAberto = {};

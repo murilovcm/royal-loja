@@ -991,6 +991,20 @@ def init_db():
         )
     db.commit()
 
+    # Migração (v3.3.9 -> texto livre): o local da retirada era dois campos,
+    # prédio + link do mapa. Agora é uma mensagem só. O que o dono já tinha
+    # preenchido vira o começo da mensagem nova, e os campos velhos saem.
+    velhos = dict(db.execute(
+        "SELECT key, value FROM site_config WHERE key IN ('atd_retirada_local', 'atd_retirada_mapa')"
+    ).fetchall())
+    if velhos:
+        atual = db.execute("SELECT value FROM site_config WHERE key = 'atd_retirada_msg'").fetchone()
+        juntos = "\n".join(v.strip() for v in (velhos.get("atd_retirada_local"), velhos.get("atd_retirada_mapa")) if v and v.strip())
+        if juntos and not (atual and atual[0].strip()):
+            db.execute("UPDATE site_config SET value = ? WHERE key = 'atd_retirada_msg'", (juntos,))
+        db.execute("DELETE FROM site_config WHERE key IN ('atd_retirada_local', 'atd_retirada_mapa')")
+        db.commit()
+
     # O bloco "Atacado" foi descontinuado: nunca é semeado automaticamente.
     # Só limpamos eventuais chaves legadas (atacado_*/show_atacado) que tenham
     # sobrado de versões antigas, para não deixar lixo no site_config. Blocos
@@ -4304,13 +4318,11 @@ def _atd_validar_valores(valores):
             return None, f"campo desconhecido: {chave}"
         if not isinstance(valor, str):
             return None, f"{chave} precisa ser texto"
-        limite = atendimento.LIMITE_TEXTO if chave.startswith("atd_tpl_") else atendimento.LIMITE_CAMPO
+        texto_longo = chave.startswith("atd_tpl_") or chave == "atd_retirada_msg"
+        limite = atendimento.LIMITE_TEXTO if texto_longo else atendimento.LIMITE_CAMPO
         valor = valor.strip()
         if len(valor) > limite:
             return None, f"{chave} passou de {limite} caracteres"
-        # O mapa vai como link na mensagem: só endereço web, nada de texto solto.
-        if chave == "atd_retirada_mapa" and valor and not re.match(r"https?://\S+$", valor):
-            return None, "O link do mapa precisa começar com https:// (copie do Google Maps)."
         novos[chave] = valor
     return novos, None
 

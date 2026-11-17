@@ -31,20 +31,19 @@
     ["resumo", "Resumo", ["itens", "zona", "frete", "acrescimo", "total"]],
     ["pix", "Pix", ["loja", "pix_tipo", "pix_chave", "pix_titular", "total"]],
     ["confirmacao", "Confirmação", ["total", "pagamento"]],
-    ["agradecimento", "Agradecimento", ["prazo", "motoboy", "motoboy_tel"]],
-    ["retirada", "Retirada", ["loja", "local", "mapa", "horario"]]
+    ["agradecimento", "Agradecimento", ["prazo", "motoboy", "motoboy_tel"]]
   ];
   var CAMPOS = {
     loja: ["atd_nome", "atd_site", "atd_grupo_vip", "atd_prazo", "atd_horario"],
     pix: ["atd_pix_tipo", "atd_pix_chave", "atd_pix_titular"],
-    retirada: ["atd_retirada_local", "atd_retirada_mapa"],
+    retirada: ["atd_retirada_msg"],
     textos: TEXTOS.map(function (t) { return "atd_tpl_" + t[0]; })
   };
   var ROTULO = {
     atd_nome: "Nome nas mensagens", atd_site: "Site", atd_grupo_vip: "Grupo VIP",
     atd_prazo: "Prazo de entrega", atd_horario: "Horário",
     atd_pix_tipo: "Tipo da chave Pix", atd_pix_chave: "Chave Pix", atd_pix_titular: "Titular do Pix",
-    atd_retirada_local: "Local da retirada", atd_retirada_mapa: "Mapa da retirada"
+    atd_retirada_msg: "Local da retirada"
   };
   TEXTOS.forEach(function (t) { ROTULO["atd_tpl_" + t[0]] = "Texto: " + t[1]; });
   var TIPOS_PIX = ["Celular", "CPF", "CNPJ", "E-mail", "Aleatória"];
@@ -82,7 +81,7 @@
       res: function () { return st.salvo.atd_pix_chave ? (st.salvo.atd_pix_tipo || "Chave") + " · " + st.salvo.atd_pix_chave : null; },
       falta: "Não cadastrado: o passo do Pix fica travado" },
     { k: "retirada", t: "Local da retirada", ic: "map-pin", g: "Loja",
-      res: function () { return st.salvo.atd_retirada_local || null; },
+      res: function () { return (st.salvo.atd_retirada_msg || "").split("\n").filter(function (l) { return l.trim(); })[0] || null; },
       falta: "Não cadastrado: o botão Retirada avisa que falta" },
     { k: "motoboys", t: "Motoboys", ic: "motorbike", g: "Atendimento",
       res: function () {
@@ -151,8 +150,7 @@
       // Pedido de exemplo do planejamento (S200 + Zona 1 + crédito). Só para a prévia.
       itens: "• 1x Sex Addict S200 – Icy Mint – R$ 119,99", zona: "Zona 1", frete: "R$ 8,00", acrescimo: "R$ 6,40", total: "R$ 134,39",
       pagamento: "Crédito", pix_tipo: v.atd_pix_tipo, pix_chave: v.atd_pix_chave, pix_titular: v.atd_pix_titular,
-      motoboy: moto ? moto.nome : "", motoboy_tel: moto ? moto.telefone : "",
-      local: v.atd_retirada_local || "Prédio da loja – ponto de referência", mapa: v.atd_retirada_mapa
+      motoboy: moto ? moto.nome : "", motoboy_tel: moto ? moto.telefone : ""
     };
   }
   function previaPix() {
@@ -170,14 +168,17 @@
       '<div class="aj-prev"><div class="wa-bubble" id="ajPrevPix">' + previaPix() + "</div></div></div>";
   }
 
-  // Local da retirada: o que o cliente reconhece + o link do Google Maps, com a
-  // prévia da mensagem do botão "Retirada" (texto editável em Textos).
-  function previaRetirada() { return A.waHtml(A.preencher(st.rasc.atd_tpl_retirada, exemplo())); }
+  // Local da retirada: a mensagem INTEIRA, texto livre (prédio, link do mapa,
+  // referência). Sai como está, com o *negrito* do WhatsApp.
+  var EXEMPLO_RET = "📍 *Retirada*\nPrédio cinza – ao lado da farmácia\nhttps://maps.google.com/…";
+  function previaRetirada() {
+    return st.rasc.atd_retirada_msg ? A.waHtml(st.rasc.atd_retirada_msg) : '<span style="opacity:.6">A mensagem aparece aqui.</span>';
+  }
   function telaRetirada() {
-    return '<div class="aj-sec">' +
-      campo("atd_retirada_local", "Onde fica (como o cliente reconhece)", "Prédio cinza – ao lado da farmácia") +
-      campo("atd_retirada_mapa", "Link do Google Maps", "https://maps.google.com/…", "url") +
-      '<div class="aj-dica">No WhatsApp Web, abra a localização da loja, copie o link do Google Maps e cole aqui. Cada loja tem o seu: este local não vai no "Copiar para outra loja".</div></div>' +
+    return '<div class="aj-sec"><label class="aj-f"><span>Mensagem que o cliente recebe</span>' +
+      '<textarea class="aj-in aj-tpl" data-k="atd_retirada_msg" rows="7" maxlength="2000" placeholder="' + esc(EXEMPLO_RET) + '">' + esc(st.rasc.atd_retirada_msg) + "</textarea></label>" +
+      '<div class="aj-dica">Escreva do jeito que quer mandar: prédio, ponto de referência, link do Google Maps. <b>*Negrito*</b> e <i>_itálico_</i> do WhatsApp funcionam. ' +
+      'Cada loja tem a sua: não vai no "Copiar para outra loja".</div></div>' +
       '<div class="aj-sec"><div class="aj-h">' + icon("message") + "Como o cliente recebe</div>" +
       '<div class="aj-prev"><div class="wa-bubble" id="ajPrevRet">' + previaRetirada() + "</div></div></div>";
   }
