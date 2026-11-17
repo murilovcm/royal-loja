@@ -44,3 +44,27 @@ def test_emojis_pelo_nome_do_sabor():
     saida = subprocess.run([NODE, "-e", codigo], capture_output=True, check=True).stdout
     resultado = dict(json.loads(saida.decode("utf-8")))
     assert resultado == CASOS
+
+
+# Cor pela fruta: o emoji que já está no nome manda; sem fruta conhecida, "".
+CORES = {
+    "Watermelon Ice": "#ff3b4e",
+    "Pineapple Ice": "#f5c518",
+    "Menthol": "#22b07d",
+    "Sakura Grape": "#8b3dff",
+    "🍓 ❄️ Watermelon Ice": "#ff2d55",
+    "Ice": "#7dd3fc",
+    "❄ Lush": "#7dd3fc",
+    "Lush": "",
+}
+
+
+@pytest.mark.skipif(not NODE, reason="Node não instalado")
+def test_cor_pela_fruta_do_nome():
+    codigo = (
+        "const E = require(%s);"
+        "const casos = %s;"
+        "process.stdout.write(JSON.stringify(Object.keys(casos).map(n => [n, E.cor(n)])));"
+    ) % (json.dumps(os.path.abspath(JS)), json.dumps(CORES))
+    saida = subprocess.run([NODE, "-e", codigo], capture_output=True, check=True).stdout
+    assert dict(json.loads(saida.decode("utf-8"))) == CORES

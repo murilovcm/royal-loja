@@ -184,8 +184,9 @@
     .switch.on::after { transform:translateX(16px); }
     .add-inline { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
     .add-inline input { background:var(--bg-2); border:1px solid var(--border); border-radius:8px; padding:8px 10px; color:var(--text); font-size:.85rem; }
-    /* Barra "Pôr emojis" no topo da lista de sabores de cada modelo. */
+    /* Barra "Pôr emojis e cores" no topo da lista de sabores de cada modelo. */
     .emo-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 0 8px; border-bottom:1px solid var(--border); }
+    .emo-bar[hidden] { display:none; }
     .emo-bar .mini-btn { display:inline-flex; align-items:center; gap:7px; padding:8px 14px; }
     .emo-bar .mini-btn:disabled { opacity:.6; cursor:wait; }
     .emo-hint { font-size:.78rem; color:var(--text-dim); }
@@ -871,11 +872,11 @@
                 <button type="button" class="mini-btn primary" onclick="porEmojis({{ m.id }}, this)">
                   <svg class="ico" aria-hidden="true"><use href="#i-sparkles"></use></svg><span class="emo-n">Pôr emojis</span>
                 </button>
-                <span class="emo-hint">Pelo nome do sabor (Watermelon Ice vira 🍉 ❄️). Quem já tem emoji não muda.</span>
+                <span class="emo-hint">Pelo nome do sabor (Watermelon Ice vira 🍉 ❄️ e vermelho). Emoji e cor que você já escolheu não mudam.</span>
               </div>
               {% for f in item.flavors %}
               <div class="flavor-line" data-fid="{{ f.id }}">
-                <input type="color" class="flavor-color" value="{{ f.color or '#a855f7' }}" onchange="updateProduct({{ f.id }}, 'color', this.value, this)" title="Cor do • do sabor">
+                <input type="color" class="flavor-color" value="{{ f.color or '#a855f7' }}" onchange="updateProduct({{ f.id }}, 'color', this.value, this); contaEmojis({{ m.id }})" title="Cor do • do sabor">
                 <input type="text" class="f-name" value="{{ f.name }}" onchange="updateProduct({{ f.id }}, 'name', this.value, this); contaEmojis({{ m.id }})">
                 <input type="number" step="0.01" value="{{ '%.2f'|format(f.price) }}" onchange="updateProduct({{ f.id }}, 'price', this.value, this)">
                 <span class="stock-toggle" onclick="toggleStock({{ f.id }}, this)">
@@ -2798,30 +2799,44 @@
       await api('/api/product/'+id,'DELETE');
       location.reload();
     }
-    // ---- Emojis nos sabores ----
-    const nomesSemEmoji = (mid) => [...document.querySelectorAll('#flavors-'+mid+' .f-name')]
-      .filter(i => EmojisSabores.sugerir(i.value));
+    // ---- Emojis e cores nos sabores ----
+    // Roxo padrão = "ninguém escolheu cor ainda". Só esse é repintado: cor
+    // escolhida à mão nunca muda sozinha.
+    const COR_PADRAO = '#a855f7';
+    const semCor = (inp) => !inp.value || inp.value.toLowerCase() === COR_PADRAO;
+    // O que o botão faria em cada sabor do modelo: nome com emoji e/ou cor.
+    function pendenciasEmojis(mid) {
+      return [...document.querySelectorAll('#flavors-'+mid+' .flavor-line')].map(line => {
+        const nome = line.querySelector('.f-name'), corInp = line.querySelector('.flavor-color');
+        const body = {};
+        const novo = EmojisSabores.comEmojis(nome.value);
+        if (novo !== nome.value) body.name = novo;
+        const cor = EmojisSabores.cor(novo);
+        if (cor && semCor(corInp)) body.color = cor;
+        return { line, nome, corInp, body };
+      }).filter(p => Object.keys(p.body).length);
+    }
     function contaEmojis(mid) {
       const bar = document.querySelector('.emo-bar[data-mid="'+mid+'"]');
       if (!bar) return;
-      const n = nomesSemEmoji(mid).length;
+      const n = pendenciasEmojis(mid).length;
       bar.hidden = !n;
-      bar.querySelector('.emo-n').textContent = 'Pôr emojis em ' + n + (n === 1 ? ' sabor' : ' sabores');
+      bar.querySelector('.emo-n').textContent = 'Pôr emojis e cores em ' + n + (n === 1 ? ' sabor' : ' sabores');
     }
     async function porEmojis(mid, btn) {
-      const alvos = nomesSemEmoji(mid);
+      const alvos = pendenciasEmojis(mid);
       btn.disabled = true;
       try {
         // Um por vez, pelo mesmo POST da edição à mão: se algum falhar, os
         // anteriores já ficaram salvos e o contador mostra o que sobrou.
-        for (const inp of alvos) {
-          const novo = EmojisSabores.comEmojis(inp.value);
-          const id = inp.closest('.flavor-line').dataset.fid;
-          const r = await api('/api/product/'+id, 'POST', {name: novo});
+        for (const p of alvos) {
+          const r = await api('/api/product/'+p.line.dataset.fid, 'POST', p.body);
           if (!r.ok) throw new Error();
-          inp.value = novo; flag(inp);
+          if (p.body.name) p.nome.value = p.body.name;
+          if (p.body.color) p.corInp.value = p.body.color;
+          flag(p.nome);
         }
-        toast(alvos.length === 1 ? "Emoji posto ✓" : "Emojis postos em " + alvos.length + " sabores ✓");
+        toast(alvos.length === 1 ? "1 sabor atualizado ✓" : alvos.length + " sabores atualizados ✓");
       } catch (e) {
         toast("Não deu para salvar todos. Tente de novo.");
       } finally {
@@ -2835,7 +2850,9 @@
       // Sabor novo já entra com emoji; se não quiser, é só apagar no nome.
       const name = EmojisSabores.comEmojis(document.getElementById('fname-'+mid).value.trim());
       const price = document.getElementById('fprice-'+mid).value || 0;
-      const color = document.getElementById('fcolor-'+mid).value;
+      // Cor ainda no roxo padrão = pinta pela fruta do nome.
+      const corInp = document.getElementById('fcolor-'+mid);
+      const color = (semCor(corInp) && EmojisSabores.cor(name)) || corInp.value;
       if (!name) { toast("Digite o nome do sabor"); return; }
       await api('/api/product','POST',{model_id:mid, name, price, color});
       location.reload();
