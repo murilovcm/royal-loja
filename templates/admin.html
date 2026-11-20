@@ -177,6 +177,22 @@
     .flavor-note-box { display:none; flex:0 0 100%; flex-direction:column; gap:3px; padding:2px 0 6px 46px; }
     .flavor-note-box.open { display:flex; }
     .flavor-note-box input { width:100%; max-width:520px; }
+    /* Códigos do xFood do sabor. Vazio fica com borda amarela: sem código, o
+       estoque desse sabor não é atualizado pelo xFood. */
+    .flavor-line input.f-xfood, .add-inline input.f-xfood { width:150px; font-variant-numeric:tabular-nums; }
+    .flavor-line input.f-xfood.falta { border-color:rgba(255,214,10,.55); }
+    .flavor-line input.f-xfood.erro { border-color:#ff8a8a; }
+    /* Aviso no topo do Catálogo: sabores ATIVOS sem nenhum código xFood. */
+    .xf-alert { border:1px solid rgba(255,214,10,.35); background:rgba(255,214,10,.06); border-radius:14px; padding:14px 16px; margin-bottom:18px; }
+    .xf-alert[hidden] { display:none; }
+    .xf-alert-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:.92rem; }
+    .xf-alert-head .ico { width:18px; height:18px; color:var(--primary-yellow); flex-shrink:0; vertical-align:0; }
+    .xf-sub { color:var(--text-dim); font-size:.8rem; font-weight:500; }
+    .xf-list { list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; max-height:320px; overflow-y:auto; }
+    .xf-list li { display:flex; align-items:center; gap:8px; font-size:.85rem; padding:6px 0; border-top:1px solid var(--border); }
+    .xf-mod { color:var(--text-dim); font-size:.78rem; min-width:70px; }
+    .xf-go { margin-left:auto; background:none; border:1px solid var(--border); color:var(--text); border-radius:8px; padding:4px 10px; font:inherit; font-size:.76rem; cursor:pointer; }
+    .xf-go:hover, .xf-go:focus-visible { border-color:var(--primary-yellow); outline:none; }
     .stock-toggle { display:inline-flex; align-items:center; gap:6px; font-size:.78rem; cursor:pointer; user-select:none; }
     .switch { width:38px; height:22px; background:var(--border); border-radius:999px; position:relative; transition:.2s; }
     .switch::after { content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#fff; transition:.2s; }
@@ -649,6 +665,23 @@
 
     <div class="admin-tab-panel active" data-tab-panel="catalog">
       {% if not can_catalog %}<div class="readonly-banner">🔒 Somente leitura — fale com o dono da loja para poder editar o catálogo.</div>{% endif %}
+
+      {# Sabores ATIVOS sem código do xFood (sabores_ativos_sem_xfood no
+         app.py). Fica fora do readonly-lock para o botão "Abrir" funcionar
+         também para quem só lê. O JS tira/põe itens ao salvar os códigos. #}
+      <div class="xf-alert" id="xfAlert" {{ 'hidden' if not sem_xfood }}>
+        <div class="xf-alert-head">
+          <svg class="ico" aria-hidden="true"><use href="#i-info"></use></svg>
+          <b id="xfAlertN">{{ sem_xfood|length }} {{ 'sabor ativo' if sem_xfood|length == 1 else 'sabores ativos' }} sem código xFood</b>
+          <span class="xf-sub">O estoque deles não vai ser atualizado pelo xFood. Preencha "Códigos xFood" no sabor.</span>
+        </div>
+        <ul class="xf-list" id="xfList">
+          {% for s in sem_xfood %}
+          <li data-fid="{{ s.id }}"><span class="xf-mod">{{ s.modelo }}</span> <span>{{ s.name }}</span><button type="button" class="xf-go" onclick="abrirSaborXfood({{ s.id }})">Abrir</button></li>
+          {% endfor %}
+        </ul>
+      </div>
+
       <div class="{{ 'readonly-lock' if not can_catalog }}">
 
       {# Cabo USB-C: acessório oferecido no carrinho. É um formulário fixo e
@@ -879,6 +912,7 @@
                 <input type="color" class="flavor-color" value="{{ f.color or '#a855f7' }}" onchange="updateProduct({{ f.id }}, 'color', this.value, this); contaEmojis({{ m.id }})" title="Cor do • do sabor">
                 <input type="text" class="f-name" value="{{ f.name }}" onchange="updateProduct({{ f.id }}, 'name', this.value, this); contaEmojis({{ m.id }})">
                 <input type="number" step="0.01" value="{{ '%.2f'|format(f.price) }}" onchange="updateProduct({{ f.id }}, 'price', this.value, this)">
+                <input type="text" class="f-xfood {{ 'falta' if not f.xfood_codigos }}" id="fxf-{{ f.id }}" value="{{ f.xfood_codigos }}" placeholder="Códigos xFood" title="Código(s) do produto no xFood. Mais de um? Separe por vírgula." onchange="updateXfood({{ f.id }}, this)">
                 <span class="stock-toggle" onclick="toggleStock({{ f.id }}, this)">
                   <span class="switch {{ 'on' if f.is_in_stock }}"></span>
                   <span>Estoque</span>
@@ -899,6 +933,7 @@
                 <input type="color" class="flavor-color" id="fcolor-{{ m.id }}" value="#a855f7" title="Cor do • do sabor">
                 <input type="text" placeholder="Nome do sabor" id="fname-{{ m.id }}">
                 <input type="number" step="0.01" placeholder="Preço" id="fprice-{{ m.id }}" style="width:100px">
+                <input type="text" class="f-xfood" placeholder="Códigos xFood" id="fxfood-{{ m.id }}" title="Código(s) do produto no xFood. Mais de um? Separe por vírgula.">
                 <button class="mini-btn primary" onclick="addProduct({{ m.id }})">+ Sabor</button>
               </div>
             </div>
@@ -2780,6 +2815,63 @@
       if (!box) return;
       if (box.classList.toggle('open')) box.querySelector('input').focus();
     }
+    // ---- Códigos do xFood ----
+    // Salva os códigos do sabor (vírgula separa). O servidor recusa código que
+    // já é de outro sabor; aí a caixa fica vermelha e volta ao valor salvo.
+    async function updateXfood(id, el) {
+      const r = await api('/api/product/'+id,'POST',{xfood_codigos: el.value});
+      if (!r.ok) {
+        el.classList.add('erro');
+        toast(r.error || "Não salvou os códigos");
+        el.value = el.defaultValue;
+        setTimeout(() => el.classList.remove('erro'), 2500);
+        return;
+      }
+      el.value = el.defaultValue = r.xfood_codigos;
+      el.classList.remove('erro');
+      el.classList.toggle('falta', !r.xfood_codigos);
+      atualizaAvisoXfood(id, el, !!r.xfood_codigos);
+      flag(el); toast(r.xfood_codigos ? "Códigos salvos ✓" : "Códigos removidos");
+    }
+    // Mantém o aviso do topo em dia sem F5: tira o sabor ao ganhar código e
+    // devolve quando os códigos são apagados (se o modelo estiver no site).
+    function atualizaAvisoXfood(id, el, temCodigo) {
+      const lista = document.getElementById('xfList');
+      if (!lista) return;
+      let li = lista.querySelector('li[data-fid="'+id+'"]');
+      if (temCodigo && li) li.remove();
+      if (!temCodigo && !li && !el.closest('.model-row')?.classList.contains('model-inactive')) {
+        const linha = el.closest('.flavor-line');
+        const modelo = el.closest('.model-row')?.querySelector('.m-name')?.value || '';
+        li = document.createElement('li');
+        li.dataset.fid = id;
+        const mod = document.createElement('span'); mod.className = 'xf-mod'; mod.textContent = modelo;
+        const nome = document.createElement('span'); nome.textContent = linha.querySelector('.f-name').value;
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.className = 'xf-go'; btn.textContent = 'Abrir';
+        btn.onclick = () => abrirSaborXfood(id);
+        li.append(mod, ' ', nome, btn);
+        lista.append(li);
+      }
+      const n = lista.children.length;
+      document.getElementById('xfAlertN').textContent =
+        n + (n === 1 ? ' sabor ativo' : ' sabores ativos') + ' sem código xFood';
+      document.getElementById('xfAlert').hidden = n === 0;
+    }
+    // "Abrir" do aviso: abre a lista de sabores do modelo e põe o cursor na
+    // caixa de códigos daquele sabor.
+    function abrirSaborXfood(id) {
+      const inp = document.getElementById('fxf-'+id);
+      if (!inp) return;
+      const box = inp.closest('.flavors-box');
+      if (box && !box.classList.contains('open')) {
+        const mid = box.id.replace('flavors-', '');
+        const btn = document.querySelector('.expand-btn[onclick^="toggleFlavors('+mid+',"]');
+        if (btn) toggleFlavors(mid, btn); else box.classList.add('open');
+      }
+      inp.scrollIntoView({block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+      inp.focus({preventScroll: true});
+    }
     async function updateFlavorNote(id, el) {
       const v = el.value.trim();
       el.value = v;
@@ -2854,7 +2946,11 @@
       const corInp = document.getElementById('fcolor-'+mid);
       const color = (semCor(corInp) && EmojisSabores.cor(name)) || corInp.value;
       if (!name) { toast("Digite o nome do sabor"); return; }
-      await api('/api/product','POST',{model_id:mid, name, price, color});
+      const xfood_codigos = document.getElementById('fxfood-'+mid).value;
+      const r = await api('/api/product','POST',{model_id:mid, name, price, color, xfood_codigos});
+      // Código de outro sabor desfaz o cadastro: avisa e deixa o formulário
+      // como está para corrigir só o código.
+      if (!r.ok) { toast(r.error || "Não salvou o sabor"); return; }
       location.reload();
     }
 

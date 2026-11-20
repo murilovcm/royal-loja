@@ -55,7 +55,9 @@ def test_bf_sign_rendered_with_black_friday(client):
 
 
 def _render(client, values):
-    saved = _set_config({"hero_subtitle": "Frase de teste do hero", **values})
+    # Modo "frase" fixo: no padrão (passo a passo) a frase de apoio não é
+    # renderizada, e o teste dependeria do que estiver no banco.
+    saved = _set_config({"hero_subtitle": "Frase de teste do hero", "hero_support": "text", **values})
     try:
         return client.get("/").get_data(as_text=True)
     finally:

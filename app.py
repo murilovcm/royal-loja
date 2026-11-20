@@ -10,6 +10,7 @@ import time
 import uuid
 import unicodedata
 import xml.etree.ElementTree as ET
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 from functools import wraps
 from urllib.parse import urljoin
@@ -537,6 +538,18 @@ def init_db():
             note        TEXT,
             FOREIGN KEY (model_id) REFERENCES vape_models(id) ON DELETE CASCADE
         );
+
+        -- Ligação sabor do site <-> produto do xFood (sistema de gestão).
+        -- Um sabor pode ter vários códigos (o xFood às vezes cadastra o mesmo
+        -- sabor duas vezes); um código pertence a um só sabor (UNIQUE).
+        -- Excluir o sabor libera os códigos dele (CASCADE).
+        CREATE TABLE IF NOT EXISTS product_xfood_codes (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id   INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+            xfood_codigo TEXT NOT NULL UNIQUE,
+            criado_em    TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_pxc_product ON product_xfood_codes(product_id);
 
         CREATE TABLE IF NOT EXISTS promo_blocks (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2068,11 +2081,21 @@ def admin():
     db = get_db()
     brands = db.execute("SELECT * FROM brands ORDER BY name").fetchall()
 
+    # Códigos do xFood por sabor, numa consulta só (o admin lista centenas).
+    codigos_xfood = defaultdict(list)
+    for r in db.execute("SELECT product_id, xfood_codigo FROM product_xfood_codes ORDER BY id"):
+        codigos_xfood[r["product_id"]].append(r["xfood_codigo"])
+
     def _node(m):
         flavors = db.execute(
             "SELECT * FROM products WHERE model_id = ? ORDER BY id", (m["id"],)
         ).fetchall()
-        return {"model": dict(m), "flavors": [dict(f) for f in flavors]}
+        lista = []
+        for f in flavors:
+            f = dict(f)
+            f["xfood_codigos"] = ", ".join(codigos_xfood.get(f["id"], []))
+            lista.append(f)
+        return {"model": dict(m), "flavors": lista}
 
     agora = pricing.agora_utc()
 
@@ -2149,6 +2172,7 @@ def admin():
     return render_template(
         "admin.html",
         tree=tree,
+        sem_xfood=sabores_ativos_sem_xfood(db),
         catalog_order=catalog_order,
         config=admin_config,
         store_hours=admin_hours,
@@ -3648,6 +3672,68 @@ def hex_to_rgb(value):
     return f"{r}, {g}, {b}"
 
 
+# ---- Ligação sabor <-> código do xFood ----
+def sabores_ativos_sem_xfood(db):
+    """Sabores ATIVOS (modelo ativo e, se for versão, o principal também) sem
+    nenhum código do xFood. Alimenta o aviso do admin: sabor novo ou modelo
+    reativado sem código não teria o estoque atualizado pelo xFood."""
+    return [
+        dict(r)
+        for r in db.execute(
+            """
+            SELECT p.id, p.name, m.id AS model_id,
+                   COALESCE(pai.name || ' · ' || m.name, m.name) AS modelo
+            FROM products p
+            JOIN vape_models m ON m.id = p.model_id
+            LEFT JOIN vape_models pai ON pai.id = m.parent_id
+            WHERE m.active = 1 AND COALESCE(pai.active, 1) = 1
+              AND NOT EXISTS (SELECT 1 FROM product_xfood_codes x WHERE x.product_id = p.id)
+            ORDER BY modelo, p.id
+            """
+        ).fetchall()
+    ]
+
+
+def parse_xfood_codigos(texto):
+    """'0500, 0602 ;0500' -> ['0500', '0602']. Separa por vírgula, ponto e
+    vírgula ou espaço, tira repetidos e mantém a ordem digitada. Os zeros à
+    esquerda importam ('0500' != '500'): o código é texto, não número."""
+    vistos = []
+    for c in re.split(r"[,;\s]+", texto or ""):
+        c = c.strip()
+        if c and c not in vistos:
+            vistos.append(c[:40])
+    return vistos
+
+
+def salvar_xfood_codigos(db, pid, texto):
+    """Troca os códigos do sabor `pid` pelos de `texto`. Recusa (sem gravar
+    nada) código que já pertence a outro sabor e devolve a mensagem do erro."""
+    codigos = parse_xfood_codigos(texto)
+    if codigos:
+        marcas = ",".join("?" * len(codigos))
+        ocupados = db.execute(
+            f"""
+            SELECT x.xfood_codigo, p.name, m.name AS modelo
+            FROM product_xfood_codes x
+            JOIN products p ON p.id = x.product_id
+            JOIN vape_models m ON m.id = p.model_id
+            WHERE x.xfood_codigo IN ({marcas}) AND x.product_id != ?
+            """,
+            (*codigos, pid),
+        ).fetchall()
+        if ocupados:
+            return "; ".join(
+                f"código {o['xfood_codigo']} já é do sabor {o['modelo']} · {o['name']}" for o in ocupados
+            )
+    db.execute("DELETE FROM product_xfood_codes WHERE product_id = ?", (pid,))
+    db.executemany(
+        "INSERT INTO product_xfood_codes (product_id, xfood_codigo) VALUES (?, ?)",
+        [(pid, c) for c in codigos],
+    )
+    return None
+
+
 @app.route("/api/product", methods=["POST"])
 @api_catalog_required
 def api_create_product():
@@ -3661,6 +3747,14 @@ def api_create_product():
         "INSERT INTO products (model_id, name, price, is_in_stock, color) VALUES (?,?,?,1,?)",
         (model_id, name, float(d.get("price") or 0), clean_hex_color(d.get("color"))),
     )
+    # Códigos do xFood já no cadastro. Código de outro sabor desfaz o
+    # cadastro inteiro: melhor o lojista corrigir agora do que achar depois
+    # um sabor sem estoque sincronizado.
+    if d.get("xfood_codigos"):
+        erro = salvar_xfood_codigos(db, cur.lastrowid, d["xfood_codigos"])
+        if erro:
+            db.rollback()
+            return jsonify({"ok": False, "error": erro}), 400
     db.commit()
     return jsonify({"ok": True, "id": cur.lastrowid})
 
@@ -3689,12 +3783,28 @@ def api_update_product(pid):
     if "note" in d:
         fields.append("note = ?")
         vals.append((d["note"] or "").strip()[:200])
-    if not fields:
+    tem_codigos = "xfood_codigos" in d
+    if not fields and not tem_codigos:
         return jsonify({"ok": False}), 400
-    vals.append(pid)
-    db.execute(f"UPDATE products SET {', '.join(fields)} WHERE id = ?", vals)
+    if tem_codigos:
+        if not db.execute("SELECT 1 FROM products WHERE id = ?", (pid,)).fetchone():
+            return jsonify({"ok": False, "error": "sabor não encontrado"}), 404
+        erro = salvar_xfood_codigos(db, pid, d["xfood_codigos"])
+        if erro:
+            db.rollback()
+            return jsonify({"ok": False, "error": erro}), 400
+    if fields:
+        vals.append(pid)
+        db.execute(f"UPDATE products SET {', '.join(fields)} WHERE id = ?", vals)
     db.commit()
-    return jsonify({"ok": True})
+    resp = {"ok": True}
+    if tem_codigos:
+        resp["xfood_codigos"] = ", ".join(
+            r[0] for r in db.execute(
+                "SELECT xfood_codigo FROM product_xfood_codes WHERE product_id = ? ORDER BY id", (pid,)
+            )
+        )
+    return jsonify(resp)
 
 
 @app.route("/api/product/<int:pid>", methods=["DELETE"])
