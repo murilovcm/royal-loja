@@ -214,6 +214,58 @@ def test_campo_estoque_manual_no_admin(admin_client, sabores):
     assert "Última sincronização do estoque" in html
 
 
+# ---- Modo so_desligar ----
+
+def _modo_log(pid):
+    db = _db()
+    try:
+        return [r[0] for r in db.execute(
+            "SELECT modo FROM estoque_sync_log WHERE product_id = ? ORDER BY id", (pid,))]
+    finally:
+        db.close()
+
+
+def test_so_desligar_adia_ligar_e_desliga_esgotado(client, sabores):
+    esgotado, disponivel = sabores["ids"][1], sabores["ids"][2]
+    db = _db()
+    db.execute("UPDATE products SET is_in_stock = 0 WHERE id = ?", (esgotado,))
+    db.commit()
+    db.close()
+    saldos = _todos_com_saldo()
+    saldos["ES-1"] = 4    # esgotado no site, com saldo: ligaria
+    saldos["ES-2"] = 0    # disponível no site, sem saldo: desliga
+    corpo = _corpo(saldos)
+    corpo["so_desligar"] = True
+    r = _sync(client, corpo)
+    assert r.status_code == 200
+    d = r.get_json()
+    assert d["so_desligar"] is True
+    assert d["alterados"] == [{"product_id": disponivel, "sabor": "ES Modelo · ES Sabor 2", "de": 1, "para": 0, "saldo": 0}]
+    assert d["adiados_ligar"] == [{"product_id": esgotado, "sabor": "ES Modelo · ES Sabor 1", "saldo": 4}]
+    assert _em_estoque(esgotado) == 0
+    assert _em_estoque(disponivel) == 0
+    assert _log(esgotado) == []
+    assert _modo_log(disponivel) == ["so_desligar"]
+    # Modo completo (padrão): agora religa e registra como completo.
+    d = _sync(client, _corpo(saldos)).get_json()
+    assert d["adiados_ligar"] == []
+    assert [a["product_id"] for a in d["alterados"]] == [esgotado]
+    assert _em_estoque(esgotado) == 1
+    assert _modo_log(esgotado) == ["completo"]
+
+
+def test_so_desligar_respeita_as_travas(client, sabores):
+    saldos = _todos_com_saldo()
+    saldos["ES-1"] = saldos["ES-2"] = saldos["ES-3"] = 0   # 30%
+    corpo = _corpo(saldos)
+    corpo["so_desligar"] = True
+    assert _sync(client, corpo).status_code == 409
+    corpo = _corpo({"ES-1": 0}, enchimento=10)
+    corpo["so_desligar"] = True
+    assert _sync(client, corpo).status_code == 409
+    assert all(_em_estoque(p) == 1 for p in sabores["ids"])
+
+
 # ---- Travas ----
 
 def test_trava_corpo_com_menos_de_300_itens(client, sabores):

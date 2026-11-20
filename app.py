@@ -561,7 +561,8 @@ def init_db():
             de         INTEGER NOT NULL,
             para       INTEGER NOT NULL,
             saldo      REAL NOT NULL,
-            simulado   INTEGER NOT NULL DEFAULT 0
+            simulado   INTEGER NOT NULL DEFAULT 0,
+            modo       TEXT NOT NULL DEFAULT 'completo'   -- 'completo' ou 'so_desligar'
         );
 
         CREATE TABLE IF NOT EXISTS promo_blocks (
@@ -747,6 +748,11 @@ def init_db():
     # xFood não mexe no estoque desse sabor (reservado, controle à mão).
     if "estoque_manual" not in prod_cols:
         db.execute("ALTER TABLE products ADD COLUMN estoque_manual INTEGER NOT NULL DEFAULT 0")
+        db.commit()
+    # Migração: estoque_sync_log ganhou `modo` (so_desligar ou completo).
+    log_cols = {row["name"] for row in db.execute("PRAGMA table_info(estoque_sync_log)").fetchall()}
+    if "modo" not in log_cols:
+        db.execute("ALTER TABLE estoque_sync_log ADD COLUMN modo TEXT NOT NULL DEFAULT 'completo'")
         db.commit()
 
     # Migração: vape_models ganhou a coluna `active` (permite desativar/ocultar
@@ -3867,6 +3873,10 @@ def api_estoque_sync():
     if not isinstance(d, dict) or not isinstance(d.get("itens"), list):
         return jsonify({"ok": False, "error": "corpo inválido: esperado {\"itens\": [...]}"}), 400
     simular = d.get("simular") is True
+    # so_desligar: só disponível -> esgotado. Religar fica para depois
+    # (volta em adiados_ligar), sem gravar nada para esses sabores.
+    so_desligar = d.get("so_desligar") is True
+    modo = "so_desligar" if so_desligar else "completo"
     saldos = {}
     for i, it in enumerate(d["itens"]):
         try:
@@ -3879,18 +3889,25 @@ def api_estoque_sync():
 
     db = get_db()
     r = calcular_sync_estoque(db, saldos)
+    alterados, adiados_ligar = r["alterados"], []
+    if so_desligar:
+        adiados_ligar = [{"product_id": a["product_id"], "sabor": a["sabor"], "saldo": a["saldo"]}
+                         for a in alterados if a["para"] == 1]
+        alterados = [a for a in alterados if a["para"] == 0]
     resposta = {
         "ok": True,
         "simulado": simular,
-        "alterados": r["alterados"],
+        "so_desligar": so_desligar,
+        "alterados": alterados,
+        "adiados_ligar": adiados_ligar,
         "ignorados_manual": r["ignorados_manual"],
         "sem_dado": r["sem_dado"],
-        "total_ligados": r["total_ligados"],
+        "total_ligados": r["total_ligados"] - len(adiados_ligar),
     }
 
     # Travas: leitura capada do xFood ou desligamento em massa. Não grava
     # nada (nem o log da simulação) e devolve o que teria feito.
-    desligando = sum(1 for a in r["alterados"] if a["para"] == 0)
+    desligando = sum(1 for a in alterados if a["para"] == 0)
     erro = None
     if len(d["itens"]) < ESTOQUE_MIN_ITENS:
         erro = f"só {len(d['itens'])} itens no corpo (mínimo {ESTOQUE_MIN_ITENS}); nada foi gravado"
@@ -3905,7 +3922,7 @@ def api_estoque_sync():
     if not simular:
         db.executemany(
             "UPDATE products SET is_in_stock = ? WHERE id = ? AND estoque_manual = 0",
-            [(a["para"], a["product_id"]) for a in r["alterados"]],
+            [(a["para"], a["product_id"]) for a in alterados],
         )
         db.execute(
             "INSERT INTO site_config (key, value) VALUES ('estoque_sync_ultima', ?) "
@@ -3913,8 +3930,8 @@ def api_estoque_sync():
             (quando,),
         )
     db.executemany(
-        "INSERT INTO estoque_sync_log (quando, product_id, de, para, saldo, simulado) VALUES (?,?,?,?,?,?)",
-        [(quando, a["product_id"], a["de"], a["para"], a["saldo"], 1 if simular else 0) for a in r["alterados"]],
+        "INSERT INTO estoque_sync_log (quando, product_id, de, para, saldo, simulado, modo) VALUES (?,?,?,?,?,?,?)",
+        [(quando, a["product_id"], a["de"], a["para"], a["saldo"], 1 if simular else 0, modo) for a in alterados],
     )
     db.commit()
     return jsonify(resposta)
