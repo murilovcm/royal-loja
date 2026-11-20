@@ -193,6 +193,33 @@
     .xf-mod { color:var(--text-dim); font-size:.78rem; min-width:70px; }
     .xf-go { margin-left:auto; background:none; border:1px solid var(--border); color:var(--text); border-radius:8px; padding:4px 10px; font:inherit; font-size:.76rem; cursor:pointer; }
     .xf-go:hover, .xf-go:focus-visible { border-color:var(--primary-yellow); outline:none; }
+    /* Controle manual: a sincronização com o xFood não mexe nesse sabor. */
+    .manual-toggle { display:inline-flex; align-items:center; gap:5px; font-size:.76rem; color:var(--text-dim); cursor:pointer; user-select:none; }
+    .manual-toggle input { accent-color:var(--primary-yellow); margin:0; }
+    .manual-toggle:has(input:checked) { color:var(--primary-yellow); }
+    /* Última sincronização do estoque (aba Catálogo). */
+    .es-box { border:1px solid var(--border); border-radius:14px; padding:12px 16px; margin-bottom:18px; font-size:.88rem; }
+    .es-box summary { display:flex; align-items:center; gap:8px; flex-wrap:wrap; cursor:pointer; list-style:none; }
+    .es-box summary::-webkit-details-marker { display:none; }
+    .es-box summary .ico { width:16px; height:16px; color:var(--text-dim); flex-shrink:0; }
+    .es-box summary .chev { margin-left:auto; transition:transform .2s; }
+    .es-box[open] summary .chev { transform:rotate(180deg); }
+    .es-list { list-style:none; margin:10px 0 0; padding:0; max-height:320px; overflow-y:auto; }
+    .es-list li { display:flex; align-items:center; gap:10px; padding:6px 0; border-top:1px solid var(--border); font-size:.82rem; }
+    .es-when { color:var(--text-dim); font-variant-numeric:tabular-nums; min-width:78px; }
+    .es-para { margin-left:auto; font-weight:600; white-space:nowrap; }
+    .es-para.on { color:#4ade80; } .es-para.off { color:#ff8a8a; }
+    .es-saldo { color:var(--text-dim); font-variant-numeric:tabular-nums; min-width:60px; text-align:right; }
+    .es-sim { font-size:.7rem; border:1px solid var(--border); border-radius:6px; padding:1px 6px; color:var(--text-dim); margin-left:6px; white-space:nowrap; }
+    /* Celular: horário, Ligou/Desligou e saldo na 1ª linha; sabor embaixo,
+       com a largura toda (senão o nome vira uma coluna de uma palavra). */
+    @media (max-width:600px) {
+      .es-list li { display:grid; grid-template-columns:1fr auto auto; column-gap:10px; row-gap:2px; }
+      .es-when { grid-row:1; grid-column:1; min-width:0; }
+      .es-para { grid-row:1; grid-column:2; margin-left:0; }
+      .es-saldo { grid-row:1; grid-column:3; min-width:0; }
+      .es-sabor { grid-row:2; grid-column:1 / -1; }
+    }
     .stock-toggle { display:inline-flex; align-items:center; gap:6px; font-size:.78rem; cursor:pointer; user-select:none; }
     .switch { width:38px; height:22px; background:var(--border); border-radius:999px; position:relative; transition:.2s; }
     .switch::after { content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#fff; transition:.2s; }
@@ -682,6 +709,32 @@
         </ul>
       </div>
 
+      {# Sincronização do estoque com o xFood (POST /api/estoque/sync, chamada
+         pelo script da VPS). Só leitura: horário da última gravação e as
+         últimas 50 mudanças (simulações marcadas). #}
+      <details class="es-box">
+        <summary>
+          <svg class="ico" aria-hidden="true"><use href="#i-refresh"></use></svg>
+          <b>Última sincronização do estoque: {{ estoque_sync.ultima or 'nunca' }}</b>
+          <span class="xf-sub">{{ estoque_sync.mudancas|length }} {{ 'mudança' if estoque_sync.mudancas|length == 1 else 'mudanças' }} recentes</span>
+          <svg class="ico chev" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
+        </summary>
+        {% if estoque_sync.mudancas %}
+        <ul class="es-list">
+          {% for mu in estoque_sync.mudancas %}
+          <li>
+            <span class="es-when">{{ mu.quando_fmt }}</span>
+            <span class="es-sabor">{{ mu.sabor }}{% if mu.simulado %}<span class="es-sim">simulação</span>{% endif %}</span>
+            <span class="es-para {{ 'on' if mu.para else 'off' }}">{{ 'Ligou' if mu.para else 'Desligou' }}</span>
+            <span class="es-saldo">saldo {{ '%g'|format(mu.saldo) }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="xf-sub" style="margin:10px 0 0">Nenhuma mudança registrada ainda.</p>
+        {% endif %}
+      </details>
+
       <div class="{{ 'readonly-lock' if not can_catalog }}">
 
       {# Cabo USB-C: acessório oferecido no carrinho. É um formulário fixo e
@@ -917,6 +970,10 @@
                   <span class="switch {{ 'on' if f.is_in_stock }}"></span>
                   <span>Estoque</span>
                 </span>
+                <label class="manual-toggle" title="Marcado: a sincronização com o xFood não liga nem desliga este sabor. Use para sabor reservado ou controlado à mão.">
+                  <input type="checkbox" {{ 'checked' if f.estoque_manual }} onchange="toggleManual({{ f.id }}, this)">
+                  Controle manual
+                </label>
                 {# O aviso fica atrás de um clique porque um modelo tem dezenas de
                    sabores e quase nenhum precisa de aviso — campo aberto em todos
                    viraria ruído. O ⓘ aceso é o que denuncia quais já têm. #}
@@ -2885,6 +2942,12 @@
       const on = sw.classList.toggle('on');
       await api('/api/product/'+id,'POST',{is_in_stock: on});
       toast(on ? "Em estoque" : "Fora de estoque");
+    }
+    // Controle manual: a sincronização do xFood deixa o sabor em paz.
+    async function toggleManual(id, el) {
+      const r = await api('/api/product/'+id,'POST',{estoque_manual: el.checked});
+      if (!r.ok) { el.checked = !el.checked; toast("Não salvou"); return; }
+      toast(el.checked ? "Controle manual: o xFood não mexe neste sabor" : "Estoque volta a seguir o xFood");
     }
     async function delProduct(id) {
       if (!confirm("Excluir este sabor?")) return;

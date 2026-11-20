@@ -551,6 +551,19 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_pxc_product ON product_xfood_codes(product_id);
 
+        -- Cada sabor que a sincronização de estoque (POST /api/estoque/sync)
+        -- ligou/desligou. simulado=1: rodada com "simular", nada foi gravado
+        -- em products. Sem FK: o histórico sobrevive ao sabor ser excluído.
+        CREATE TABLE IF NOT EXISTS estoque_sync_log (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            quando     TEXT NOT NULL,
+            product_id INTEGER NOT NULL,
+            de         INTEGER NOT NULL,
+            para       INTEGER NOT NULL,
+            saldo      REAL NOT NULL,
+            simulado   INTEGER NOT NULL DEFAULT 0
+        );
+
         CREATE TABLE IF NOT EXISTS promo_blocks (
             id             INTEGER PRIMARY KEY AUTOINCREMENT,
             position       INTEGER NOT NULL DEFAULT 0,
@@ -729,6 +742,11 @@ def init_db():
     # sabor antigo, então nenhum deles passa a mostrar aviso nenhum.
     if "note" not in prod_cols:
         db.execute("ALTER TABLE products ADD COLUMN note TEXT")
+        db.commit()
+    # Migração: products ganhou `estoque_manual`. 1 = a sincronização com o
+    # xFood não mexe no estoque desse sabor (reservado, controle à mão).
+    if "estoque_manual" not in prod_cols:
+        db.execute("ALTER TABLE products ADD COLUMN estoque_manual INTEGER NOT NULL DEFAULT 0")
         db.commit()
 
     # Migração: vape_models ganhou a coluna `active` (permite desativar/ocultar
@@ -2173,6 +2191,7 @@ def admin():
         "admin.html",
         tree=tree,
         sem_xfood=sabores_ativos_sem_xfood(db),
+        estoque_sync=estoque_sync_resumo(db),
         catalog_order=catalog_order,
         config=admin_config,
         store_hours=admin_hours,
@@ -3734,6 +3753,197 @@ def salvar_xfood_codigos(db, pid, texto):
     return None
 
 
+# ---- Sincronização de estoque com o xFood ----
+# O script da VPS lê o estoque do xFood e chama POST /api/estoque/sync com
+# o saldo de cada código. Não há sessão: a rota é protegida por um token fixo
+# (ESTOQUE_SYNC_TOKEN), um por loja, configurado no EasyPanel.
+ESTOQUE_MIN_ITENS = 300          # menos que isso = leitura do xFood veio capada
+ESTOQUE_MAX_DESLIGA = 0.20       # desligar mais de 20% dos ligados de uma vez = algo errado
+
+
+def _estoque_token_ok():
+    """None se o token confere; senão (resposta, status). O token nunca vai
+    para log nem para a resposta."""
+    esperado = (os.environ.get("ESTOQUE_SYNC_TOKEN") or "").strip()
+    if not esperado:
+        return jsonify({"ok": False, "error": "sincronização de estoque não configurada"}), 503
+    auth = request.headers.get("Authorization", "")
+    enviado = auth[7:].strip() if auth[:7].lower() == "bearer " else ""
+    if not hmac.compare_digest(enviado.encode(), esperado.encode()):
+        return jsonify({"ok": False, "error": "não autorizado"}), 401
+    return None
+
+
+def calcular_sync_estoque(db, saldos):
+    """Decide o que muda, sem gravar nada. `saldos` = {codigo: saldo}.
+
+    Entra todo sabor com código xFood (de modelo ativo ou não: quando o
+    modelo voltar ao site, o estoque já está certo). estoque_manual = 1 é
+    pulado. Saldo do sabor = soma dos códigos dele que vieram; se nenhum
+    veio, fica como está (sem_dado). Disponível = saldo > 0; só muda quem
+    está diferente."""
+    sabores = {}
+    for r in db.execute(
+        """
+        SELECT p.id, p.name, p.is_in_stock, p.estoque_manual, m.name AS modelo,
+               x.xfood_codigo
+        FROM product_xfood_codes x
+        JOIN products p ON p.id = x.product_id
+        JOIN vape_models m ON m.id = p.model_id
+        ORDER BY p.id, x.id
+        """
+    ):
+        s = sabores.setdefault(r["id"], {
+            "product_id": r["id"],
+            "sabor": f"{r['modelo']} · {r['name']}",
+            "ligado": 1 if r["is_in_stock"] else 0,
+            "manual": bool(r["estoque_manual"]),
+            "codigos": [],
+        })
+        s["codigos"].append(r["xfood_codigo"])
+
+    alterados, ignorados_manual, sem_dado = [], 0, 0
+    base_ligados = 0      # ligados que a sincronização pode mexer (base da trava)
+    total_ligados = 0     # ligados (entre os sincronizáveis) depois da mudança
+    for s in sabores.values():
+        if s["manual"]:
+            ignorados_manual += 1
+            continue
+        base_ligados += s["ligado"]
+        vindos = [saldos[c] for c in s["codigos"] if c in saldos]
+        if not vindos:
+            sem_dado += 1
+            total_ligados += s["ligado"]
+            continue
+        saldo = sum(vindos)
+        para = 1 if saldo > 0 else 0
+        total_ligados += para
+        if para != s["ligado"]:
+            alterados.append({"product_id": s["product_id"], "sabor": s["sabor"],
+                              "de": s["ligado"], "para": para, "saldo": saldo})
+    return {
+        "alterados": alterados,
+        "ignorados_manual": ignorados_manual,
+        "sem_dado": sem_dado,
+        "total_ligados": total_ligados,
+        "base_ligados": base_ligados,
+    }
+
+
+def _fmt_quando(iso):
+    """ISO UTC do banco -> '20/11 14:05' no horário da loja."""
+    try:
+        return datetime.fromisoformat(iso).astimezone(pricing.FUSO_LOJA).strftime("%d/%m %H:%M")
+    except (TypeError, ValueError):
+        return iso or ""
+
+
+def estoque_sync_resumo(db, limite=50):
+    """Para a aba Catálogo: última sincronização gravada e as últimas mudanças."""
+    ultima = db.execute("SELECT value FROM site_config WHERE key = 'estoque_sync_ultima'").fetchone()
+    mudancas = [
+        dict(r) for r in db.execute(
+            """
+            SELECT l.quando, l.product_id, l.de, l.para, l.saldo, l.simulado,
+                   COALESCE(m.name || ' · ' || p.name, 'sabor excluído #' || l.product_id) AS sabor
+            FROM estoque_sync_log l
+            LEFT JOIN products p ON p.id = l.product_id
+            LEFT JOIN vape_models m ON m.id = p.model_id
+            ORDER BY l.id DESC LIMIT ?
+            """, (limite,)
+        )
+    ]
+    for mu in mudancas:
+        mu["quando_fmt"] = _fmt_quando(mu["quando"])
+    return {"ultima": _fmt_quando(ultima["value"]) if ultima else "", "mudancas": mudancas}
+
+
+@app.route("/api/estoque/sync", methods=["POST"])
+def api_estoque_sync():
+    negado = _estoque_token_ok()
+    if negado:
+        return negado
+    d = request.get_json(silent=True)
+    if not isinstance(d, dict) or not isinstance(d.get("itens"), list):
+        return jsonify({"ok": False, "error": "corpo inválido: esperado {\"itens\": [...]}"}), 400
+    simular = d.get("simular") is True
+    saldos = {}
+    for i, it in enumerate(d["itens"]):
+        try:
+            codigo = str(it["codigo"]).strip()
+            saldo = float(it["saldo"])
+        except (TypeError, KeyError, ValueError):
+            return jsonify({"ok": False, "error": f"item {i} inválido: precisa de codigo e saldo"}), 400
+        if codigo:
+            saldos[codigo] = saldo
+
+    db = get_db()
+    r = calcular_sync_estoque(db, saldos)
+    resposta = {
+        "ok": True,
+        "simulado": simular,
+        "alterados": r["alterados"],
+        "ignorados_manual": r["ignorados_manual"],
+        "sem_dado": r["sem_dado"],
+        "total_ligados": r["total_ligados"],
+    }
+
+    # Travas: leitura capada do xFood ou desligamento em massa. Não grava
+    # nada (nem o log da simulação) e devolve o que teria feito.
+    desligando = sum(1 for a in r["alterados"] if a["para"] == 0)
+    erro = None
+    if len(d["itens"]) < ESTOQUE_MIN_ITENS:
+        erro = f"só {len(d['itens'])} itens no corpo (mínimo {ESTOQUE_MIN_ITENS}); nada foi gravado"
+    elif r["base_ligados"] and desligando > ESTOQUE_MAX_DESLIGA * r["base_ligados"]:
+        erro = (f"desligaria {desligando} de {r['base_ligados']} sabores ligados "
+                f"(limite {int(ESTOQUE_MAX_DESLIGA * 100)}%); nada foi gravado")
+    if erro:
+        resposta.update(ok=False, error=erro)
+        return jsonify(resposta), 409
+
+    quando = pricing.agora_utc().isoformat(timespec="seconds")
+    if not simular:
+        db.executemany(
+            "UPDATE products SET is_in_stock = ? WHERE id = ? AND estoque_manual = 0",
+            [(a["para"], a["product_id"]) for a in r["alterados"]],
+        )
+        db.execute(
+            "INSERT INTO site_config (key, value) VALUES ('estoque_sync_ultima', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (quando,),
+        )
+    db.executemany(
+        "INSERT INTO estoque_sync_log (quando, product_id, de, para, saldo, simulado) VALUES (?,?,?,?,?,?)",
+        [(quando, a["product_id"], a["de"], a["para"], a["saldo"], 1 if simular else 0) for a in r["alterados"]],
+    )
+    db.commit()
+    return jsonify(resposta)
+
+
+@app.route("/api/estoque/ligacoes", methods=["GET"])
+def api_estoque_ligacoes():
+    """Ligação sabor <-> códigos xFood, para o script da VPS montar o
+    ligacoes.json do agente. Só sabores com pelo menos um código."""
+    negado = _estoque_token_ok()
+    if negado:
+        return negado
+    ligacoes = {}
+    for r in get_db().execute(
+        """
+        SELECT p.id, p.name, COALESCE(pai.name || ' · ' || m.name, m.name) AS modelo, x.xfood_codigo
+        FROM product_xfood_codes x
+        JOIN products p ON p.id = x.product_id
+        JOIN vape_models m ON m.id = p.model_id
+        LEFT JOIN vape_models pai ON pai.id = m.parent_id
+        ORDER BY p.id, x.id
+        """
+    ):
+        item = ligacoes.setdefault(r["id"], {"product_id": r["id"], "modelo": r["modelo"],
+                                             "sabor": r["name"], "codigos": []})
+        item["codigos"].append(r["xfood_codigo"])
+    return jsonify(list(ligacoes.values()))
+
+
 @app.route("/api/product", methods=["POST"])
 @api_catalog_required
 def api_create_product():
@@ -3775,6 +3985,9 @@ def api_update_product(pid):
     if "is_in_stock" in d:
         fields.append("is_in_stock = ?")
         vals.append(1 if d["is_in_stock"] else 0)
+    if "estoque_manual" in d:
+        fields.append("estoque_manual = ?")
+        vals.append(1 if d["estoque_manual"] else 0)
     if "color" in d:
         fields.append("color = ?")
         vals.append(clean_hex_color(d["color"]))
